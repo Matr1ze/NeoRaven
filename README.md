@@ -1,7 +1,8 @@
 # NeoRaven
 
-A Minecraft **1.8.9** Forge client with a Material 3 ("Material You") interface: a fully custom
-ClickGUI, a Material HUD suite and a large module set, rebuilt from the Raven B4 / Onyx lineage.
+**A Raven B4 fork** — a Minecraft **1.8.9** Forge client with a Material 3 ("Material You")
+interface: a fully custom ClickGUI, a Material HUD suite and a large module set, rebuilt from the
+Raven B4 / Onyx lineage.
 
 > Forge `1.8.9-11.15.1.2318`, Java 8, single mod jar. Client-side only.
 
