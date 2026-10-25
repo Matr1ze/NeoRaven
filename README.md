@@ -110,6 +110,35 @@ This project is published for educational and research purposes only. It is **no
 Mojang, Microsoft or Hypixel, and using a client modification may violate the rules of the server you
 play on. You are responsible for how you use it — no warranty of any kind is provided.
 
+## License
+
+NeoRaven is free software: you can redistribute it and/or modify it under the terms of the
+**GNU General Public License, version 3**, as published by the Free Software Foundation.
+
+Because the GPL is a copyleft license, any redistributed version (modified or not) has to stay under
+the GPLv3 and come with its corresponding source. There is **no warranty**, to the extent permitted by
+law. The full text is in [LICENSE](LICENSE).
+
+```
+NeoRaven — Material 3 Minecraft 1.8.9 client
+Copyright (C) 2026 NeoRaven contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+```
+
+Bundled third-party assets (Google Sans Flex, Material Icons, the Onyx shaders) keep their own
+licenses, listed under `src/main/resources/assets/onyx/licenses`.
+
 ---
 
 ## 中文速览
@@ -121,4 +150,6 @@ NeoRaven 是一个 **Minecraft 1.8.9 Forge** 客户端，界面是 Material 3 / 
 - **配置目录**：`.minecraft/keystrokes/`；删掉里面的文件就恢复出厂设置
   （Rainy Day 壁纸 + 暗色主题 + Frosted Glass 模糊）。
 - **命令**：游戏里输入 `.help` 看全部。
+- **许可证**：GNU GPL v3（见 `LICENSE`）—— 可自由使用、修改、再分发，但再分发时必须继续用 GPLv3
+  并提供对应源码；无任何担保。
 - 仅用于学习研究，与 Mojang / Microsoft / Hypixel 无关，使用风险自负。
