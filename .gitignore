@@ -1,0 +1,42 @@
+# Gradle
+.gradle/
+build/
+out/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Loom / Minecraft run directories
+run/
+run-*/
+loom-cache/
+.loom/
+
+# Built jars (the bundled mixin jar in libs/ is a dependency and stays)
+*.jar
+!libs/*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.project
+.classpath
+
+# Java
+*.class
+*.hprof
+hs_err_pid*
+replay_pid*
+
+# Logs and crash dumps
+logs/
+*.log
+crash-*.txt
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
