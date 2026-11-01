@@ -547,6 +547,10 @@ public final class PlayerUtils {
         }
     }
 
+    public static boolean canRightClick() {
+        return ((xyz.daikirai.mixin.IMinecraft) mc).getRightClickDelayTimer() <= 0;
+    }
+
     public static double blockReach() {
         return mc.playerController.getBlockReachDistance();
     }

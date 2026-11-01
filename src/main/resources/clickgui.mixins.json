@@ -29,6 +29,7 @@
     "MixinGuiScreen",
     "MixinGuiConnecting",
     "MixinGuiDownloadTerrain",
-    "MixinInventoryEffectRenderer"
+    "MixinInventoryEffectRenderer",
+    "MixinGuiNewChat"
   ]
 }

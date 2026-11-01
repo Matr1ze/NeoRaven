@@ -20,4 +20,10 @@ public interface IMinecraft {
 
     @Invoker("rightClickMouse")
     void invokeRightClickMouse();
+
+    @Accessor("rightClickDelayTimer")
+    void setRightClickDelayTimer(int value);
+
+    @Accessor("rightClickDelayTimer")
+    int getRightClickDelayTimer();
 }

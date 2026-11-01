@@ -53,8 +53,20 @@ public final class TtfFont {
     private boolean full;
 
     private TtfFont(Font font, float size) {
+        this(font, size, 4.0F, 0);
+    }
+
+    /**
+     * @param size       nominal pixel size the glyph metrics are expressed in
+     * @param supersample raster pixels per requested pixel (4 is Onyx's default)
+     * @param atlasForce when positive, the atlas is exactly this many pixels; when zero the
+     *                   original heuristic picks 512/1024/2048 from the raster size. A CJK face
+     *                   needs the explicit 4096: at 48px cells that is ~4000 characters before
+     *                   the packer starts dropping glyphs.
+     */
+    private TtfFont(Font font, float size, float supersample, int atlasForce) {
         this.size = size;
-        float raster = Math.min(size * 4.0F, 192.0F);
+        float raster = Math.min(size * supersample, 192.0F);
         LineMetrics metrics = font.deriveFont(100.0F).getLineMetrics("Ayg", renderContext);
         float nominal = metrics.getAscent() + metrics.getDescent();
         float ratio = nominal <= 0.0F ? 1.0F : 100.0F / nominal;
@@ -62,7 +74,8 @@ public final class TtfFont {
         this.scale = size / raster;
 
         int pad = (int) raster + 16;
-        this.atlasSize = Math.min(2048, Math.max(512, Integer.highestOneBit(pad * 12 - 1) * 2));
+        int heuristic = Math.max(512, Integer.highestOneBit(pad * 12 - 1) * 2);
+        this.atlasSize = atlasForce > 0 ? atlasForce : Math.min(2048, heuristic);
 
         float capHeight = -pixelBounds('H').y * this.scale;
         float descender = (pixelBounds('p').y + pixelBounds('p').height) * this.scale;
@@ -88,10 +101,38 @@ public final class TtfFont {
         }
     }
 
+    /**
+     * Loads a bundled TTF with an explicit raster ratio and atlas size.
+     *
+     * <p>Returns {@code null} instead of a dialog-font stand-in, so a caller that prefers the
+     * bundled face can fall back to a file on disk.</p>
+     */
+    public static TtfFont load(String resource, float size, float supersample, int atlasForce) {
+        try {
+            InputStream in = TtfFont.class.getResourceAsStream(resource);
+            if (in == null) {
+                return null;
+            }
+            try {
+                return new TtfFont(Font.createFont(Font.TRUETYPE_FONT, in), size, supersample, atlasForce);
+            } finally {
+                in.close();
+            }
+        } catch (Exception e) {
+            System.err.println("[onyx] failed to load bundled font '" + resource + "': " + e);
+            return null;
+        }
+    }
+
     /** Loads a TTF from disk; returns {@code null} when the file cannot be read. */
     public static TtfFont loadFile(java.io.File file, float size) {
+        return loadFile(file, size, 4.0F, 0);
+    }
+
+    /** Loads a TTF from disk with an explicit raster ratio and (when positive) atlas size. */
+    public static TtfFont loadFile(java.io.File file, float size, float supersample, int atlasForce) {
         try (InputStream in = new java.io.FileInputStream(file)) {
-            return new TtfFont(Font.createFont(Font.TRUETYPE_FONT, in), size);
+            return new TtfFont(Font.createFont(Font.TRUETYPE_FONT, in), size, supersample, atlasForce);
         } catch (Exception e) {
             System.err.println("[onyx] failed to load system font " + file + ": " + e);
             return null;

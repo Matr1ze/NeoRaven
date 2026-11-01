@@ -3,6 +3,7 @@ package xyz.daikirai.client;
 import xyz.daikirai.gui.ClickGui;
 import xyz.daikirai.gui.HudEditor;
 import xyz.daikirai.module.SettingsModule;
+import xyz.daikirai.module.render.WatermarkModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiChat;
 
@@ -14,7 +15,9 @@ public final class Overlay {
 
     public static boolean canRender() {
         return Chat.inWorld() && !mc.gameSettings.showDebugInfo && !mc.gameSettings.hideGUI
-                && (mc.currentScreen == null || !SettingsModule.chatAsInventory.isToggled() && mc.currentScreen instanceof GuiChat);
+                // Island replaces this container with a HUD card; keep the other HUDs visible too.
+                && (mc.currentScreen == null || WatermarkModule.replacesChestScreen()
+                || !SettingsModule.chatAsInventory.isToggled() && mc.currentScreen instanceof GuiChat);
     }
 
     public static boolean screenOpen() {

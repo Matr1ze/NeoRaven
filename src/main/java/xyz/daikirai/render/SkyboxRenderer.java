@@ -50,6 +50,8 @@ public final class SkyboxRenderer {
 
     private static int framebuffer = -1;
     private static int texture = -1;
+    /** Texture bound on unit 0 when the sky pass started; restored when it ends. */
+    private static int previousTexture;
     private static int width;
     private static int height;
 
@@ -104,6 +106,7 @@ public final class SkyboxRenderer {
             return false;
         }
         try {
+            previousTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
             Framebuffer target = mc.getFramebuffer();
             float resolution = module.resolution();
             if (resolution < 0.999F && target != null
@@ -169,6 +172,26 @@ public final class SkyboxRenderer {
         GlStateManager.enableTexture2D();
         GlStateManager.enableLighting();
         GlStateManager.resetColor();
+        syncTextureUnit();
+    }
+
+    /**
+     * Leaves the cached texture-2D state in step with the driver, and puts back the texture binding
+     * the caller had.
+     *
+     * <p>Half of this file talks to GL directly, so the {@code GlStateManager} cache can end up
+     * disagreeing with the real state; the next {@code disableTexture2D()} would then be skipped
+     * and an untextured quad (the vanilla nameplate plate is one) would be filled with the last
+     * bound texture — which is the sky that was just blitted.</p>
+     */
+    private static void syncTextureUnit() {
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+        // Make cache and driver agree on "on"; the world pass expects texturing enabled here.
+        GlStateManager.disableTexture2D();
+        GlStateManager.enableTexture2D();
+        if (previousTexture > 0) {
+            GlStateManager.bindTexture(previousTexture);
+        }
     }
 
     private static void buildDome() {
@@ -276,6 +299,7 @@ public final class SkyboxRenderer {
         GlStateManager.enableAlpha();
         GlStateManager.enableFog();
         GlStateManager.resetColor();
+        syncTextureUnit();
     }
 
     // ------------------------------------------------------------------ //

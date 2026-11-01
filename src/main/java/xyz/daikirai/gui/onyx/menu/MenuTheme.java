@@ -20,12 +20,17 @@ public final class MenuTheme {
 
     private static final File FILE = new File(ClientConfig.DIR, "menu_theme.txt");
 
+    /** Clock faces on the Android title screen. */
+    public static final int CLOCK_DIGITAL = 0;
+    public static final int CLOCK_ANALOG = 1;
+
     private static boolean loaded;
     /** First-launch defaults: dark Android menus, wallpaper blur in its Frosted glass mode. */
     private static boolean dark = true;
     private static boolean dockFollows = true;
     private static int dock;
     private static int blurMode = 2;
+    private static int clockStyle = CLOCK_DIGITAL;
 
     private MenuTheme() {
     }
@@ -61,6 +66,12 @@ public final class MenuTheme {
                     } else if (key.equals("blur")) {
                         // older files only had a boolean: 1 meant the Mica pass
                         blurMode = value.equals("1") ? 1 : 0;
+                    } else if (key.equals("clockface")) {
+                        try {
+                            clockStyle = Integer.parseInt(value) == CLOCK_ANALOG
+                                    ? CLOCK_ANALOG : CLOCK_DIGITAL;
+                        } catch (NumberFormatException ignored) {
+                        }
                     } else if (key.equals("dock")) {
                         try {
                             dock = (int) Long.parseLong(value.startsWith("0x") ? value.substring(2) : value, 16);
@@ -86,6 +97,7 @@ public final class MenuTheme {
                 writer.write("dark=" + (dark ? 1 : 0) + "\n");
                 writer.write("dockFollow=" + (dockFollows ? 1 : 0) + "\n");
                 writer.write("blurMode=" + blurMode + "\n");
+                writer.write("clockFace=" + clockStyle + "\n");
                 writer.write(String.format(Locale.ROOT, "dock=%08X\n", dock));
             } finally {
                 writer.close();
@@ -157,5 +169,26 @@ public final class MenuTheme {
             dock = argb | 0xFF000000;
         }
         save();
+    }
+
+    /** Which clock face the Android title screen draws (digital or analog). */
+    public static int clockStyle() {
+        load();
+        return clockStyle;
+    }
+
+    public static void setClockStyle(int style) {
+        load();
+        int clamped = style == CLOCK_ANALOG ? CLOCK_ANALOG : CLOCK_DIGITAL;
+        if (clockStyle == clamped) {
+            return;
+        }
+        clockStyle = clamped;
+        save();
+    }
+
+    /** Digital -> analog -> digital, the single button on the title screen cycles this. */
+    public static void nextClockStyle() {
+        setClockStyle(clockStyle() == CLOCK_DIGITAL ? CLOCK_ANALOG : CLOCK_DIGITAL);
     }
 }

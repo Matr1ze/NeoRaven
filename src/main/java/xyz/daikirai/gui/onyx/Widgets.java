@@ -87,13 +87,37 @@ public final class Widgets {
     /** Material menu surface with one row per option. */
     public static void menu(UI ui, Scheme scheme, float x, float y, float width, String[] options, int selected,
                             int hovered, float progress) {
+        menu(ui, scheme, x, y, width, options, selected, hovered, progress,
+                menuFullHeight(options.length), 0.0F);
+    }
+
+    /** Height of a mode menu with {@code count} entries, in GUI pixels. */
+    public static float menuFullHeight(int count) {
+        return count * 32.0F + 8.0F;
+    }
+
+    /**
+     * Mode menu.
+     *
+     * <p>{@code maxHeight} caps the popup to the space the page actually has, and {@code scroll}
+     * shifts the entries inside that window: a nineteen entry mode list is taller than the ClickGUI
+     * panel, and before this it was simply drawn past the panel edge, where the panel clipped every
+     * entry above the selected one.</p>
+     */
+    public static void menu(UI ui, Scheme scheme, float x, float y, float width, String[] options, int selected,
+                            int hovered, float progress, float maxHeight, float scroll) {
         float rowHeight = 32.0F;
-        float height = options.length * rowHeight + 8.0F;
+        float full = menuFullHeight(options.length);
+        float height = Math.min(full, maxHeight);
         ui.alphaPush(progress);
         ui.shadow(x, y, width, height, 8.0F, 2);
         ui.rounded(x, y, width, height, 8.0F, scheme.surfaceContainerHigh);
+        ui.scissorPush(x, y, width, height);
         for (int i = 0; i < options.length; i++) {
-            float rowY = y + 4.0F + i * rowHeight;
+            float rowY = y + 4.0F + i * rowHeight - scroll;
+            if (rowY + rowHeight < y - 1.0F || rowY > y + height + 1.0F) {
+                continue;
+            }
             if (i == hovered) {
                 ui.rounded(x + 4.0F, rowY, width - 8.0F, rowHeight, 6.0F,
                         Material.withAlpha(scheme.onSurface, 0.08F));
@@ -104,6 +128,7 @@ public final class Widgets {
                 ui.icon(Icons.CHECK, x + width - 18.0F, rowY + rowHeight / 2.0F, 14.0F, scheme.primary);
             }
         }
+        ui.scissorPop();
         ui.alphaPop();
     }
 

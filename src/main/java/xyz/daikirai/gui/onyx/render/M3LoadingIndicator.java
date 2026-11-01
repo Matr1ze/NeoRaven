@@ -11,8 +11,8 @@ import xyz.daikirai.gui.onyx.material.Theme;
  * Material 3 Expressive loading indicator.
  *
  * <p>Per the M3 Expressive spec the indeterminate loader is a <em>filled shape that morphs</em>
- * between the Material forms while it rotates - circle, nine-sided "cookie", rounded square - rather
- * than the older growing/shrinking arc. The forms are drawn through {@code m3_loading.fsh}, a signed
+ * between the Material forms while it rotates - twelve-sided cookie, nine-sided cookie, pentagon,
+ * circle ({@code Shape Morph 3.mp4} is the reference) - rather than the older growing/shrinking arc. The forms are drawn through {@code m3_loading.fsh}, a signed
  * distance field, so every intermediate shape (and the rotation) stays perfectly anti-aliased without
  * tessellating a polygon in Java.</p>
  *
@@ -43,13 +43,15 @@ public final class M3LoadingIndicator {
      * {@code apothem * sqrt(2) + rounding = 1.29R}, which is why the quad is drawn at 1.4R.</p>
      */
     private static final float[][] FORMS = {
+            // Twelve-sided cookie: the reference video opens on it. Twelve facets with wide corners
+            // read as a scalloped disc.
+            {12.0F, 0.72F, 0.28F, 0.0F},
+            // Nine-sided cookie: fewer, deeper lobes.
+            {9.0F, 0.68F, 0.32F, 0.0F},
+            // Pentagon: the sharp "expressive" beat of the reference cycle.
+            {5.0F, 0.70F, 0.30F, 0.0F},
             // Circle: a polygon whose corners are fully blended away.
             {9.0F, 0.68F, 0.32F, 1.0F},
-            // Cookie: the nine-sided soft burst M3 uses as the "expressive" mid form. The corners are
-            // wider than the facets, so it reads as a circle with nine soft lobes.
-            {9.0F, 0.68F, 0.32F, 0.0F},
-            // Rounded square: four sides with generous corners.
-            {4.0F, 0.72F, 0.28F, 0.0F},
     };
 
     /** Quad half-size relative to the indicator radius; covers the square form's diagonal plus AA. */

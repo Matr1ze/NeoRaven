@@ -227,16 +227,30 @@ public final class TargetHud {
 
     /** The entity KillAura is attacking, or {@code null} when it is gone. */
     private static EntityLivingBase killAuraTarget() {
-        KillAuraModule.Target target = KillAuraModule.target;
-        if (target == null || target.entity == null || !(target.entity instanceof EntityLivingBase)) {
+        // KillAura2 is the module people actually run now, so it is asked first; the legacy aura is
+        // the fallback, exactly like TargetESP resolves its own target.
+        EntityLivingBase living = living(xyz.daikirai.module.ModuleManager.get("KillAura2"));
+        if (living == null) {
+            living = living(xyz.daikirai.module.ModuleManager.get("KillAura"));
+        }
+        if (living != null) {
+            return living;
+        }
+        KillAuraModule.Target legacy = KillAuraModule.target;
+        if (legacy == null || !(legacy.entity instanceof EntityLivingBase)) {
             return null;
         }
-        EntityLivingBase living = (EntityLivingBase) target.entity;
-        Minecraft mc = Minecraft.getMinecraft();
-        if (living.isDead || living.worldObj != mc.theWorld) {
+        EntityLivingBase entity = (EntityLivingBase) legacy.entity;
+        return entity.isDead || entity.worldObj != Minecraft.getMinecraft().theWorld ? null : entity;
+    }
+
+    /** The module's own {@code getTarget()}, when it is enabled and pointing at a live entity. */
+    private static EntityLivingBase living(xyz.daikirai.module.Module module) {
+        if (module == null || !module.isEnabled() || !(module.getTarget() instanceof EntityLivingBase)) {
             return null;
         }
-        return living;
+        EntityLivingBase entity = (EntityLivingBase) module.getTarget();
+        return entity.isDead || entity.worldObj != Minecraft.getMinecraft().theWorld ? null : entity;
     }
 
     private float healthRatio(EntityLivingBase target) {
@@ -286,7 +300,9 @@ public final class TargetHud {
             float[] projected = project(entity, partialTicks, screenW, screenH);
             if (projected != null) {
                 desiredX = Material.clamp(projected[0] - w / 2.0F, MARGIN, Math.max(MARGIN, screenW - w - MARGIN));
-                desiredY = Material.clamp(projected[1] - h - ANCHOR_GAP, MARGIN, Math.max(MARGIN, screenH - h - MARGIN));
+                // The card rides on the target's body centre, not above its head, so it stays on the
+                // player it describes even when the camera looks down.
+                desiredY = Material.clamp(projected[1] - h / 2.0F, MARGIN, Math.max(MARGIN, screenH - h - MARGIN));
                 follow = true;
             }
         }
@@ -316,13 +332,13 @@ public final class TargetHud {
         }
     }
 
-    /** Projects the target's head into GUI coordinates, or {@code null} when it is off screen. */
+    /** Projects the target's body centre into GUI coordinates, or {@code null} when it is off screen. */
     private static float[] project(EntityLivingBase target, float partialTicks, float screenW, float screenH) {
         Minecraft mc = Minecraft.getMinecraft();
         RenderManager manager = mc.getRenderManager();
         double px = target.lastTickPosX + (target.posX - target.lastTickPosX) * partialTicks;
         double py = target.lastTickPosY + (target.posY - target.lastTickPosY) * partialTicks
-                + target.getEyeHeight() + 0.35D;
+                + target.height * 0.5D;
         double pz = target.lastTickPosZ + (target.posZ - target.lastTickPosZ) * partialTicks;
 
         Entity view = mc.getRenderViewEntity();

@@ -15,9 +15,22 @@ import java.util.List;
 /** Android-style multiplayer screen: saved servers as a Material list with live ping readouts. */
 public final class AndroidMultiplayerScreen extends AndroidListScreen {
 
+    /** One daemon thread for all pings; a batch is serialised and never touches the render thread. */
+    private static final java.util.concurrent.ExecutorService PING_THREAD =
+            java.util.concurrent.Executors.newSingleThreadExecutor(new java.util.concurrent.ThreadFactory() {
+                @Override
+                public Thread newThread(Runnable runnable) {
+                    Thread thread = new Thread(runnable, "neoraven-server-ping");
+                    thread.setDaemon(true);
+                    return thread;
+                }
+            });
+
     private ServerList servers;
     private OldServerPinger pinger;
     private final List<ServerData> entries = new ArrayList<ServerData>();
+    private volatile boolean pinging;
+    private volatile int pingGeneration;
 
     public AndroidMultiplayerScreen(GuiScreen parent) {
         super(parent);
@@ -51,26 +64,64 @@ public final class AndroidMultiplayerScreen extends AndroidListScreen {
         scrollTarget = 0.0F;
     }
 
+    /**
+     * Pings every saved server <b>off the render thread</b>.
+     *
+     * <p>{@code OldServerPinger.ping()} is not a "send a ping packet" call: it does a blocking
+     * {@code InetAddress.getByName}, then {@code NetworkManager.createNetworkManagerAndConnect(...)}
+     * which ends in {@code connect(...).syncUninterruptibly()} — i.e. it waits for the TCP handshake
+     * of every server before returning. Called from {@code initGui} that stalls the client for the sum
+     * of all of them (measured: 1.76 s for three servers, 1.5 s of it one slow host), every time the
+     * screen is opened. Here the batch runs on one daemon thread and the list simply shows "Pinging…"
+     * until the numbers arrive; {@code pingPendingNetworks()} still processes the replies on the main
+     * thread via {@link #updateScreen()}.</p>
+     */
     private void pingAll() {
         if (pinger == null) {
             return;
         }
-        pinger.clearPendingNetworks();
-        for (ServerData data : entries) {
-            data.pingToServer = -1L;
-            try {
-                pinger.ping(data);
-            } catch (Exception ignored) {
-                data.pingToServer = -1L;
+        final List<ServerData> batch = new ArrayList<ServerData>(entries);
+        int generation = ++pingGeneration;
+        for (ServerData entry : batch) {
+            entry.pingToServer = -1L;
+        }
+        if (pinging || batch.isEmpty()) {
+            pingPendingNow();
+            return;
+        }
+        pinging = true;
+        final OldServerPinger target = pinger;
+        PING_THREAD.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    for (ServerData entry : batch) {
+                        if (generation != pingGeneration
+                                || mc.currentScreen != AndroidMultiplayerScreen.this) {
+                            return;
+                        }
+                        try {
+                            target.ping(entry);
+                        } catch (Throwable ignored) {
+                            entry.pingToServer = -1L;
+                        }
+                    }
+                } finally {
+                    pinging = false;
+                }
             }
+        });
+    }
+
+    private void pingPendingNow() {
+        if (pinger != null) {
+            pinger.pingPendingNetworks();
         }
     }
 
     @Override
     public void updateScreen() {
-        if (pinger != null) {
-            pinger.pingPendingNetworks();
-        }
+        pingPendingNow();
     }
 
     @Override

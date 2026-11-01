@@ -1,6 +1,5 @@
 package xyz.daikirai.module.render;
 
-import xyz.daikirai.gui.ColorEditor;
 import xyz.daikirai.module.Category;
 import xyz.daikirai.module.Module;
 import xyz.daikirai.module.setting.ButtonSetting;
@@ -36,10 +35,5 @@ abstract class VisualModule extends Module {
         ColorSetting setting = new ColorSetting(name, value, hueShift);
         registerSetting(setting);
         return setting;
-    }
-
-    @Override
-    public void guiButtonToggled(ButtonSetting setting) {
-        if (setting instanceof ColorSetting) mc.displayGuiScreen(new ColorEditor(mc.currentScreen, (ColorSetting) setting));
     }
 }

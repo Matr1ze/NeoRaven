@@ -27,12 +27,16 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
-@Mod(modid = "clickgui", name = "NeoRaven", version = "1.0.0", clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
+@Mod(modid = "clickgui", name = "NeoRaven", version = "1.1", clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
 public class ClickGuiMod {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent e) {
+        // Sample the config folder before anything creates it: a fresh install has no
+        // "keystrokes" directory and gets the welcome screen.
+        xyz.daikirai.client.FirstRun.capture();
+        MinecraftForge.EVENT_BUS.register(new xyz.daikirai.client.FirstRun());
         ModuleManager.init();
         xyz.daikirai.script.ScriptReflection.init();
         xyz.daikirai.script.ScriptEvents.bind(xyz.daikirai.script.ScriptDelegated.class);
@@ -53,6 +57,12 @@ public class ClickGuiMod {
 
     @SubscribeEvent
     public void onGuiOpen(net.minecraftforge.client.event.GuiOpenEvent event) {
+        if (mc.currentScreen instanceof xyz.daikirai.music.MusicScreen
+                && event.gui == null
+                && ((xyz.daikirai.music.MusicScreen) mc.currentScreen).deferClose()) {
+            event.setCanceled(true);
+            return;
+        }
         event.gui = xyz.daikirai.gui.onyx.menu.MenuStyle.wrap(event.gui);
         event.gui = xyz.daikirai.gui.onyx.menu.SettingsStyle.wrap(event.gui);
         event.gui = xyz.daikirai.gui.onyx.menu.AndroidScreens.wrap(event.gui);

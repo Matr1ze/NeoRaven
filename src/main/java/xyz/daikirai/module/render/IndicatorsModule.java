@@ -271,7 +271,8 @@ public class IndicatorsModule extends Module {
 
     @SubscribeEvent
     public void onRenderTick(TickEvent.RenderTickEvent e) {
-        if (e.phase != TickEvent.Phase.END || !Chat.inWorld() || Overlay.screenOpen()) {
+        if (e.phase != TickEvent.Phase.END || !Chat.inWorld()
+                || Overlay.screenOpen() && !WatermarkModule.replacesChestScreen()) {
             return;
         }
         for (Entity entity : this.tracked) {

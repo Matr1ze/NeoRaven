@@ -108,6 +108,7 @@ public final class RenderDispatcher {
             boolean visible = Overlay.canRender();
             if (visible) {
                 xyz.daikirai.module.player.ScaffoldModule.renderCount();
+                xyz.daikirai.module.player.Scaffold2Module.renderCount();
                 xyz.daikirai.module.player.FastPlaceModule.renderCount();
                 xyz.daikirai.module.player.AutoPlaceModule.renderCount();
                 xyz.daikirai.module.network.BlinkModule.renderTicks();

@@ -7,6 +7,7 @@ import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.util.glu.GLU;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
@@ -42,8 +43,10 @@ public final class UI {
 
     private static Shader shapeShader;
     private static Shader frostShader;
+    private static Shader imageShader;
     private static boolean shapeFailed;
     private static boolean frostFailed;
+    private static boolean imageFailed;
 
     private final Deque<int[]> scissors = new ArrayDeque<int[]>();
     private final Deque<Float> savedAlphas = new ArrayDeque<Float>();
@@ -60,6 +63,10 @@ public final class UI {
         if (frostShader == null && !frostFailed) {
             frostShader = Shader.load("onyx_frost");
             frostFailed = !frostShader.valid();
+        }
+        if (imageShader == null && !imageFailed) {
+            imageShader = Shader.load("onyx_image");
+            imageFailed = !imageShader.valid();
         }
     }
 
@@ -255,6 +262,10 @@ public final class UI {
         if (c >>> 24 == 0) {
             return;
         }
+        // Bind on unit 0 explicitly: the frosted-glass passes switch the active unit, and a
+        // stale unit makes the shader sample whatever texture was left there (covers from the
+        // previous row), which reads as flickering artwork.
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         GlStateManager.enableTexture2D();
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
@@ -274,6 +285,72 @@ public final class UI {
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.resetColor();
         GlStateManager.disableTexture2D();
+    }
+
+    /**
+     * Draws a texture with rounded corners. Album art is the reason this exists: a plain
+     * {@link #image} quad keeps square corners and visibly pokes out of a rounded card.
+     *
+     * <p>The mask runs through {@code onyx_image}, the same SDF the shapes use, so the corner
+     * keeps the panel's anti-aliasing at any scale. When the program cannot be built the call
+     * falls back to the plain textured quad rather than drawing nothing.</p>
+     */
+    public void imageRounded(ResourceLocation texture, float x, float y, float w, float h,
+                             float radius, int color) {
+        if (texture == null || w <= 0.0F || h <= 0.0F) {
+            return;
+        }
+        int c = applyAlpha(color);
+        if (c >>> 24 == 0) {
+            return;
+        }
+        Shader shader = imageShader;
+        if (shader == null || !shader.valid()) {
+            image(texture, x, y, w, h, 0.0F, 0.0F, 1.0F, 1.0F, color);
+            return;
+        }
+        float r = Theme.radius(radius, w, h);
+        if (r <= 0.01F) {
+            image(texture, x, y, w, h, 0.0F, 0.0F, 1.0F, 1.0F, color);
+            return;
+        }
+        // Bind on unit 0 explicitly: the frosted-glass passes switch the active unit, and a
+        // stale unit makes the shader sample whatever texture was left there (covers from the
+        // previous row), which reads as flickering artwork.
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+        Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
+        GlStateManager.enableTexture2D();
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+
+        shader.use();
+        shader.uniform1i("Sampler0", 0);
+        shader.uniform2f("uHalfExtents", w / 2.0F, h / 2.0F);
+        shader.uniform4f("uCornerRadii", r, r, r, r);
+        shader.uniform1f("uPixel", pixel);
+        GL11.glColor4f((c >> 16 & 0xFF) / 255.0F, (c >> 8 & 0xFF) / 255.0F,
+                (c & 0xFF) / 255.0F, (c >>> 24) / 255.0F);
+
+        float centerX = x + w / 2.0F;
+        float centerY = y + h / 2.0F;
+        GL11.glBegin(GL11.GL_QUADS);
+        imageVertex(x, y, centerX, centerY, 0.0F, 0.0F);
+        imageVertex(x, y + h, centerX, centerY, 0.0F, 1.0F);
+        imageVertex(x + w, y + h, centerX, centerY, 1.0F, 1.0F);
+        imageVertex(x + w, y, centerX, centerY, 1.0F, 0.0F);
+        GL11.glEnd();
+
+        Shader.unbind();
+        GlStateManager.disableTexture2D();
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.resetColor();
+    }
+
+    private static void imageVertex(float x, float y, float centerX, float centerY, float u, float v) {
+        GL13.glMultiTexCoord2f(GL13.GL_TEXTURE1, x - centerX, y - centerY);
+        GL11.glTexCoord2f(u, v);
+        GL11.glVertex2f(x, y);
     }
 
     /** Vertical two-colour gradient (used for the title-screen backdrop). */

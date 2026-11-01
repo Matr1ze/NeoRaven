@@ -62,6 +62,52 @@ public class ChestStealerModule extends Module {
     private final List<Integer> queue = new ArrayList<Integer>();
     private long nextActionAt;
     private boolean stealing;
+    private LootSession lootSession;
+    private ContainerChest activeContainer;
+
+    /** Read-only HUD history; it survives closing the container for the exit animation. */
+    public static final class LootSession {
+        public final ContainerChest container;
+        public final int total;
+        public final List<LootTransfer> transfers = new ArrayList<LootTransfer>();
+        public int processed;
+        public int nextSlot;
+        public boolean finished;
+        public boolean completed;
+        public boolean replacedScreen;
+        public long endedAt;
+
+        private LootSession(ContainerChest container, List<Integer> slots) {
+            this.container = container;
+            this.total = slots.size();
+            this.nextSlot = slots.get(0).intValue();
+        }
+    }
+
+    public static final class LootTransfer {
+        public final int slot;
+        public final ItemStack stack;
+        public final long time = System.currentTimeMillis();
+
+        private LootTransfer(int slot, ItemStack stack) {
+            this.slot = slot;
+            this.stack = stack;
+        }
+    }
+
+    /** Includes the first rendered frame, before the first player tick starts the delay. */
+    public LootSession visualSession() {
+        if (!isEnabled() || mc.thePlayer == null
+                || !(mc.thePlayer.openContainer instanceof ContainerChest)) return null;
+        ContainerChest container = (ContainerChest) mc.thePlayer.openContainer;
+        if (chestIntegrity.isToggled() && (inLobby() || blockedChest(container))) return null;
+        if (lootSession == null || lootSession.container != container) {
+            List<Integer> slots = slotsToSteal(container.getLowerChestInventory(), mc.thePlayer.inventory);
+            if (slots.isEmpty()) return null;
+            lootSession = new LootSession(container, slots);
+        }
+        return lootSession.finished ? null : lootSession;
+    }
 
     public ChestStealerModule(int key) {
         super("ChestStealer", Category.player, key);
@@ -87,14 +133,25 @@ public class ChestStealerModule extends Module {
     }
 
     @Override
+    public void onEnable() {
+        reset();
+        lootSession = null;
+    }
+
+    @Override
     public void onDisable() {
         reset();
     }
 
     private void reset() {
+        if (lootSession != null && !lootSession.finished) {
+            lootSession.finished = true;
+            lootSession.endedAt = System.currentTimeMillis();
+        }
         queue.clear();
         stealing = false;
         nextActionAt = 0L;
+        activeContainer = null;
     }
 
     @Override
@@ -108,6 +165,17 @@ public class ChestStealerModule extends Module {
             return;
         }
         ContainerChest container = (ContainerChest) mc.thePlayer.openContainer;
+        if (activeContainer != container) {
+            queue.clear();
+            stealing = false;
+            nextActionAt = 0L;
+            activeContainer = container;
+            if (lootSession != null && lootSession.container != container) {
+                lootSession.finished = true;
+                lootSession.endedAt = System.currentTimeMillis();
+                lootSession = null;
+            }
+        }
         long now = System.currentTimeMillis();
         if (!stealing) {
             if (chestIntegrity.isToggled() && (inLobby() || blockedChest(container))) {
@@ -122,6 +190,7 @@ public class ChestStealerModule extends Module {
             }
             queue.clear();
             queue.addAll(slots);
+            if (lootSession == null || lootSession.finished) lootSession = new LootSession(container, slots);
             stealing = true;
             nextActionAt = now + (long) startDelay.getInput();
             return;
@@ -130,14 +199,29 @@ public class ChestStealerModule extends Module {
             return;
         }
         if (queue.isEmpty()) {
-            if (autoClose.isToggled()) {
+            lootSession.finished = true;
+            lootSession.completed = true;
+            lootSession.endedAt = now;
+            // A replacement is a transient stealing view, so finish its real container as well.
+            if (autoClose.isToggled() || lootSession.replacedScreen
+                    && xyz.daikirai.module.render.WatermarkModule.chestStealerEnabled()) {
                 mc.thePlayer.closeScreen();
             }
             reset();
             return;
         }
         int slot = queue.remove(0).intValue();
+        ItemStack before = container.getLowerChestInventory().getStackInSlot(slot);
+        before = before == null ? null : before.copy();
         ScriptProtected.guiClick(slot, 0, 1);
+        ItemStack after = container.getLowerChestInventory().getStackInSlot(slot);
+        int moved = before == null ? 0 : before.stackSize - (after == null ? 0 : after.stackSize);
+        if (moved > 0) {
+            before.stackSize = moved;
+            lootSession.transfers.add(new LootTransfer(slot, before));
+        }
+        lootSession.processed++;
+        lootSession.nextSlot = queue.isEmpty() ? slot : queue.get(0).intValue();
         nextActionAt = now + jitter();
     }
 

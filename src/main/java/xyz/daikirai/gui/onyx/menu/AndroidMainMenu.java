@@ -23,9 +23,9 @@ import xyz.daikirai.gui.onyx.render.UI;
  * icons, and nothing else - no title text, no buttons, no status bar.
  *
  * <p>The layout is authored in a fixed 640x360 design space that is scaled to fit the window, the
- * same trick the Onyx panels use, so proportions survive every resolution. Every icon is a tonal
- * container (an MD3 role derived from the ClickGUI accent) with its glyph in the matching
- * on-container colour, which is what makes the dock read as themed icons rather than brand art.</p>
+ * same trick the Onyx panels use, so proportions survive every resolution. Every icon is the same
+ * tonal container (the accent's {@code primaryContainer}) with an {@code onPrimaryContainer} glyph,
+ * so the dock reads as one themed button group rather than four different brand buttons.</p>
  */
 public final class AndroidMainMenu extends GuiMainMenu {
 
@@ -142,14 +142,21 @@ public final class AndroidMainMenu extends GuiMainMenu {
         ui.push();
         ui.scale(scale, 0.0F, 0.0F);
         ui.translate(ox, oy);
+        drawClock();
         drawDock();
         ui.pop();
         drawSheet();
         if (!sheetOpen) {
-            drawThemeToggle(mouseX, mouseY);
             MenuStyleSwitch.draw(ui, true, width, height, mouseX, mouseY, dt);
         }
         ui.end();
+    }
+
+    /** The tablet clock: real time, centred above the dock, and dimmed while the sheet is open. */
+    private void drawClock() {
+        float age = System.currentTimeMillis() - shownAt;
+        float appear = Material.clamp(age / 520.0F, 0.0F, 1.0F);
+        MenuClock.draw(ui, appear, 1.0F - 0.45F * sheet.value());
     }
 
     /** Dock: a white pill with four themed icons that rise into place one after another. */
@@ -198,30 +205,18 @@ public final class AndroidMainMenu extends GuiMainMenu {
         }
     }
 
+    /**
+     * Every dock icon uses the same MD3 role: the accent's {@code primaryContainer} with an
+     * {@code onPrimaryContainer} glyph. Four different container roles (primary / secondary /
+     * tertiary / neutral) made the dock look like four unrelated brand buttons - a tonal button group
+     * in M3 is one role, and the palette FAB already sits in that same role.
+     */
     private static int container(int index) {
-        switch (index) {
-            case 0:
-                return AndroidWallpaper.primaryContainer();
-            case 1:
-                return AndroidWallpaper.secondaryContainer();
-            case 2:
-                return AndroidWallpaper.tertiaryContainer();
-            default:
-                return AndroidWallpaper.neutralContainer();
-        }
+        return AndroidWallpaper.primaryContainer();
     }
 
     private static int glyph(int index) {
-        switch (index) {
-            case 0:
-                return AndroidWallpaper.onPrimaryContainer();
-            case 1:
-                return AndroidWallpaper.onSecondaryContainer();
-            case 2:
-                return AndroidWallpaper.onTertiaryContainer();
-            default:
-                return AndroidWallpaper.onNeutralContainer();
-        }
+        return AndroidWallpaper.onPrimaryContainer();
     }
 
     /** Material bottom sheet with the actions that used to sit around the dock. */
@@ -274,40 +269,10 @@ public final class AndroidMainMenu extends GuiMainMenu {
     // Interaction
     // ------------------------------------------------------------------ //
 
-    /** Bounds of the light/dark toggle, one step left of the title-screen switcher. */
-    private float[] themeBounds() {
-        float[] style = MenuStyleSwitch.buttonBounds(width, height);
-        float size = style[2];
-        float gap = size * 0.28F;
-        return new float[]{style[0] - size - gap, style[1], size, size};
-    }
-
-    /** Light/dark toggle: a Material FAB drawing a sun or a crescent, no icon font needed. */
-    private void drawThemeToggle(int mouseX, int mouseY) {
-        float[] b = themeBounds();
-        boolean dark = MenuTheme.dark();
-        boolean hover = mouseX >= b[0] && mouseX < b[0] + b[2]
-                && mouseY >= b[1] && mouseY < b[1] + b[3];
-        float cx = b[0] + b[2] / 2.0F;
-        float cy = b[1] + b[3] / 2.0F;
-        float radius = b[2] / 2.0F;
-        ui.shadow(b[0], b[1], b[2], b[3], radius, 3);
-        int face = dark ? Material.mix(AndroidWallpaper.sheet(), 0xFFFFFFFF, hover ? 0.10F : 0.03F)
-                : Material.mix(AndroidWallpaper.card(), AndroidWallpaper.ink(), hover ? 0.05F : 0.0F);
-        ui.circle(cx, cy, radius, face);
-        int ink = AndroidWallpaper.ink();
-        if (dark) {
-            // Sun: a disc with a ring around it.
-            ui.circle(cx, cy, radius * 0.34F, ink);
-            ui.outline(cx - radius * 0.62F, cy - radius * 0.62F, radius * 1.24F, radius * 1.24F,
-                    radius * 0.62F, 1.5F, Material.withAlpha(ink, 0.55F));
-        } else {
-            // Crescent: a disc with a face-coloured disc biting into it.
-            ui.circle(cx, cy, radius * 0.52F, ink);
-            ui.circle(cx + radius * 0.30F, cy - radius * 0.26F, radius * 0.44F, face);
-        }
-    }
-
+    /**
+     * The dark-mode switch and the clock face moved into the Background settings screen
+     * ({@link BackgroundScreen}), so the title screen keeps only the wallpaper style switcher.
+     */
     private boolean dockHit(int index, float x, float y) {
         float left = dockX + dockCell * index;
         return x >= left && x < left + dockCell && y >= dockY && y < dockY + dockHeight;
@@ -345,13 +310,6 @@ public final class AndroidMainMenu extends GuiMainMenu {
             if (!insideSheet(x, y)) {
                 sheetOpen = false;
             }
-            return;
-        }
-        float[] theme = themeBounds();
-        if (mouseX >= theme[0] && mouseX < theme[0] + theme[2]
-                && mouseY >= theme[1] && mouseY < theme[1] + theme[3]) {
-            click();
-            MenuTheme.toggle();
             return;
         }
         if (MenuStyleSwitch.click(mouseX, mouseY, width, height)) {

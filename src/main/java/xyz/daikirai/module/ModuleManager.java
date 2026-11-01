@@ -36,7 +36,7 @@ public final class ModuleManager {
             "AutoClicker", "AimAssist", "Backtrack", "ClickAssist", "Hitbox", "Hit Select", "Jump Reset", "Reach", "Reduce",
             "Velocity", "WTap", "Sprint", "AutoBlockin", "AutoTool", "Delay Remover", "FastMine", "FastPlace", "GhostHand",
             "NoRotate", "AntiBot", "Weather", "BreakProgress", "AutoRequeue", "AutoWho", "Bed Wars", "Sky Wars", "AntiCheat",
-            "Chat Bypass", "Hit Particles", "Latency Alerts", "Chat Commands", "IRC"));
+            "Chat Bypass", "Hit Particles", "Latency Alerts", "Chat Commands", "IRC", "Bridge Assist"));
     private static final List<Module> linked = new ArrayList<Module>();
 
     private ModuleManager() {
@@ -130,6 +130,9 @@ public final class ModuleManager {
     private static Module render(String name, int key) {
         switch (name) {
             case "HUD": return new HudModule(key);
+            case "Test": return new xyz.daikirai.module.dev.TestModule(key);
+            case "View Packets": return new xyz.daikirai.module.dev.ViewPacketsModule(key);
+            case "Debug AC": return new xyz.daikirai.module.dev.DebugAcModule(key);
             case "AntiDebuff": return new xyz.daikirai.module.render.AntiDebuffModule(key);
             case "AntiShuffle": return new xyz.daikirai.module.render.AntiShuffleModule(key);
             case "BedESP": return new xyz.daikirai.module.render.BedESPModule(key);
@@ -174,6 +177,7 @@ public final class ModuleManager {
             case "AutoSwap": return new xyz.daikirai.module.player.AutoSwapModule(key);
             case "FastPlace": return new xyz.daikirai.module.player.FastPlaceModule(key);
             case "Scaffold": return new xyz.daikirai.module.player.ScaffoldModule(key);
+            case "Scaffold2": return new xyz.daikirai.module.player.Scaffold2Module(key);
             case "Tower": return new xyz.daikirai.module.player.TowerModule(key);
             case "Reach": return new xyz.daikirai.module.combat.ReachModule(key);
             case "Hitbox": return new xyz.daikirai.module.combat.HitboxModule(key);
@@ -190,6 +194,7 @@ public final class ModuleManager {
             case "Boost": return new xyz.daikirai.module.movement.BoostModule(key);
             case "TPAura": return new xyz.daikirai.module.combat.TPAuraModule(key);
             case "Velocity": return new xyz.daikirai.module.combat.VelocityModule(key);
+            case "Velocity2": return new xyz.daikirai.module.combat.Velocity2Module(key);
             case "Stasis": return new xyz.daikirai.module.movement.StasisModule(key);
             case "Fly": return new xyz.daikirai.module.movement.FlyModule(key);
             case "WTap": return new xyz.daikirai.module.combat.WTapModule(key);
@@ -209,13 +214,20 @@ public final class ModuleManager {
             case "Blink": return new xyz.daikirai.module.network.BlinkModule(key);
             case "VClip": return new xyz.daikirai.module.movement.VClipModule(key);
             case "AutoBlock": return new xyz.daikirai.module.combat.AutoBlockModule(key);
+            case "AutoBlock2": return new xyz.daikirai.module.combat.AutoBlock2Module(key);
             case "AutoGapple": return new xyz.daikirai.module.combat.AutoGappleModule(key);
             case "AutoRod": return new xyz.daikirai.module.combat.AutoRodModule(key);
             case "AntiKnockback": return new xyz.daikirai.module.combat.AntiKnockbackModule(key);
             case "Displace": return new xyz.daikirai.module.combat.DisplaceModule(key);
             case "KillAura": return new xyz.daikirai.module.combat.KillAuraModule(key);
+            case "KillAura2": return new xyz.daikirai.module.combat.KillAura2Module(key);
             case "Bhop": return new xyz.daikirai.module.movement.BhopModule(key);
             case "InvMove": return new xyz.daikirai.module.movement.InvMoveModule(key);
+            case "Disabler": return new xyz.daikirai.module.network.DisablerModule(key);
+            case "ESP": return new xyz.daikirai.module.render.EspModule(key);
+            case "Target ESP": return new xyz.daikirai.module.render.TargetEspModule(key);
+            case "Ambience": return new xyz.daikirai.module.render.AmbienceModule(key);
+            case "Camera": return new xyz.daikirai.module.render.CameraModule(key);
             case "Long Jump": return new xyz.daikirai.module.movement.LongJumpModule(key);
             case "NoSlow": return new xyz.daikirai.module.movement.NoSlowModule(key);
             case "TargetStrafe": return new xyz.daikirai.module.movement.TargetStrafeModule(key);
@@ -235,10 +247,15 @@ public final class ModuleManager {
             case "Speed Builders": return new xyz.daikirai.module.minigames.SpeedBuildersModule(key);
             case "AntiCheat": return new xyz.daikirai.module.other.AntiCheatModule(key);
             case "Onyx ClickGUI": return new xyz.daikirai.gui.onyx.OnyxClickGuiModule(key);
+            case "Music Player": return new xyz.daikirai.music.MusicModule(key);
             case "Watermark": return new xyz.daikirai.module.render.WatermarkModule(key);
             case "Keybinds": return new xyz.daikirai.module.render.KeybindsModule(key);
             case "CustomGui": return new xyz.daikirai.module.render.CustomGuiModule(key);
             case "Freelook": return new xyz.daikirai.module.render.FreelookModule(key);
+            case "Friendswine": return new xyz.daikirai.module.render.JellyModule(key);
+            case "AutoRodNew": return new xyz.daikirai.module.combat.AutoRodNewModule(key);
+            case "Bridge Assist": return new xyz.daikirai.module.player.BridgeAssistModule(key);
+            case "Better Chat": return new xyz.daikirai.module.render.BetterChatModule(key);
             case "JumpCircles": return new xyz.daikirai.module.render.JumpCirclesModule(key);
             case "BlockOverlay": return new xyz.daikirai.module.render.BlockOverlayModule(key);
             case "ChinaHat": return new xyz.daikirai.module.render.ChinaHatModule(key);
@@ -262,20 +279,27 @@ public final class ModuleManager {
         if (t.equals("desc")) {
             return new DescriptionSetting(name);
         }
+        if (t.equals("color")) {
+            return new xyz.daikirai.module.setting.ColorSetting(name,
+                    s.has("value") && !s.get("value").isJsonNull() ? s.get("value").getAsInt() : 0xFFFFFFFF, 0.0F);
+        }
         String[] options = null;
-        if (!s.get("options").isJsonNull()) {
+        if (s.has("options") && !s.get("options").isJsonNull()) {
             JsonArray a = s.getAsJsonArray("options");
             options = new String[a.size()];
             for (int i = 0; i < options.length; i++) options[i] = a.get(i).getAsString();
         }
         HashMap<Double, String> labels = null;
-        if (!s.get("labels").isJsonNull()) {
+        if (s.has("labels") && !s.get("labels").isJsonNull()) {
             labels = new HashMap<Double, String>();
             for (Map.Entry<String, JsonElement> l : s.getAsJsonObject("labels").entrySet()) {
                 labels.put(Double.parseDouble(l.getKey()), l.getValue().getAsString());
             }
         }
-        return new SliderSetting(name, s.get("prefix").getAsString(), s.get("suffix").getAsString(), s.get("value").getAsDouble(),
+        return new SliderSetting(name,
+                s.has("prefix") && !s.get("prefix").isJsonNull() ? s.get("prefix").getAsString() : "",
+                s.has("suffix") && !s.get("suffix").isJsonNull() ? s.get("suffix").getAsString() : "",
+                s.get("value").getAsDouble(),
                 s.get("min").getAsDouble(), s.get("max").getAsDouble(), s.get("step").getAsDouble(), options, labels);
     }
 

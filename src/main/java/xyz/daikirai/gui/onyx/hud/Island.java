@@ -19,11 +19,19 @@ import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
 import xyz.daikirai.gui.onyx.render.WavyProgressIndicator;
+import xyz.daikirai.music.MusicIsland;
+import xyz.daikirai.music.MusicManager;
+import xyz.daikirai.music.MusicTypeface;
+import xyz.daikirai.music.Song;
 import xyz.daikirai.module.Module;
 import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.module.combat.AutoGappleModule;
+import xyz.daikirai.module.combat.Velocity2Module;
 import xyz.daikirai.module.player.AutoSwapModule;
+import xyz.daikirai.module.player.AutoBlockinModule;
 import xyz.daikirai.module.player.BedAuraModule;
+import xyz.daikirai.module.player.ChestStealerModule;
+import xyz.daikirai.module.player.Scaffold2Module;
 import xyz.daikirai.module.render.WatermarkModule;
 
 import javax.imageio.ImageIO;
@@ -64,6 +72,8 @@ public final class Island {
     private static final float MAX_TEXT = 90.0F;
     private static final float HEIGHT = 22.0F;
     private static final float GAUGE_HEIGHT = 30.0F;
+    /** How long a paused track keeps the island before the watermark comes back. */
+    private static final long MUSIC_PAUSE_TIMEOUT_MS = 10000L;
     private static final float MARGIN = 10.0F;
     private static final float EDGE = 20.0F;
     /** Same frosted recipe as the keybind card: the surface tint covers 58% of the blurred scene. */
@@ -73,6 +83,7 @@ public final class Island {
     private static final int TOGGLE = 1;
     private static final int GAUGE = 2;
     private static final int MUSIC = 3;
+    private static final int VELOCITY = 4;
 
     private static final String CLIENT_NAME = "NeoRaven";
     private static final String MUSIC_ICON = "\ue405";
@@ -85,8 +96,11 @@ public final class Island {
     private final Anim flash = new Anim(0.0F);
     private final Anim gaugeFillAnim = new Anim(0.0F);
     private final Anim musicProgressAnim = new Anim(0.0F);
+    private final Anim miniOpen = new Anim(0.0F);
     private final Anim tabOpen = new Anim(0.0F);
     private final TabList tabList = new TabList();
+    private final Anim chestOpen = new Anim(0.0F);
+    private final ChestLoot chestLoot = new ChestLoot();
     private final Map<Module, Boolean> states = new IdentityHashMap<Module, Boolean>();
     private long lastFrame;
     private float phase;
@@ -120,9 +134,18 @@ public final class Island {
     private int gappleCount;
     private float gapplePercent;
 
+    private boolean blockinActive;
+    private float blockinPercent;
+    private String blockinLabel = "Blockin";
+
     private boolean musicActive;
+    private boolean musicInternal;
     private String musicTitle = "";
     private boolean musicPlaying;
+
+    private boolean velocityActive;
+    private int velocityTicks;
+    private int velocityPackets;
 
     private boolean dragging;
     private float dragOffsetX;
@@ -139,7 +162,17 @@ public final class Island {
             return;
         }
         float delta = tick();
-        boolean held = !preview && WatermarkModule.tablistHeld();
+        boolean chestScreen = !preview && WatermarkModule.replacesChestScreen();
+        boolean looting = chestLoot.update(chestScreen ? ChestStealerModule.instance.visualSession() : null, delta);
+        if (preview || !WatermarkModule.chestStealerEnabled()) {
+            looting = false;
+            chestLoot.clear();
+        }
+        chestOpen.to(looting ? 1.0F : 0.0F, looting ? 420.0F : 280.0F,
+                looting ? Ease.EMPHASIZED : Ease.STANDARD);
+        chestOpen.update(delta);
+        boolean held = !preview && chestOpen.value() < 0.001F && WatermarkModule.tablistHeld();
+        if (looting) tabOpen.set(0.0F);
         if (preview || !WatermarkModule.replacesTablist()) {
             tabOpen.set(0.0F);
         }
@@ -147,6 +180,10 @@ public final class Island {
                 held ? Ease.EMPHASIZED : Ease.STANDARD);
         tabOpen.update(delta);
         update(module, delta, preview);
+        MusicIsland.tick(delta);
+        boolean mini = !preview && !looting && !held && MusicIsland.miniVisible();
+        miniOpen.to(mini ? 1.0F : 0.0F, mini ? 460.0F : 420.0F, Ease.EMPHASIZED_DECELERATE);
+        miniOpen.update(delta);
 
         float fade = preview ? 1.0F : visible.value();
         if (fade <= 0.002F) {
@@ -159,7 +196,10 @@ public final class Island {
         Minecraft mc = Minecraft.getMinecraft();
         ScaledResolution resolution = new ScaledResolution(mc);
 
-        float expansion = tabOpen.value();
+        float chestExpansion = chestOpen.value();
+        float tabExpansion = tabOpen.value() * (1.0F - chestExpansion);
+        float musicExpansion = miniOpen.value() * (1.0F - tabExpansion - chestExpansion);
+        float expansion = tabExpansion + chestExpansion + musicExpansion;
         float scale = module.islandScale() * (0.94F + 0.06F * fade);
         float content = contentWidth.value();
         float pillWidth = FIXED_WIDTH + content;
@@ -170,9 +210,16 @@ public final class Island {
         }
         float fit = Math.min(1.0F, Math.min((resolution.getScaledWidth() - EDGE) / (tabList.width() * tabScale),
                 (resolution.getScaledHeight() - EDGE) / (tabList.height() * tabScale)));
-        scale += (tabScale * fit - scale) * expansion;
-        float islandWidth = pillWidth + (tabList.width() - pillWidth) * expansion;
-        float islandHeight = pillHeight + (tabList.height() - pillHeight) * expansion;
+        float lootScale = scale * WatermarkModule.chestStealerScaleFactor();
+        float lootFit = Math.min(1.0F, Math.min((resolution.getScaledWidth() - EDGE) / (ChestLoot.WIDTH * lootScale),
+                (resolution.getScaledHeight() - EDGE) / (ChestLoot.HEIGHT * lootScale)));
+        scale += (tabScale * fit - scale) * tabExpansion + (lootScale * lootFit - scale) * chestExpansion;
+        float islandWidth = pillWidth + (tabList.width() - pillWidth) * tabExpansion
+                + (ChestLoot.WIDTH - pillWidth) * chestExpansion
+                + (MusicIsland.miniWidth() - pillWidth) * musicExpansion;
+        float islandHeight = pillHeight + (tabList.height() - pillHeight) * tabExpansion
+                + (ChestLoot.HEIGHT - pillHeight) * chestExpansion
+                + (MusicIsland.miniHeight() - pillHeight) * musicExpansion;
         // Interpolated width and scale can peak between the endpoints of the morph.
         scale = Math.min(scale, Math.min((resolution.getScaledWidth() - EDGE) / islandWidth,
                 (resolution.getScaledHeight() - EDGE) / islandHeight));
@@ -188,7 +235,7 @@ public final class Island {
             handleDrag(module, mc, resolution);
         }
         boolean drawLogo = module.logo() && kind != MUSIC && ensureLogo();
-        boolean frosted = expansion > 0.001F ? WatermarkModule.tablistFrosted() : module.frosted();
+        boolean frosted = tabExpansion > 0.001F ? WatermarkModule.tablistFrosted() : module.frosted();
 
         GlStateManager.pushMatrix();
         mc.entityRenderer.setupOverlayRendering();
@@ -227,27 +274,42 @@ public final class Island {
             float t = morph.value();
             if (t < 0.999F) {
                 ui.alphaPush(1.0F - t);
-                drawContent(scheme, previousKind, previousText, previousBadge, previousPositive,
+                drawContent(ui, scheme, previousKind, previousText, previousBadge, previousPositive,
                         islandWidth, islandHeight, -6.0F * t, previousGaugeFill);
                 ui.alphaPop();
             }
             if (t > 0.001F) {
                 ui.alphaPush(t);
-                drawContent(scheme, kind, text, badge, positive, islandWidth, islandHeight,
+                drawContent(ui, scheme, kind, text, badge, positive, islandWidth, islandHeight,
                         6.0F * (1.0F - t), gaugeFillAnim.value());
                 ui.alphaPop();
             }
             if (kind == MUSIC) {
-                drawMusicProgress(scheme, islandWidth, islandHeight, radius);
+                drawMusicProgress(ui, scheme, islandWidth, islandHeight, radius);
             }
             ui.scissorPop();
             ui.alphaPop();
-            if (expansion > 0.01F) {
+            if (musicExpansion > 0.001F) {
+                ui.scissorPush(3.0F, 3.0F, islandWidth - 6.0F, islandHeight - 6.0F);
+                MusicIsland.draw(ui, scheme, islandWidth, islandHeight, musicExpansion);
+                ui.scissorPop();
+            }
+            if (tabExpansion > 0.01F) {
                 ui.scissorPush(6.0F, 6.0F, islandWidth - 12.0F, islandHeight - 12.0F);
-                ui.alphaPush(Material.clamp((expansion - 0.15F) / 0.65F, 0.0F, 1.0F));
+                ui.alphaPush(Material.clamp((tabExpansion - 0.15F) / 0.65F, 0.0F, 1.0F));
                 ui.push();
-                ui.translate((islandWidth - tabList.width()) / 2.0F, (1.0F - expansion) * -8.0F);
-                tabList.draw(ui, scheme, expansion);
+                ui.translate((islandWidth - tabList.width()) / 2.0F, (1.0F - tabExpansion) * -8.0F);
+                tabList.draw(ui, scheme, tabExpansion);
+                ui.pop();
+                ui.alphaPop();
+                ui.scissorPop();
+            }
+            if (chestExpansion > 0.01F) {
+                ui.scissorPush(6.0F, 6.0F, islandWidth - 12.0F, islandHeight - 12.0F);
+                ui.alphaPush(Material.clamp((chestExpansion - 0.15F) / 0.65F, 0.0F, 1.0F));
+                ui.push();
+                ui.translate((islandWidth - ChestLoot.WIDTH) / 2.0F, (1.0F - chestExpansion) * -8.0F);
+                chestLoot.draw(ui, scheme, chestExpansion);
                 ui.pop();
                 ui.alphaPop();
                 ui.scissorPop();
@@ -261,7 +323,7 @@ public final class Island {
         }
     }
 
-    private void drawMusicProgress(Scheme scheme, float islandWidth, float islandHeight, float radius) {
+    private void drawMusicProgress(UI ui, Scheme scheme, float islandWidth, float islandHeight, float radius) {
         float progress = Material.clamp(musicProgressAnim.value(), 0.0F, 1.0F);
         float stripY = islandHeight - 6.0F;
         ui.scissorPush(0.0F, stripY, islandWidth, 6.0F);
@@ -278,7 +340,7 @@ public final class Island {
         return Material.mix(scheme.outlineVariant, flashColor, Material.clamp(flash.value(), 0.0F, 1.0F));
     }
 
-    private void drawContent(Scheme scheme, int contentKind, String contentText, String contentBadge,
+    private void drawContent(UI ui, Scheme scheme, int contentKind, String contentText, String contentBadge,
                              boolean contentPositive, float islandWidth, float islandHeight,
                              float offsetX, float fill) {
         switch (contentKind) {
@@ -314,11 +376,13 @@ public final class Island {
                 break;
             }
             case MUSIC: {
+                Typeface.Style style = musicStyle();
+                float maxText = musicTextMax();
                 ui.icon(MUSIC_ICON, 15.35F + offsetX, islandHeight / 2.0F, 14.0F, scheme.primary);
-                String label = ui.truncate(Typeface.LABEL_TIGHT, contentText, MAX_TEXT);
-                ui.text(Typeface.LABEL_TIGHT, label, TEXT_X + offsetX, islandHeight / 2.0F,
+                String label = ui.truncate(style, contentText, maxText);
+                ui.text(style, label, TEXT_X + offsetX, islandHeight / 2.0F,
                         scheme.onSurface, UI.ALIGN_LEFT);
-                float barsX = TEXT_X + offsetX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
+                float barsX = TEXT_X + offsetX + style.width(label) + 6.0F;
                 for (int i = 0; i < 3; i++) {
                     float level = musicPlaying
                             ? 0.5F + 0.5F * (float) Math.sin(phase * 0.007F + i * 2.1F)
@@ -326,6 +390,20 @@ public final class Island {
                     float barHeight = 3.0F + 6.0F * level;
                     ui.rounded(barsX + i * 4.0F, islandHeight / 2.0F - barHeight / 2.0F, 2.0F, barHeight,
                             1.0F, scheme.primary);
+                }
+                break;
+            }
+            case VELOCITY: {
+                String label = ui.truncate(Typeface.LABEL_TIGHT, contentText, MAX_TEXT);
+                ui.text(Typeface.LABEL_TIGHT, label, TEXT_X + offsetX, islandHeight / 2.0F,
+                        scheme.primary, UI.ALIGN_LEFT);
+                if (contentBadge != null && !contentBadge.isEmpty()) {
+                    float badgeWidth = 10.0F + Typeface.CAPTION.width(contentBadge);
+                    float badgeX = TEXT_X + offsetX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
+                    ui.rounded(badgeX, islandHeight / 2.0F - 6.0F, badgeWidth, 12.0F, 6.0F,
+                            scheme.primaryContainer);
+                    ui.text(Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F, islandHeight / 2.0F,
+                            scheme.onPrimaryContainer, UI.ALIGN_CENTER);
                 }
                 break;
             }
@@ -338,7 +416,7 @@ public final class Island {
 
     private void update(WatermarkModule module, float delta, boolean preview) {
         phase = (phase + delta) % 100000.0F;
-        boolean active = preview || module.isEnabled() || tabOpen.value() > 0.001F;
+        boolean active = preview || module.isEnabled() || MusicIsland.hasTrack() || tabOpen.value() > 0.001F;
         visible.to(active ? 1.0F : 0.0F, active ? 300.0F : 200.0F, active ? Ease.EMPHASIZED : Ease.DECELERATE);
         visible.update(delta);
         flash.update(delta);
@@ -352,7 +430,9 @@ public final class Island {
             gaugeActive = false;
             bedActive = false;
             gappleActive = false;
+            blockinActive = false;
             musicActive = false;
+            velocityActive = false;
             states.clear();
         }
 
@@ -364,7 +444,8 @@ public final class Island {
         morph.update(delta);
         gaugeFillAnim.to(gaugeFillTarget(), 250.0F, Ease.DECELERATE);
         gaugeFillAnim.update(delta);
-        musicProgressAnim.to(musicActive ? NowPlaying.progress() : 0.0F, 250.0F, Ease.DECELERATE);
+        musicProgressAnim.to(musicActive ? (musicInternal ? MusicIsland.progress() : NowPlaying.progress()) : 0.0F,
+                250.0F, Ease.DECELERATE);
         musicProgressAnim.update(delta);
     }
 
@@ -438,6 +519,14 @@ public final class Island {
                 gaugeMax = Math.max(gaugeMax, count);
                 gaugeActive = true;
                 gaugeAlert = count <= module.lowBlockCount();
+            } else if (mc.thePlayer != null && Scaffold2Module.instance != null
+                    && Scaffold2Module.instance.isEnabled()) {
+                // Scaffold2 feeds the same gauge and stops drawing its own counter in that case.
+                int count = Scaffold2Module.blockCount();
+                gaugeCount = count;
+                gaugeMax = Math.max(gaugeMax, count);
+                gaugeActive = true;
+                gaugeAlert = count <= module.lowBlockCount();
             }
         }
 
@@ -452,24 +541,94 @@ public final class Island {
             }
         }
 
-        musicActive = module.nowPlaying() && NowPlaying.hasSession();
-        if (musicActive) {
-            musicTitle = musicLabel();
+        // AutoBlockin's enclosure progress: this is the island gauge that replaced the old
+        // "42%" text the module used to draw under the crosshair.
+        blockinActive = false;
+        Module blockin = ModuleManager.get("AutoBlockin");
+        if (blockin != null && blockin.isEnabled() && AutoBlockinModule.active) {
+            blockinPercent = Material.clamp(AutoBlockinModule.progress(), 0.0F, 1.0F);
+            blockinActive = true;
+        }
+
+        // Same row as the old system now-playing state: the client's own player feeds it first,
+        // the Windows media session is the fallback when nothing is loaded in the built-in player.
+        refreshMusicSource();
+
+        // Velocity2's whole point is holding S12 knockback packets for a few ticks; surface that
+        // delay (and how many packets are queued) on the island while it is happening.
+        velocityActive = false;
+        if (module.velocityDelay()) {
+            Module velocity = ModuleManager.get("Velocity2");
+            Velocity2Module impl = Velocity2Module.instance;
+            if (velocity != null && velocity.isEnabled() && impl != null && impl.delaying()) {
+                velocityTicks = impl.delayTicks();
+                velocityPackets = impl.delayPackets();
+                velocityActive = true;
+            }
+        }
+    }
+
+    private String velocityTickLabel() {
+        String label = velocityTicks + "t";
+        return velocityPackets > 1 ? label + " ×" + velocityPackets : label;
+    }
+
+    /** Picks the source of the compact now-playing row: built-in player first, then SMTC. */
+    private void refreshMusicSource() {
+        musicActive = false;
+        musicInternal = false;
+        WatermarkModule module = WatermarkModule.instance;
+        if (module != null && !module.nowPlaying()) {
+            return;
+        }
+        MusicManager manager = MusicManager.get();
+        manager.observePlayback();
+        Song song = manager.current();
+        if (song != null) {
+            // A song left paused for a while gives the island back to the watermark: an advert for a
+            // track nobody is listening to is worse than the client's own name.
+            if (manager.pausedFor(MUSIC_PAUSE_TIMEOUT_MS)) {
+                return;
+            }
+            musicInternal = true;
+            musicPlaying = manager.isPlaying();
+            // "Music: Display" chooses between the synced lyric line and the plain song title.
+            String lyric = WatermarkModule.musicShowsLyric() ? MusicIsland.currentLyric() : "";
+            musicTitle = lyric == null || lyric.trim().isEmpty()
+                    ? musicLabel(Text.strip(song.name), Text.strip(song.artist))
+                    : musicLabel(lyric.trim(), Text.strip(song.artist));
+            musicActive = true;
+            return;
+        }
+        if (NowPlaying.hasSession()) {
+            musicTitle = musicLabel(Text.strip(NowPlaying.title()), Text.strip(NowPlaying.artist()));
             musicPlaying = NowPlaying.playing();
+            musicActive = true;
         }
     }
 
     /**
-     * The bundled Google Sans Flex has no CJK coverage, so non-Latin titles fall back to the
-     * artist (usually Latin) and finally to a generic label instead of rendering blank glyphs.
+     * The music row is part of the player, so it uses the player's own face; {@code ISLAND_ROW} is
+     * the same MiSans Medium one step larger, because the face runs small at pill size.
      */
-    private static String musicLabel() {
-        String title = Text.strip(NowPlaying.title());
-        if (Typeface.LABEL_TIGHT.supports(title)) {
+    private static Typeface.Style musicStyle() {
+        return MusicTypeface.ISLAND_ROW;
+    }
+
+    /** A lyric line needs more room than a short song title before it gets truncated. */
+    private static float musicTextMax() {
+        return WatermarkModule.musicShowsLyric() ? 175.0F : 130.0F;
+    }
+
+    /**
+     * Falls back to the artist, then to a generic label, when the face cannot render a title.
+     * OPPO Sans covers both scripts, so this only fires for rare glyphs.
+     */
+    private static String musicLabel(String title, String artist) {
+        if (!title.isEmpty() && musicStyle().supports(title)) {
             return title;
         }
-        String artist = Text.strip(NowPlaying.artist());
-        if (!artist.isEmpty() && Typeface.LABEL_TIGHT.supports(artist)) {
+        if (!artist.isEmpty() && musicStyle().supports(artist)) {
             return artist;
         }
         return "Now playing";
@@ -480,15 +639,23 @@ public final class Island {
         String nextText;
         String nextBadge = "";
         boolean nextPositive = true;
+        // The expanded mini player is the one music surface that keeps the island for itself. While
+        // it is collapsed its lyric row must yield to the Scaffold block gauge and the BedAura
+        // progress, or a playing song hides both of them for the whole match.
+        boolean musicCard = musicActive && miniOpen.value() > 0.5F;
 
         if (hold > 0.0F) {
             nextKind = TOGGLE;
             nextText = notifyText;
             nextBadge = notifyBadge;
             nextPositive = notifyPositive;
-        } else if (musicActive) {
+        } else if (musicCard) {
             nextKind = MUSIC;
             nextText = musicTitle;
+        } else if (velocityActive) {
+            nextKind = VELOCITY;
+            nextText = "Velocity";
+            nextBadge = velocityTickLabel();
         } else if (gappleActive) {
             nextKind = GAUGE;
             nextText = "Gapple";
@@ -498,11 +665,18 @@ public final class Island {
             nextKind = GAUGE;
             nextText = bedLabel;
             nextBadge = Math.round(bedPercent * 100.0F) + "%";
+        } else if (blockinActive) {
+            nextKind = GAUGE;
+            nextText = blockinLabel;
+            nextBadge = Math.round(blockinPercent * 100.0F) + "%";
         } else if (gaugeActive) {
             nextKind = GAUGE;
             nextText = "Blocks";
             nextBadge = String.valueOf(gaugeCount);
             nextPositive = !gaugeAlert;
+        } else if (musicActive) {
+            nextKind = MUSIC;
+            nextText = musicTitle;
         } else {
             nextKind = IDLE;
             nextText = CLIENT_NAME;
@@ -554,7 +728,11 @@ public final class Island {
                 return Math.max(54.0F, Typeface.CAPTION.width(text) + 8.0F
                         + Typeface.LABEL_TIGHT.width(badge)) + 4.0F;
             case MUSIC:
-                return Math.min(Typeface.LABEL_TIGHT.width(text), MAX_TEXT) + 6.0F + 10.0F;
+                return Math.min(musicStyle().width(text), musicTextMax()) + 6.0F + 10.0F;
+            case VELOCITY: {
+                float textWidth = Math.min(Typeface.LABEL_TIGHT.width(text), MAX_TEXT);
+                return textWidth + 6.0F + 10.0F + Typeface.CAPTION.width(badge);
+            }
             default:
                 return Typeface.LABEL_TIGHT.width(text);
         }
@@ -566,6 +744,9 @@ public final class Island {
         }
         if (bedActive) {
             return bedPercent;
+        }
+        if (blockinActive) {
+            return blockinPercent;
         }
         return gaugeActive ? Material.clamp(gaugeCount / (float) Math.max(1, gaugeMax), 0.0F, 1.0F) : 0.0F;
     }
@@ -583,6 +764,12 @@ public final class Island {
 
     private void handleDrag(WatermarkModule module, Minecraft mc, ScaledResolution resolution) {
         boolean chat = mc.currentScreen instanceof GuiChat;
+        if (MusicIsland.hasTrack() && miniOpen.value() > 0.5F) {
+            // The top artwork/title area remains draggable; transport controls own the lower half.
+            float pointerY = resolution.getScaledHeight()
+                    - Mouse.getY() * resolution.getScaledHeight() / (float) mc.displayHeight - 1.0F;
+            if (pointerY > y + h * 0.44F) { dragging = false; return; }
+        }
         if (!chat || !Mouse.isButtonDown(0)) {
             dragging = false;
             return;
@@ -638,7 +825,10 @@ public final class Island {
         gaugeAlert = false;
         bedActive = false;
         gappleActive = false;
+        blockinActive = false;
         musicActive = false;
+        musicInternal = false;
+        velocityActive = false;
         kind = IDLE;
         previousKind = IDLE;
         text = CLIENT_NAME;
@@ -654,12 +844,102 @@ public final class Island {
         gaugeFillAnim.set(0.0F);
         musicProgressAnim.set(0.0F);
         tabOpen.set(0.0F);
+        chestOpen.set(0.0F);
+        miniOpen.set(0.0F);
+        chestLoot.clear();
         dragging = false;
         lastFrame = 0L;
     }
 
+    /** Primes the exact return endpoint before the GUI gives rendering back to the HUD. */
+    public void returnFromMusic(boolean mini) {
+        hold = 0.0F;
+        refreshMusicSource();
+        kind = musicActive ? MUSIC : IDLE;
+        previousKind = kind;
+        text = musicActive ? musicTitle : CLIENT_NAME;
+        previousText = text;
+        badge = "";
+        previousBadge = "";
+        positive = true;
+        previousPositive = true;
+        visible.set(1.0F);
+        morph.set(1.0F);
+        contentWidth.set(targetContentWidth());
+        contentHeight.set(HEIGHT);
+        miniOpen.set(mini && musicActive ? 1.0F : 0.0F);
+        tabOpen.set(0.0F);
+        chestOpen.set(0.0F);
+        dragging = false;
+        lastFrame = 0L;
+    }
+
+    /** Design-space size of the surface (before the HUD scale is applied). */
+    public float designWidth() {
+        float pill = FIXED_WIDTH + contentWidth.value();
+        float expansion = Material.clamp(miniOpen.value(), 0.0F, 1.0F);
+        return pill + (MusicIsland.miniWidth() - pill) * expansion;
+    }
+
+    public float designHeight() {
+        float pill = contentHeight.value();
+        float expansion = Material.clamp(miniOpen.value(), 0.0F, 1.0F);
+        return pill + (MusicIsland.miniHeight() - pill) * expansion;
+    }
+
+    /**
+     * Physical-pixel rectangle the island occupies for its current state, using the same math as
+     * {@link #render}. The player window starts and ends its morph on exactly this rect.
+     */
+    public float[] measure() {
+        Minecraft mc = Minecraft.getMinecraft();
+        ScaledResolution resolution = new ScaledResolution(mc);
+        WatermarkModule module = WatermarkModule.instance;
+        float scale = module == null ? 1.0F : module.islandScale();
+        float designWidth = designWidth();
+        float designHeight = designHeight();
+        scale = Math.min(scale, Math.min((resolution.getScaledWidth() - EDGE) / designWidth,
+                (resolution.getScaledHeight() - EDGE) / designHeight));
+        float width = designWidth * scale;
+        float height = designHeight * scale;
+        float maxX = Math.max(0.0F, resolution.getScaledWidth() - width - EDGE);
+        float maxY = Math.max(0.0F, resolution.getScaledHeight() - height - EDGE);
+        float px = module == null ? 50.0F : Material.clamp(module.positionX(), 0.0F, 100.0F);
+        float py = module == null ? 0.0F : Material.clamp(module.positionY(), 0.0F, 100.0F);
+        return new float[] {MARGIN + maxX * px / 100.0F, MARGIN + maxY * py / 100.0F, width, height};
+    }
+
+    /**
+     * Draws the island's current content into another UI so the player window can start its morph
+     * from the exact HUD artwork that was on screen a frame earlier.
+     */
+    public void snapshot(UI target, Scheme scheme, boolean logo) {
+        float designWidth = designWidth();
+        float designHeight = designHeight();
+        if (logo && ensureLogo()) {
+            target.image(LOGO, 7.0F + (LOGO_WIDTH - LOGO_HEIGHT) / 2.0F, (designHeight - LOGO_HEIGHT) / 2.0F,
+                    LOGO_HEIGHT, LOGO_HEIGHT, 0.0F, 0.0F, 1.0F, 1.0F, scheme.primary);
+        }
+        drawContent(target, scheme, kind, text, badge, positive, designWidth, designHeight, 0.0F,
+                gaugeFillAnim.value());
+        if (kind == MUSIC) {
+            drawMusicProgress(target, scheme, designWidth, designHeight, designHeight / 2.0F);
+        }
+    }
+
+    /** Handles transport clicks before chat receives them. Header drags still use handleDrag(). */
+    public boolean musicClick(float mouseX, float mouseY) {
+        if (!MusicIsland.hasTrack() || miniOpen.value() < 0.98F || !inside(mouseX, mouseY)) return false;
+        // The card is drawn in its own 296x130 design space, so the click map stays in that space.
+        float localX = (mouseX - x) * MusicIsland.MINI_WIDTH / w;
+        float localY = (mouseY - y) * MusicIsland.MINI_HEIGHT / h;
+        return MusicIsland.click(localX, localY);
+    }
+
     public void hideTabList() {
         tabOpen.set(0.0F);
+        chestOpen.set(0.0F);
+        chestLoot.clear();
     }
 
     /** Texture the island logo is uploaded under (used by the dev harness). */

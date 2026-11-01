@@ -254,7 +254,16 @@ public class Module {
     public void onDisable() {
     }
 
+    /**
+     * Default ClickGUI reaction: a colour row opens the Material colour sheet, so every module that
+     * owns a {@link xyz.daikirai.module.setting.ColorSetting} gets a working palette without its own
+     * override. Modules that use method buttons for other things override this.
+     */
     public void guiButtonToggled(ButtonSetting b) {
+        if (b instanceof xyz.daikirai.module.setting.ColorSetting) {
+            mc.displayGuiScreen(new xyz.daikirai.gui.ColorEditor(mc.currentScreen,
+                    (xyz.daikirai.module.setting.ColorSetting) b));
+        }
     }
 
     public void guiUpdate() {

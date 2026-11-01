@@ -30,7 +30,7 @@ final class BackgroundScreen extends MenuScreen {
     private final ColorSetting dockColor = new ColorSetting("Dock colour", 0xFFFFFFFF);
 
     BackgroundScreen(GuiScreen parent) {
-        super(parent, 560.0F, 536.0F);
+        super(parent, 560.0F, 592.0F);
         dockColor.setAppearance(MenuTheme.dockColor() == 0 ? 0xFFFFFFFF : MenuTheme.dockColor(),
                 MenuTheme.dockFollows());
     }
@@ -148,6 +148,47 @@ final class BackgroundScreen extends MenuScreen {
             ui.icon(Icons.EXPAND_MORE, LEFT + WIDTH - 78.0F, by + ACTION_H / 2.0F, 14.0F,
                     s.outlineVariant);
         }
+
+        // Title-screen clock: digital or analog, drawn as a miniature of the current face.
+        float cy = actionY(3);
+        boolean clockOver = actionHit(3, mx, my);
+        ui.rounded(LEFT, cy, WIDTH, ACTION_H, 14.0F,
+                Material.mix(s.surfaceContainerHighest, 0xFFFFFFFF, clockOver ? 0.08F : 0.0F));
+        ui.textBaseline(Typeface.BODY_MEDIUM, "Clock face", LEFT + 18.0F, cy + ACTION_H / 2.0F,
+                s.onSurface, UI.ALIGN_LEFT);
+        boolean analog = MenuTheme.clockStyle() == MenuTheme.CLOCK_ANALOG;
+        ui.textBaseline(Typeface.CAPTION, analog ? "Analog" : "Digital", LEFT + 150.0F,
+                cy + ACTION_H / 2.0F, s.onSurfaceVariant, UI.ALIGN_LEFT);
+        drawClockGlyph(s, LEFT + WIDTH - 54.0F, cy + ACTION_H / 2.0F, 11.0F, analog);
+        ui.icon(Icons.EXPAND_MORE, LEFT + WIDTH - 22.0F, cy + ACTION_H / 2.0F, 14.0F,
+                s.outlineVariant);
+    }
+
+    /** Miniature of the title screen's clock face, so the row previews what clicking chooses. */
+    private void drawClockGlyph(Scheme s, float cx, float cy, float radius, boolean analog) {
+        int ink = s.onSurface;
+        if (analog) {
+            ui.outline(cx - radius, cy - radius, radius * 2.0F, radius * 2.0F, radius, 1.2F,
+                    Material.withAlpha(ink, 0.8F));
+            hand(cx, cy, -60.0F, radius * 0.72F, 1.6F, ink);
+            hand(cx, cy, 140.0F, radius * 0.5F, 2.0F, ink);
+            ui.circle(cx, cy, 1.4F, ink);
+        } else {
+            ui.rounded(cx - radius * 0.72F, cy - radius * 0.6F, radius * 0.46F, radius * 1.1F,
+                    radius * 0.16F, ink);
+            ui.rounded(cx - radius * 0.10F, cy - radius * 0.6F, radius * 0.46F, radius * 1.1F,
+                    radius * 0.16F, ink);
+            ui.circle(cx + radius * 0.56F, cy - radius * 0.28F, radius * 0.12F, ink);
+            ui.circle(cx + radius * 0.56F, cy + radius * 0.32F, radius * 0.12F, ink);
+        }
+    }
+
+    private void hand(float cx, float cy, float angle, float length, float thickness, int color) {
+        ui.push();
+        ui.translate(cx, cy);
+        net.minecraft.client.renderer.GlStateManager.rotate(angle, 0.0F, 0.0F, 1.0F);
+        ui.rounded(-thickness / 2.0F, -length, thickness, length, thickness / 2.0F, color);
+        ui.pop();
     }
 
     private void switchTrack(Scheme s, float rowY, boolean on) {
@@ -186,6 +227,11 @@ final class BackgroundScreen extends MenuScreen {
             if (actionHit(2, mx, my)) {
                 click();
                 MenuTheme.nextBlurMode();
+                return;
+            }
+            if (actionHit(3, mx, my)) {
+                click();
+                MenuTheme.nextClockStyle();
                 return;
             }
         }

@@ -97,7 +97,7 @@ public class FastPlaceModule extends Module {
     }
 
     public static void renderCount() {
-        if (showBlockCount == null || !showBlockCount.enabled || countText == null || AutoBlockinModule.percentText != null || ScaffoldModule.countText != null
+        if (showBlockCount == null || !showBlockCount.enabled || countText == null || ScaffoldModule.countText != null
                 || SafeWalkModule.scaffoldActive) {
             return;
         }

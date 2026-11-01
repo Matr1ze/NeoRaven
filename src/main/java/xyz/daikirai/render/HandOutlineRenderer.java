@@ -9,16 +9,19 @@ import org.lwjgl.opengl.GL11;
 import xyz.daikirai.gui.onyx.render.Shader;
 import xyz.daikirai.module.render.HandOutlineModule;
 
-/** Onyx's half-resolution mask, expansion, smoothing and aurora passes. */
+/** Onyx's half-resolution mask, expansion, smoothing and aurora passes, plus the trail feedback. */
 public final class HandOutlineRenderer {
     private static boolean capturing;
-    private final Framebuffer[] targets = new Framebuffer[6];
-    private Shader mask, expand, smooth, aurora, blit;
+    /** 0..5 = the original pipeline, 6..7 = the two trail feedback targets. */
+    private final Framebuffer[] targets = new Framebuffer[8];
+    private Shader mask, expand, smooth, aurora, blit, trail;
     private boolean failed;
+    private boolean trailPrimed;
+    private int trailIndex;
     private long started;
 
     public static boolean capturing() { return capturing; }
-    public void reset() { failed = false; started = System.nanoTime(); }
+    public void reset() { failed = false; started = System.nanoTime(); trailPrimed = false; }
     public void dispose() {
         if (targets[0] == null) return;
         int framebuffer = GL11.glGetInteger(0x8CA6);
@@ -45,8 +48,10 @@ public final class HandOutlineRenderer {
                 smooth = Shader.load("onyx_hand_smooth", "onyx_post");
                 aurora = Shader.load("onyx_hand_aurora", "onyx_post");
                 blit = Shader.load("onyx_hand_blit", "onyx_post");
+                trail = Shader.load("onyx_hand_trail", "onyx_post");
             }
-            if (!mask.valid() || !expand.valid() || !smooth.valid() || !aurora.valid() || !blit.valid()) {
+            if (!mask.valid() || !expand.valid() || !smooth.valid() || !aurora.valid() || !blit.valid()
+                    || !trail.valid()) {
                 failed = true;
                 return;
             }
@@ -137,18 +142,72 @@ public final class HandOutlineRenderer {
                     (float) m.speed.getInput(), 2, Math.min(8, (float) m.outline.getInput() * ratio));
             aurora.uniform4f("uOptions", (float) m.glow.getInput() / 100, m.outlineOnly.isToggled() ? 1 : 0, 0, 0);
             draw(targets[4].framebufferTexture);
+            int source = targets[5].framebufferTexture;
+            boolean trail = m.trail.isToggled();
+            if (trail) {
+                source = accumulate(width, height, m);
+            } else {
+                // Dropping the trail has to drop its history too, or re-enabling would replay it.
+                trailPrimed = false;
+            }
             OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, scene);
             GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
             GL11.glEnable(GL11.GL_BLEND);
-            OpenGlHelper.glBlendFunc(770, 771, 1, 771);
+            if (trail) {
+                // The feedback buffer is premultiplied, so it composites additively as-is.
+                OpenGlHelper.glBlendFunc(GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ONE);
+            } else {
+                OpenGlHelper.glBlendFunc(770, 771, 1, 771);
+            }
             blit.use(); blit.uniform1i("Sampler0", 0);
-            draw(targets[5].framebufferTexture);
+            draw(source);
         } finally {
             GL11.glMatrixMode(GL11.GL_MODELVIEW); GL11.glPopMatrix();
             GL11.glMatrixMode(GL11.GL_PROJECTION); GL11.glPopMatrix();
             OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, targets[0].framebufferObject);
             GL11.glPopAttrib();
         }
+    }
+
+    /**
+     * Motion trail: keeps a decaying copy of last frame's aurora and adds this frame's on top.
+     *
+     * <p>Both accumulate premultiplied and additively, so the buffer never has to be renormalised:
+     * the previous frame is scaled by {@code Trail fade}, this frame contributes {@code (1 - fade) *
+     * intensity}, and a still hand settles at exactly {@code intensity} while a moving one smears
+     * for roughly {@code 1 / (1 - fade)} frames.</p>
+     *
+     * @return the texture holding the accumulated trail
+     */
+    private int accumulate(int width, int height, HandOutlineModule m) {
+        int front = 6 + trailIndex;
+        int back = 6 + (trailIndex ^ 1);
+        // Raw GL here on purpose: Framebuffer.framebufferClear() goes through GlStateManager, and
+        // the cache flush that follows it makes every later draw into this target disappear.
+        OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, targets[front].framebufferObject);
+        GL11.glViewport(0, 0, width, height);
+        GL11.glClearColor(0.0F, 0.0F, 0.0F, 0.0F);
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glColor4f(1, 1, 1, 1);
+        OpenGlHelper.glBlendFunc(GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ONE);
+        trail.use();
+        trail.uniform1i("Sampler0", 0);
+        float fade = (float) (m.trailFade.getInput() / 100.0);
+        if (trailPrimed) {
+            trail.uniform4f("uTint", fade, fade, fade, fade);
+            trail.uniform1f("uPremultiply", 0.0F);
+            draw(targets[back].framebufferTexture);
+        } else {
+            trailPrimed = true;
+        }
+        float gain = Math.max(0.0F, (1.0F - fade) * (float) (m.trailIntensity.getInput() / 100.0));
+        trail.uniform4f("uTint", 1.0F, 1.0F, 1.0F, gain);
+        trail.uniform1f("uPremultiply", 1.0F);
+        draw(targets[5].framebufferTexture);
+        GL11.glColor4f(1, 1, 1, 1);
+        trailIndex ^= 1;
+        return targets[front].framebufferTexture;
     }
 
     private static void color(Shader shader, String uniform, int rgb, float alpha) {

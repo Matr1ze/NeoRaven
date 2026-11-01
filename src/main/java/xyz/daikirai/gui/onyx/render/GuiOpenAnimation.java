@@ -12,6 +12,7 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 import xyz.daikirai.module.render.CustomGuiModule;
+import xyz.daikirai.module.render.WatermarkModule;
 
 import java.nio.IntBuffer;
 
@@ -60,7 +61,10 @@ public final class GuiOpenAnimation {
         GuiFont.begin();
         try {
             if (screen != gui) opened(gui);
-            if (!CustomGuiModule.animatesScreens() || !supported(gui)) {
+            // Island animates its own loot card. Bypass the vanilla GUI animation's world scrim,
+            // which is otherwise drawn before Forge's cancelable DrawScreenEvent.Pre hook.
+            boolean islandChest = gui == Minecraft.getMinecraft().currentScreen && WatermarkModule.replacesChestScreen();
+            if (islandChest || !CustomGuiModule.animatesScreens() || !supported(gui)) {
                 scale = 1.0F;
                 ForgeHooksClient.drawScreen(gui, mouseX, mouseY, partialTicks);
                 return;

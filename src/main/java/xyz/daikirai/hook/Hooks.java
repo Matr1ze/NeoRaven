@@ -13,6 +13,9 @@ import xyz.daikirai.script.ScriptManager;
 import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.module.SettingsModule;
 import xyz.daikirai.module.render.AntiShuffleModule;
+import xyz.daikirai.module.dev.DebugAcModule;
+import xyz.daikirai.module.dev.TestModule;
+import xyz.daikirai.module.dev.ViewPacketsModule;
 import xyz.daikirai.module.render.CameraModules;
 import xyz.daikirai.util.MoveUtils;
 import xyz.daikirai.util.PacketQueue;
@@ -111,13 +114,13 @@ public final class Hooks {
         if ((m = on("Chat Commands")) != null) {
             ChatCommands.tick();
         }
-        String[] enabledOrder = {"Displace", "KillAura", "Scaffold", "SafeWalk", "NoSlow"};
+        String[] enabledOrder = {"Displace", "KillAura", "KillAura2", "Scaffold", "Scaffold2", "SafeWalk", "NoSlow"};
         for (String name : enabledOrder) {
             if ((m = on(name)) != null) m.onPreUpdate();
         }
         if ((m = any("Hitbox")) != null) m.onPreUpdateAlways();
         if ((m = any("AntiFireball")) != null) m.onPreUpdateAlways();
-        String[] enabledOrder2 = {"BedAura", "AutoRod", "Long Jump", "InvManager", "WoolWars", "AutoClicker", "AutoRequeue",
+        String[] enabledOrder2 = {"BedAura", "AutoRod", "AutoRodNew", "Bridge Assist", "Long Jump", "InvManager", "ChestStealer", "WoolWars", "AutoClicker", "AutoRequeue",
                 "AutoWho", "Lag Range", "Limbo", "AutoLadder", "Water Bucket", "WTap", "Stasis", "Sprint"};
         for (String name : enabledOrder2) {
             if ((m = on(name)) != null) m.onPreUpdate();
@@ -238,7 +241,7 @@ public final class Hooks {
     }
 
     private static void postMotion() {
-        String[] order = {"Displace", "KillAura", "NoSlow", "InvMove", "AutoBlock"};
+        String[] order = {"Displace", "KillAura", "NoSlow", "InvMove", "AutoBlock", "AutoBlock2"};
         Module m;
         for (String name : order) {
             if ((m = on(name)) != null) m.onPostMotion();
@@ -267,7 +270,7 @@ public final class Hooks {
         if ((m = any("Scaffold")) != null) m.onPostPlayerInputAlways();
         if ((m = any("Tower")) != null) m.onPostPlayerInputAlways();
         String[] order = {"Freecam", "KillAura", "Bhop", "NoSlow", "SafeWalk", "Long Jump", "Dolphin", "AntiAFK", "InvMove",
-                "TargetStrafe", "Stasis", "AutoGapple"};
+                "TargetStrafe", "Stasis", "AutoGapple", "Scaffold2", "Velocity2", "Bridge Assist"};
         for (String name : order) {
             if ((m = on(name)) != null) m.onPostPlayerInput();
         }
@@ -361,7 +364,10 @@ public final class Hooks {
     private static boolean fakeBlocking() {
         Module killAura = any("KillAura");
         Module autoBlock = any("AutoBlock");
-        return killAura != null && killAura.isFakeBlocking() || autoBlock != null && autoBlock.isFakeBlocking();
+        Module autoBlock2 = any("AutoBlock2");
+        return killAura != null && killAura.isFakeBlocking()
+                || autoBlock != null && autoBlock.isFakeBlocking()
+                || autoBlock2 != null && autoBlock2.isFakeBlocking();
     }
 
     public static void onAttackSlowdown(Entity target) {
@@ -386,6 +392,11 @@ public final class Hooks {
                 return;
             }
             if ((m = on("AimAssist")) != null && m.overrideMouseOver()) {
+                return;
+            }
+            // Bridge Assist "Pre place": hold right click and the block lands on the silently aimed
+            // face instead of wherever the real view points (raven-bS got this from its rotation event).
+            if ((m = on("Bridge Assist")) != null && m.overrideMouseOver()) {
                 return;
             }
             Module autoClicker = any("AutoClicker");
@@ -429,6 +440,8 @@ public final class Hooks {
     public static int stopSpoofTick;
     public static int extraSpoofTicks;
     public static boolean spoofingItem;
+    /** {@code ticksExisted} of the last C02 that left the client, -1 before the first attack. */
+    public static int lastAttackTick = -1;
 
     public static ItemStack getItemToRender(ItemStack itemStack) {
         Object object = spoofedItem();
@@ -515,14 +528,31 @@ public final class Hooks {
         if (!serverbound(packet)) {
             return true;
         }
+        boolean viewSent = ModuleManager.enabled("View Packets") != null && ViewPacketsModule.sent.isToggled();
         if (packet == PacketUtils.sendingNoEvent) {
             if (packet == PacketUtils.sendingQueued) {
+                if (viewSent) {
+                    ViewPacketsModule.onSent(packet);
+                }
                 return true;
             }
-            return finalSendCheck(packet);
+            return finalSendCheck(packet, viewSent);
+        }
+        boolean showAfter = false;
+        if (viewSent) {
+            if (ViewPacketsModule.includeCancelled.isToggled()) {
+                ViewPacketsModule.onSent(packet);
+            } else {
+                showAfter = true;
+            }
         }
         PacketUtils.track(packet);
         if (ScriptManager.events != null && PacketUtils.sendingSkipScripts != packet && !ScriptEvents.packetSent(packet)) {
+            return false;
+        }
+        // Runs before the per-type blocks: the disabler swallows and replays inventory packets.
+        Module disabler = on("Disabler");
+        if (disabler != null && !disabler.onSendPacket(packet)) {
             return false;
         }
         if (packet instanceof C01PacketChatMessage) {
@@ -580,6 +610,9 @@ public final class Hooks {
             if ((m = on("Freeze")) != null) {
                 m.onSendPacket(packet);
             }
+            if (on("Test") != null) {
+                TestModule.onDig((C07PacketPlayerDigging) packet);
+            }
         } else if (packet instanceof C08PacketPlayerBlockPlacement) {
             String[] cancelling = {"NoSlow", "BedAura", "AutoPlace", "FastPlace"};
             for (String name : cancelling) {
@@ -601,6 +634,10 @@ public final class Hooks {
             if ((m = on("Freeze")) != null) {
                 m.onSendPacket(packet);
             }
+            // Ticks the server received an attack in, so macros can keep their own actions out of
+            // the same tick (an attack and a use/item change in one tick is what anti-cheats read
+            // as a multi-action).
+            lastAttackTick = mc.thePlayer == null ? -1 : mc.thePlayer.ticksExisted;
         } else if (packet instanceof C0APacketAnimation) {
             if ((m = on("AutoPlace")) != null && !m.onSendPacket(packet)) {
                 return false;
@@ -620,15 +657,25 @@ public final class Hooks {
         if (!lagPassesOutbound(packet)) {
             return false;
         }
-        return finalSendCheck(packet);
+        return finalSendCheck(packet, showAfter);
     }
 
     public static boolean finalSendCheck(Packet<?> packet) {
+        return finalSendCheck(packet, false);
+    }
+
+    public static boolean finalSendCheck(Packet<?> packet, boolean show) {
         PacketUtils.trackPost(packet);
         boolean send = true;
         Module killAura;
         if (packet instanceof C09PacketHeldItemChange && (killAura = on("KillAura")) != null && !killAura.allowHeldItemPacket()) {
             send = false;
+        }
+        if (show && (send || ViewPacketsModule.includeCancelled.isToggled())) {
+            ViewPacketsModule.onSent(packet);
+        }
+        if (send && on("Debug AC") != null) {
+            DebugAcModule.onSent(packet);
         }
         return send;
     }
@@ -649,6 +696,9 @@ public final class Hooks {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static void onReceive(Packet packet, INetHandler handler) {
+        if (ModuleManager.enabled("View Packets") != null && ViewPacketsModule.received.isToggled()) {
+            ViewPacketsModule.onReceived(packet);
+        }
         PacketUtils.trackReceived(packet);
         Module m;
         if ((m = any("Latency Alerts")) != null) m.onPacketReceivedAlways();
@@ -678,6 +728,11 @@ public final class Hooks {
             S12PacketEntityVelocity p = (S12PacketEntityVelocity) packet;
             if (mc.thePlayer != null && p.getEntityID() == mc.thePlayer.getEntityId()) {
                 if ((m = any("Stasis")) != null) m.onVelocityAlways();
+                // Velocity2 owns the knockback when it holds/scales it; nothing after it should
+                // see a packet that was deliberately cancelled.
+                if ((m = on("Velocity2")) != null && !m.onReceivePacket(packet, handler)) {
+                    return;
+                }
                 if ((m = on("AutoGapple")) != null) m.onReceivePacket(packet, handler);
                 if (cancelsKnockback()) {
                     return;

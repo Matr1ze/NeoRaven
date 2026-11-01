@@ -45,7 +45,7 @@ public class AutoBlockinModule extends Module {
     public static AutoBlockinModule instance;
     public static SliderSetting delay;
     public static ButtonSetting disableInCreative, disableObsidian, disableWhenComplete, onlyWhileMiddleClicking, prioritizeStrongerBlocks,
-            showPercentage, silentAim, silentSwing, skipNearBed;
+            silentAim, silentSwing, skipNearBed;
 
     private static final class Node {
         final BlockPos pos;
@@ -60,11 +60,8 @@ public class AutoBlockinModule extends Module {
     }
 
     public static boolean active;
-    public static String percentText;
-    private static int percentColor;
-    private static float percentHalfWidth;
+    /** How enclosed the player is, 0..1: the island gauge reads this as the blockin progress. */
     private static float enclosed;
-    private static long startedAt, stoppedAt;
     private static boolean middleHeld;
     private static boolean waitRelease;
     private static int previousSlot = -1, blockSlot = -1;
@@ -106,7 +103,6 @@ public class AutoBlockinModule extends Module {
         disableWhenComplete = (ButtonSetting) ModuleManager.setting(this, "Disable when complete");
         onlyWhileMiddleClicking = (ButtonSetting) ModuleManager.setting(this, "Only while middle clicking");
         prioritizeStrongerBlocks = (ButtonSetting) ModuleManager.setting(this, "Prioritize stronger blocks");
-        showPercentage = (ButtonSetting) ModuleManager.setting(this, "Show percentage");
         silentAim = (ButtonSetting) ModuleManager.setting(this, "Silent aim");
         silentSwing = (ButtonSetting) ModuleManager.setting(this, "Silent swing");
         skipNearBed = (ButtonSetting) ModuleManager.setting(this, "Skip near bed");
@@ -153,7 +149,6 @@ public class AutoBlockinModule extends Module {
             }
             PlayerUtils.setSlot(blockSlot, false);
             active = true;
-            startedAt = System.currentTimeMillis();
             resetSteps();
             resetAim();
             captureFacings();
@@ -615,8 +610,7 @@ public class AutoBlockinModule extends Module {
     private static void reset() {
         if (active) {
             active = false;
-            stoppedAt = System.currentTimeMillis();
-        }
+            }
         middleHeld = false;
         roundUp = true;
         previousSlot = -1;
@@ -704,9 +698,6 @@ public class AutoBlockinModule extends Module {
             int z = MathHelper.floor_double(mc.thePlayer.posZ);
             enclosed = enclosure(x, y, z);
             int percent = Math.round(enclosed * 100.0f);
-            percentText = percent + "%";
-            percentColor = percent != 100 ? -1 : Color.green.getRGB();
-            percentHalfWidth = (float) mc.fontRendererObj.getStringWidth(percentText) / 2.0f - 2.0f;
             if (percent == 100 && disableWhenComplete.isToggled()) {
                 if (!onlyWhileMiddleClicking.isToggled()) {
                     this.disable();
@@ -739,41 +730,9 @@ public class AutoBlockinModule extends Module {
         return BlockUtils.isSupport(BlockUtils.getBlock(MUTABLE));
     }
 
-    @SubscribeEvent
-    public void onRenderTick(TickEvent.RenderTickEvent e) {
-        Minecraft mc = mc();
-        if (showPercentage.isToggled() && percentText != null && e.phase == TickEvent.Phase.END && Overlay.canRender()) {
-            long now = System.currentTimeMillis();
-            int a;
-            long age;
-            if (!active) {
-                age = now - stoppedAt;
-                if (age >= 125L) {
-                    a = 0;
-                    percentText = null;
-                } else {
-                    a = (int) ((float) 240 - (float) age / (float) 125L * (float) 240);
-                }
-            } else {
-                age = now - startedAt;
-                if (age >= 125L) {
-                    a = 240;
-                } else {
-                    a = (int) ((float) age / (float) 125L * (float) 240);
-                }
-            }
-            if (a > 0) {
-                float x = (float) RenderUtils.scaledWidth / 2.0f - percentHalfWidth;
-                float y = (float) RenderUtils.scaledHeight / 2.0f + 11.0f;
-                if (BlinkModule.text != null) {
-                    y += 10.0f;
-                }
-                GlStateManager.enableBlend();
-                GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
-                mc.fontRendererObj.drawString(percentText, x, y, RenderUtils.withAlpha(percentColor, RenderUtils.clampAlpha(a)), true);
-                GlStateManager.disableBlend();
-            }
-        }
+    /** Enclosure progress, 0..1, read by the island's Blockin gauge. */
+    public static float progress() {
+        return enclosed;
     }
 
     @Override

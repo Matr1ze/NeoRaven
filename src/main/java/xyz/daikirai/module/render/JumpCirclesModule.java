@@ -32,7 +32,7 @@ public final class JumpCirclesModule extends Module {
     private SliderSetting mode, radius, opacity, duration, spin, textSize, blur, warp;
     private ButtonSetting others, throughWalls, distortion, colorButton, textButton;
     private final ColorSetting color = new ColorSetting("Color", -10178561);
-    private String text = "NeoRaven";
+    private String text = "ONYX";
 
     public JumpCirclesModule(int key) {
         super("JumpCircles", Category.render, key);
@@ -75,7 +75,7 @@ public final class JumpCirclesModule extends Module {
         setText(text);
     }
     public void setText(String text) {
-        this.text = text == null ? "NeoRaven" : text.substring(0, Math.min(text.length(), 64));
+        this.text = text == null ? "ONYX" : text.substring(0, Math.min(text.length(), 64));
     }
 
     public float radius() { return (float) radius.getInput(); }

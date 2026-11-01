@@ -282,7 +282,7 @@ public class AutoPlaceModule extends Module {
     }
 
     public static void renderCount() {
-        if (showBlockCount == null || !showBlockCount.isToggled() || countText == null || AutoBlockinModule.percentText != null
+        if (showBlockCount == null || !showBlockCount.isToggled() || countText == null
                 || ScaffoldModule.countText != null || FastPlaceModule.countText() != null) {
             return;
         }

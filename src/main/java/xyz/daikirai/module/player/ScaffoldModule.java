@@ -735,7 +735,7 @@ public class ScaffoldModule extends Module {
     }
 
     public static void renderCount() {
-        if (showBlockCount == null || !showBlockCount.isToggled() || countText == null || AutoBlockinModule.percentText != null) {
+        if (showBlockCount == null || !showBlockCount.isToggled() || countText == null) {
             return;
         }
         long now = System.currentTimeMillis();

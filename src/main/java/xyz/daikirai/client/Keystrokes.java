@@ -117,7 +117,8 @@ public class Keystrokes {
 
     @SubscribeEvent
     public void onRenderTick(TickEvent.RenderTickEvent e) {
-        if (this.mc.currentScreen != null) {
+        boolean islandChest = xyz.daikirai.module.render.WatermarkModule.replacesChestScreen();
+        if (this.mc.currentScreen != null && !islandChest) {
             if (this.mc.currentScreen instanceof KeystrokesGui) {
                 try {
                     this.mc.currentScreen.handleInput();
@@ -126,7 +127,7 @@ public class Keystrokes {
             }
             return;
         }
-        if (!this.mc.inGameHasFocus || this.mc.gameSettings.showDebugInfo) {
+        if ((!this.mc.inGameHasFocus && !islandChest) || this.mc.gameSettings.showDebugInfo) {
             return;
         }
         this.render();

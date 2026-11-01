@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "xyz.daikirai"
-version = "1.0.0"
+version = "1.1"
 
 java { toolchain.languageVersion.set(JavaLanguageVersion.of(8)) }
 
@@ -36,6 +36,11 @@ dependencies {
     mappings("de.oceanlabs.mcp:mcp_stable:22-1.8.9")
     forge("net.minecraftforge:forge:1.8.9-11.15.1.2318-1.8.9")
     embed(files("libs/mixin-0.7.11-SNAPSHOT.jar"))
+    // JLayer MP3 decoder (LGPL), embedded so the music player can decode NetEase streams on
+    // Java 8; both jars go through the same zipTree() embed path as the mixin loader.
+    embed(files("libs/jlayer.jar"))
+    // ZXing core: the NetEase QR login code is generated client-side from the login URL.
+    embed(files("libs/zxing-core-3.5.3.jar"))
 }
 
 tasks.processResources {
@@ -58,4 +63,4 @@ tasks.jar {
     )
 }
 
-tasks.named<org.gradle.jvm.tasks.Jar>("remapJar") { archiveFileName.set("NeoRaven.jar") }
+tasks.named<org.gradle.jvm.tasks.Jar>("remapJar") { archiveFileName.set("RavenB4.jar") }

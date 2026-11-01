@@ -1,5 +1,6 @@
 package xyz.daikirai.mixin;
 
+import xyz.daikirai.module.render.CameraModule;
 import xyz.daikirai.module.render.CameraModules;
 import xyz.daikirai.module.render.FreelookModule;
 import xyz.daikirai.module.render.HandOutlineModule;
@@ -47,22 +48,22 @@ public class MixinEntityRenderer {
 
     @Redirect(method = "orientCamera", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/Entity;rotationYaw:F", opcode = 180))
     private float onyx$cameraYaw(Entity entity) {
-        return FreelookModule.cameraAngle(entity, entity.rotationYaw, false, false);
+        return CameraModule.cameraAngle(entity, entity.rotationYaw, false, false);
     }
 
     @Redirect(method = "orientCamera", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/Entity;prevRotationYaw:F", opcode = 180))
     private float onyx$previousCameraYaw(Entity entity) {
-        return FreelookModule.cameraAngle(entity, entity.prevRotationYaw, false, true);
+        return CameraModule.cameraAngle(entity, entity.prevRotationYaw, false, true);
     }
 
     @Redirect(method = "orientCamera", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/Entity;rotationPitch:F", opcode = 180))
     private float onyx$cameraPitch(Entity entity) {
-        return FreelookModule.cameraAngle(entity, entity.rotationPitch, true, false);
+        return CameraModule.cameraAngle(entity, entity.rotationPitch, true, false);
     }
 
     @Redirect(method = "orientCamera", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/Entity;prevRotationPitch:F", opcode = 180))
     private float onyx$previousCameraPitch(Entity entity) {
-        return FreelookModule.cameraAngle(entity, entity.prevRotationPitch, true, true);
+        return CameraModule.cameraAngle(entity, entity.prevRotationPitch, true, true);
     }
 
     @Redirect(method = "updateCameraAndRender", at = @At(value = "INVOKE",
@@ -110,5 +111,14 @@ public class MixinEntityRenderer {
     @Redirect(method = "orientCamera", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/WorldClient;rayTraceBlocks(Lnet/minecraft/util/Vec3;Lnet/minecraft/util/Vec3;)Lnet/minecraft/util/MovingObjectPosition;"))
     private MovingObjectPosition clickgui$clip(WorldClient world, Vec3 from, Vec3 to) {
         return CameraModules.shouldCameraClip() ? world.rayTraceBlocks(from, to) : null;
+    }
+    /**
+     * Onyx Camera: the trailing third-person position. 1.8.9 keeps the third-person distance in
+     * {@code thirdPersonDistance} rather than a literal, so the distance itself is written by the
+     * module; what is left here is the camera-space translate that lets the lens follow behind.
+     */
+    @Inject(method = "orientCamera", at = @At("RETURN"))
+    private void clickgui$cameraTrail(float partialTicks, CallbackInfo ci) {
+        CameraModule.applyTrail(partialTicks);
     }
 }

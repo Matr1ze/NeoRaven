@@ -48,19 +48,58 @@ public final class Typeface {
     private static boolean fallbackLoaded;
 
     /**
-     * System CJK fallback font. Google Sans Flex has no CJK coverage, so song titles or script
-     * names in Chinese/Japanese/Korean are drawn with a system font instead of rendering as blanks.
+     * Adds an entry to the type scale for the screens that need sizes the ClickGUI never used
+     * (the music player's lyric ramp). Same rasteriser and metrics as the fixed styles.
+     */
+    public static Style custom(float optical, float size, float lineHeight, boolean medium) {
+        return new Style(optical, size, lineHeight, medium);
+    }
+
+    /**
+     * An entry of the type scale pinned to one concrete face instead of a weight/optical pair.
      *
-     * <p>Microsoft YaHei (微软雅黑) is preferred: it ships as {@code msyh.ttc} on Windows 8+ and as
-     * {@code msyh.ttf} on Windows 7. {@code Font.createFont} reads the first face of a TTC, which is
-     * the regular weight.</p>
+     * <p>Used by the music player, which draws everything in Microsoft YaHei: mixing Google Sans
+     * with the CJK fallback inside one string shifted the two runs vertically, because each face
+     * lays its glyphs out from its own em-box top.</p>
+     */
+    public static Style fromFont(TtfFont font, float size, float lineHeight) {
+        return new Style(font, size, lineHeight);
+    }
+
+    /**
+     * A style that keeps Google Sans for Latin but borrows another face for everything it cannot
+     * draw, before falling back to the global CJK face.
+     *
+     * <p>The compact music card uses this: English stays Google Sans, while Chinese/Japanese
+     * lyrics keep the player's own MiSans Medium instead of the heavier global fallback.</p>
+     */
+    public static Style mixed(float optical, float size, float lineHeight, boolean medium, TtfFont secondary) {
+        return new Style(optical, size, lineHeight, medium, null, secondary);
+    }
+
+    /**
+     * System CJK fallback font. Google Sans Flex has no CJK coverage, so song titles or script
+     * names in Chinese/Japanese/Korean are drawn with this face instead of rendering as blanks.
+     *
+     * <p>Everything outside the music player is "English in Google Sans, everything else in
+     * MiSans Demibold": {@link Style#draw} switches to this face per character, so Latin stays
+     * Google Sans and any other script lands here. MiSans covers Han + kana, which the previous
+     * OPPO Sans face did not (Japanese lyrics used to fall through to the symbol face).</p>
+     *
+     * <p>Only the player's MiSans Medium is bundled in the jar; this fallback face is read from
+     * disk ({@code D:\Downloads} first), then Microsoft YaHei as the last resort.</p>
      */
     public static synchronized TtfFont fallback() {
         if (fallbackLoaded) {
             return fallback;
         }
         fallbackLoaded = true;
+        // 2048 keeps ~2000 CJK/kana glyphs resident; the old 1024 (≈500) filled up on a long
+        // server name list and then silently dropped characters.
         String[] candidates = {
+                "D:\\Downloads\\MiSans-Demibold.ttf",
+                new java.io.File(net.minecraft.client.Minecraft.getMinecraft().mcDataDir,
+                        "keystrokes/fonts/MiSans-Demibold.ttf").getPath(),
                 "C:\\Windows\\Fonts\\msyh.ttc",
                 "C:\\Windows\\Fonts\\msyh.ttf",
                 "C:\\Windows\\Fonts\\Deng.ttf",
@@ -75,7 +114,7 @@ public final class Typeface {
             if (!file.isFile()) {
                 continue;
             }
-            TtfFont loaded = TtfFont.loadFile(file, 9.0F);
+            TtfFont loaded = TtfFont.loadFile(file, 9.0F, 4.0F, 2048);
             if (loaded != null && (loaded.has('中') || loaded.has('あ') || loaded.has('한'))) {
                 fallback = loaded;
                 System.out.println("[onyx] CJK font: " + path);
@@ -169,16 +208,44 @@ public final class Typeface {
         private final float size;
         public final float lineHeight;
         private final boolean medium;
+        private final TtfFont explicit;
+        private final TtfFont secondary;
 
         private Style(float optical, float size, float lineHeight, boolean medium) {
+            this(optical, size, lineHeight, medium, null, null);
+        }
+
+        private Style(TtfFont explicit, float size, float lineHeight) {
+            this(0.0F, size, lineHeight, false, explicit, null);
+        }
+
+        private Style(float optical, float size, float lineHeight, boolean medium, TtfFont explicit) {
+            this(optical, size, lineHeight, medium, explicit, null);
+        }
+
+        private Style(float optical, float size, float lineHeight, boolean medium, TtfFont explicit,
+                      TtfFont secondary) {
             this.optical = optical;
             this.size = size;
             this.lineHeight = lineHeight;
             this.medium = medium;
+            this.explicit = explicit;
+            this.secondary = secondary;
         }
 
         public TtfFont font() {
-            return Typeface.font(medium, optical);
+            return explicit != null ? explicit : Typeface.font(medium, optical);
+        }
+
+        /** The face used for one character: primary, then this style's own second face, then the global fallbacks. */
+        private TtfFont run(TtfFont primary, char c) {
+            if (c == ' ' || primary.has(c)) {
+                return primary;
+            }
+            if (secondary != null && secondary.has(c)) {
+                return secondary;
+            }
+            return Typeface.runFont(primary, c);
         }
 
         /** Matrix scale from the rasterised optical size to the requested pixel size. */
@@ -194,9 +261,9 @@ public final class Typeface {
             float total = 0.0F;
             int i = 0;
             while (i < text.length()) {
-                TtfFont run = Typeface.runFont(primary, text.charAt(i));
+                TtfFont run = run(primary, text.charAt(i));
                 int j = i;
-                while (j < text.length() && Typeface.runFont(primary, text.charAt(j)) == run) {
+                while (j < text.length() && run(primary, text.charAt(j)) == run) {
                     j++;
                 }
                 total += run.width(text.substring(i, j)) * (primary.size() / run.size());
@@ -215,9 +282,9 @@ public final class Typeface {
             float x = 0.0F;
             int i = 0;
             while (i < text.length()) {
-                TtfFont run = Typeface.runFont(primary, text.charAt(i));
+                TtfFont run = run(primary, text.charAt(i));
                 int j = i;
-                while (j < text.length() && Typeface.runFont(primary, text.charAt(j)) == run) {
+                while (j < text.length() && run(primary, text.charAt(j)) == run) {
                     j++;
                 }
                 String part = text.substring(i, j);
@@ -261,7 +328,7 @@ public final class Typeface {
                 if (c == ' ') {
                     continue;
                 }
-                if (Typeface.runFont(primary, c).has(c)) {
+                if (run(primary, c).has(c)) {
                     continue;
                 }
                 return false;

@@ -43,6 +43,7 @@ public final class RotationManager {
             new Provider("Freecam", false, RotationSource.FREECAM),
             new Provider("AutoBlockin", true, RotationSource.AUTOBLOCKIN),
             new Provider("Scaffold", false, RotationSource.SCAFFOLD),
+            new Provider("Scaffold2", false, RotationSource.SCAFFOLD2),
             new Provider("Long Jump", false, RotationSource.LONGJUMP),
             new Provider("AutoLadder", false, RotationSource.AUTOLADDER),
             new Provider("Water Bucket", true, RotationSource.WATERBUCKET),
@@ -51,11 +52,15 @@ public final class RotationManager {
             new Provider("NoSlow", false, RotationSource.NOSLOW),
             new Provider("BedAura", true, RotationSource.BEDAURA),
             new Provider("KillAura", false, RotationSource.KILLAURA),
+            new Provider("KillAura2", false, RotationSource.KILLAURA2),
             new Provider("AutoRod", true, RotationSource.AUTOROD),
+            new Provider("AutoRodNew", true, RotationSource.AUTORODNEW),
+            new Provider("Velocity2", true, RotationSource.VELOCITY2),
             new Provider("AntiFireball", true, RotationSource.ANTIFIREBALL),
             new Provider("WoolWars", true, RotationSource.WOOLWARS),
             new Provider("InvMove", true, RotationSource.INVMANAGER),
             new Provider("45 Jump", true, RotationSource.JUMP45),
+            new Provider("Bridge Assist", true, RotationSource.BRIDGEASSIST),
     };
 
     public static float[] request(float yaw, float pitch) {
@@ -88,7 +93,13 @@ public final class RotationManager {
         playerYawAtSend = mc.thePlayer.rotationYaw;
     }
 
+    public static boolean scaffold2NoMovementFix;
+    public static boolean killAura2NoMovementFix;
+
     public static boolean movementFix() {
+        if (scaffold2NoMovementFix || killAura2NoMovementFix) {
+            return false;
+        }
         return Hooks.movementFixSetting() && rotating && source != null && source.movementFix;
     }
 

@@ -33,6 +33,7 @@ public final class DetailPage {
 
     private final List<Row> rows = new ArrayList<Row>();
     private final Anim scroll = new Anim(0.0F);
+    private final List<Setting> builtFrom = new ArrayList<Setting>();
 
     private Module module;
     private float x;
@@ -44,6 +45,8 @@ public final class DetailPage {
     private float columnX;
     private boolean binding;
     private int menuIndex = -1;
+    /** Manual scroll offset of an open mode popup (only used when it does not fit). */
+    private float menuScroll;
     private int menuHover = -1;
     private Row activeRow;
 
@@ -74,6 +77,16 @@ public final class DetailPage {
         if (module == null) {
             return;
         }
+        buildRows();
+    }
+
+    /**
+     * Rebuilds the rows from the module's current setting list. Called by {@link #refresh()} when a
+     * module swaps its visible settings underneath the open page (Scaffold2's Client switch).
+     */
+    private void buildRows() {
+        this.rows.clear();
+        this.builtFrom.clear();
         rows.add(new BindRow());
         for (Setting setting : module.getSettings()) {
             if (setting instanceof SliderSetting) {
@@ -86,7 +99,41 @@ public final class DetailPage {
                 rows.add(new DescriptionRow((DescriptionSetting) setting));
             }
         }
+        builtFrom.addAll(module.getSettings());
         layoutRows(0.0F);
+    }
+
+    /** True when the module's setting list no longer matches the rows that are on screen. */
+    private boolean stale() {
+        if (module == null) {
+            return false;
+        }
+        List<Setting> current = module.getSettings();
+        if (current.size() != builtFrom.size()) {
+            return true;
+        }
+        for (int i = 0; i < current.size(); i++) {
+            if (current.get(i) != builtFrom.get(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void refresh() {
+        if (!stale()) {
+            return;
+        }
+        float visible = Math.max(0.0F, contentHeight - h);
+        float fraction = visible > 0.0F ? Material.clamp(scrollTarget / visible, 0.0F, 1.0F) : 0.0F;
+        boolean wasBinding = binding;
+        buildRows();
+        float newVisible = Math.max(0.0F, contentHeight - h);
+        scrollTarget = fraction * newVisible;
+        scroll.set(scrollTarget);
+        this.menuIndex = -1;
+        this.activeRow = null;
+        this.binding = wasBinding;
     }
 
     public void close() {
@@ -108,6 +155,7 @@ public final class DetailPage {
     }
 
     public void update(float delta, float mouseX, float mouseY, boolean interactive) {
+        refresh();
         float visible = Math.max(0.0F, contentHeight - h);
         scrollTarget = Material.clamp(scrollTarget, 0.0F, visible);
         scroll.to(scrollTarget, 250.0F, Ease.DECELERATE);
@@ -133,6 +181,7 @@ public final class DetailPage {
         if (module == null) {
             return;
         }
+        refresh();
         ui.scissorPush(x, y, w, h);
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
@@ -192,7 +241,9 @@ public final class DetailPage {
             Row row = rows.get(i);
             if (mouseY >= row.y && mouseY < row.y + row.height && row.click(mouseX, mouseY, button)) {
                 if (row instanceof ModeRow) {
-                    this.menuIndex = menuIndex == i ? -1 : i;
+                    boolean opening = menuIndex != i;
+                    this.menuIndex = opening ? i : -1;
+                    this.menuScroll = opening ? ((ModeRow) row).autoScroll() : 0.0F;
                 }
                 this.activeRow = row;
                 return true;
@@ -215,6 +266,15 @@ public final class DetailPage {
     }
 
     public boolean wheel(float mouseX, float mouseY, double amount) {
+        if (menuIndex >= 0 && menuIndex < rows.size() && rows.get(menuIndex) instanceof ModeRow) {
+            ModeRow open = (ModeRow) rows.get(menuIndex);
+            if (open.insideMenu(mouseX, mouseY) && open.menuMaxScroll() > 0.0F) {
+                // A tall mode list scrolls inside its own popup; the page must not move with it.
+                this.menuScroll = Material.clamp(this.menuScroll - (float) amount * 32.0F,
+                        0.0F, open.menuMaxScroll());
+                return true;
+            }
+        }
         if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + h) {
             return false;
         }
@@ -249,15 +309,13 @@ public final class DetailPage {
     }
 
     private int menuIndexAt(ModeRow mode, float mouseX, float mouseY) {
-        float menuX = mode.menuX();
-        float menuY = mode.menuY();
-        float menuW = mode.menuWidth();
-        float rowHeight = 32.0F;
-        if (mouseX < menuX || mouseX >= menuX + menuW) {
+        if (!mode.insideMenu(mouseX, mouseY)) {
             return -1;
         }
-        int index = (int) ((mouseY - menuY - 4.0F) / rowHeight);
-        if (mouseY < menuY + 4.0F || index < 0 || index >= mode.count()) {
+        float rowHeight = 32.0F;
+        float offset = mouseY - mode.menuY() - 4.0F + menuScroll;
+        int index = (int) (offset / rowHeight);
+        if (offset < 0.0F || index < 0 || index >= mode.count()) {
             return -1;
         }
         return index;
@@ -474,16 +532,46 @@ public final class DetailPage {
             return x + w - menuWidth();
         }
 
+        /** Popup height, capped to the page so a nineteen entry list stays inside the ClickGUI. */
+        float menuHeight() {
+            float full = Widgets.menuFullHeight(count());
+            float room = Math.max(96.0F, DetailPage.this.h - 16.0F);
+            return Math.min(full, room);
+        }
+
+        float menuMaxScroll() {
+            return Math.max(0.0F, Widgets.menuFullHeight(count()) - menuHeight());
+        }
+
+        /** Scroll that keeps the selected entry inside the popup window; used when it opens. */
+        float autoScroll() {
+            float max = menuMaxScroll();
+            if (max <= 0.0F) {
+                return 0.0F;
+            }
+            float wanted = (int) setting.getInput() * 32.0F - (menuHeight() - 32.0F) / 2.0F;
+            return Material.clamp(wanted, 0.0F, max);
+        }
+
         float menuY() {
-            float height = count() * 32.0F + 8.0F;
+            float height = menuHeight();
             float below = y + this.height + 4.0F;
-            float limit = DetailPage.this.y + DetailPage.this.h;
-            return below + height > limit ? y - height - 4.0F : below;
+            float top = DetailPage.this.y + 8.0F;
+            float limit = DetailPage.this.y + DetailPage.this.h - 8.0F;
+            float wanted = below + height <= limit ? below : y - height - 4.0F;
+            return Material.clamp(wanted, top, Math.max(top, limit - height));
+        }
+
+        boolean insideMenu(float mouseX, float mouseY) {
+            float menuX = menuX();
+            float menuY = menuY();
+            return mouseX >= menuX && mouseX < menuX + menuWidth()
+                    && mouseY >= menuY && mouseY < menuY + menuHeight();
         }
 
         void drawMenu(UI ui, Scheme scheme, int hovered) {
             Widgets.menu(ui, scheme, menuX(), menuY(), menuWidth(), setting.options,
-                    (int) setting.getInput(), hovered, 1.0F);
+                    (int) setting.getInput(), hovered, 1.0F, menuHeight(), DetailPage.this.menuScroll);
         }
     }
 
