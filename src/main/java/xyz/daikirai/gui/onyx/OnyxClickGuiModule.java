@@ -22,6 +22,7 @@ public final class OnyxClickGuiModule extends Module {
     public static SliderSetting interfaceScale;
     public static ButtonSetting followGuiScale;
     public static ButtonSetting frostedGlass;
+    public static ButtonSetting liquidGlass;
     public static ButtonSetting resetWindow;
 
     public OnyxClickGuiModule(int key) {
@@ -36,6 +37,7 @@ public final class OnyxClickGuiModule extends Module {
         interfaceScale = slider("Scale");
         followGuiScale = button("Follow GUI scale");
         frostedGlass = button("Frosted glass");
+        liquidGlass = button("Liquid glass");
         resetWindow = button("Reset window");
         sync();
     }
@@ -68,6 +70,9 @@ public final class OnyxClickGuiModule extends Module {
         }
         if (frostedGlass != null) {
             Theme.frost(frostedGlass.isToggled());
+        }
+        if (liquidGlass != null) {
+            Theme.liquidGlass(liquidGlass.isToggled());
         }
     }
 

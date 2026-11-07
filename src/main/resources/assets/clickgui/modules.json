@@ -8999,6 +8999,11 @@
         "value": true
       },
       {
+        "t": "toggle",
+        "name": "Liquid glass",
+        "value": true
+      },
+      {
         "t": "button",
         "name": "Reset window",
         "value": false
