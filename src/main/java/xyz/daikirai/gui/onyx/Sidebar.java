@@ -178,7 +178,7 @@ public final class Sidebar {
         float centerX = x + w / 2.0F;
         ui.icon(Icons.PALETTE, centerX, themeY + 2.0F + PILL_HEIGHT / 2.0F, 16.0F,
                 active ? scheme.onSecondaryContainer : scheme.onSurfaceVariant);
-        ui.text(Typeface.LABEL, "Theme", centerX, themeY + 36.0F,
+        ui.text(Typeface.LABEL, GuiLanguage.simplifiedChinese() ? "主题" : "Theme", centerX, themeY + 36.0F,
                 active ? scheme.onSurface : Material.withAlpha(scheme.onSurfaceVariant, 0.9F), UI.ALIGN_CENTER);
     }
 

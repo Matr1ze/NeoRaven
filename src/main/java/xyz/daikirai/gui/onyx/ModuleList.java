@@ -34,13 +34,9 @@ public final class ModuleList {
     private static final float GAP = 5.0F;
     private static final float SCROLLBAR_WIDTH = 4.0F;
 
-    private static final long TOOLTIP_DELAY_MS = 500L;
-
     private final List<Card> cards = new ArrayList<Card>();
     private final Map<Module, Card> byModule = new HashMap<Module, Card>();
     private final Anim scroll = new Anim(0.0F);
-    private Module hoveredModule;
-    private long hoveredSince;
 
     private float x;
     private float y;
@@ -67,8 +63,6 @@ public final class ModuleList {
         this.builtRevision = Profiles.revision();
         cards.clear();
         byModule.clear();
-        this.hoveredModule = null;
-        this.hoveredSince = 0L;
         String needle = this.builtQuery.trim().toLowerCase(Locale.ROOT);
 
         List<Module> source = new ArrayList<Module>(ModuleManager.modules);
@@ -106,7 +100,9 @@ public final class ModuleList {
             byModule.put(module, card);
         }
 
-        this.emptyText = !needle.isEmpty() ? "No modules match" : "No modules here yet";
+        this.emptyText = !needle.isEmpty()
+                ? (GuiLanguage.simplifiedChinese() ? "没有匹配的模块" : "No modules match")
+                : (GuiLanguage.simplifiedChinese() ? "这里还没有模块" : "No modules here yet");
         this.contentHeight = cards.size() * (CARD_HEIGHT + GAP) - GAP;
         this.scrollTarget = 0.0F;
         this.scroll.set(0.0F);
@@ -147,12 +143,6 @@ public final class ModuleList {
         return selected;
     }
 
-    /** Module to describe after the pointer has rested on it for a moment. */
-    public Module tooltipModule() {
-        return hoveredModule != null && System.currentTimeMillis() - hoveredSince >= TOOLTIP_DELAY_MS
-                ? hoveredModule : null;
-    }
-
     public float contentHeight() {
         return contentHeight;
     }
@@ -168,8 +158,6 @@ public final class ModuleList {
         this.scroll.to(scrollTarget, 250.0F, Ease.DECELERATE);
         this.scroll.update(delta);
 
-        Module previous = this.hoveredModule;
-        this.hoveredModule = null;
         float visible = Math.max(0.0F, contentHeight - h);
         scrollTarget = Material.clamp(scrollTarget, 0.0F, visible);
 
@@ -180,12 +168,6 @@ public final class ModuleList {
                     && mouseY >= cardY && mouseY < cardY + CARD_HEIGHT
                     && cardY + CARD_HEIGHT > y && cardY < y + h;
             card.update(delta, hovered);
-            if (hovered) {
-                this.hoveredModule = card.module;
-                if (previous != card.module) {
-                    this.hoveredSince = System.currentTimeMillis();
-                }
-            }
         }
     }
 
@@ -349,8 +331,13 @@ public final class ModuleList {
             // Command Line, ...) get no switch at all instead of a dead control.
             boolean showSwitch = !module.noToggle;
             float textWidth = w - 12.0F - 10.0F - (showSwitch ? 38.0F + 12.0F : 0.0F);
-            String title = ui.truncate(Typeface.HEADLINE, Text.strip(module.getName()), textWidth);
-            String sub = subtitle();
+            boolean chinese = GuiLanguage.simplifiedChinese();
+            String title = ui.truncate(Typeface.HEADLINE,
+                    chinese ? ModuleTranslations.name(module) : Text.strip(module.getName()), textWidth);
+            String sub = chinese ? ModuleTranslations.description(module) : subtitle();
+            if (sub.isEmpty()) {
+                sub = subtitle();
+            }
             float titleY = !showSwitch && sub.isEmpty() ? y + h / 2.0F : y + h * 0.32F;
             ui.text(Typeface.HEADLINE, title, x + 12.0F, titleY, titleColor, UI.ALIGN_LEFT);
             if (!sub.isEmpty()) {

@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/** Chinese module names and short descriptions used by the ClickGUI tooltip and search. */
+/** Chinese module names, descriptions, category labels and search matching. */
 final class ModuleTranslations {
 
     static final class Entry {
@@ -42,6 +42,48 @@ final class ModuleTranslations {
         load();
         Category category = module.moduleCategory();
         return ENTRIES.get(key(category == null ? "" : category.name(), module.getName()));
+    }
+
+    static String name(Module module) {
+        Entry entry = get(module);
+        return entry == null || entry.zh.isEmpty() ? Text.strip(module.getName()) : entry.zh;
+    }
+
+    static String description(Module module) {
+        Entry entry = get(module);
+        return entry == null ? "" : entry.desc;
+    }
+
+    static String category(Category category) {
+        if (category == null) {
+            return "";
+        }
+        switch (category) {
+            case combat:
+                return "战斗";
+            case movement:
+                return "移动";
+            case player:
+                return "玩家";
+            case world:
+                return "世界";
+            case render:
+                return "渲染";
+            case network:
+                return "网络";
+            case minigames:
+                return "小游戏";
+            case other:
+                return "其他";
+            case client:
+                return "客户端";
+            case scripts:
+                return "脚本";
+            case profiles:
+                return "配置";
+            default:
+                return category.name();
+        }
     }
 
     /** Extends the GUI search to the Chinese name and description. */
