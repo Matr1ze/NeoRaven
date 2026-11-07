@@ -279,6 +279,7 @@ public final class Typeface {
          */
         public void draw(String text, int color) {
             TtfFont primary = font();
+            float primaryBaseline = primary.baseline();
             float x = 0.0F;
             int i = 0;
             while (i < text.length()) {
@@ -289,8 +290,12 @@ public final class Typeface {
                 }
                 String part = text.substring(i, j);
                 float relative = primary.size() / run.size();
+                // TtfFont positions glyphs from the top of its raster cell. A fallback face is
+                // scaled up to the primary face's nominal size, which also scales its baseline;
+                // without this correction a CJK run sits noticeably lower than the Latin run.
+                float baselineShift = primaryBaseline - run.baseline() * relative;
                 net.minecraft.client.renderer.GlStateManager.pushMatrix();
-                net.minecraft.client.renderer.GlStateManager.translate(x, 0.0F, 0.0F);
+                net.minecraft.client.renderer.GlStateManager.translate(x, baselineShift, 0.0F);
                 if (relative != 1.0F) {
                     net.minecraft.client.renderer.GlStateManager.scale(relative, relative, 1.0F);
                 }
