@@ -128,7 +128,7 @@ public final class JumpCircleRenderer {
         String text = settings.text().trim();
         float textRadius = settings.radius() - settings.textSize() * 1.35F;
         if (text.isEmpty() || textRadius <= 0) return;
-        if (font == null) font = TtfFont.load("/assets/onyx/font/ttf/googlesansflex_36pt-bold.ttf", 36);
+        if (font == null) font = TtfFont.load("/assets/clickgui/font/misans-medium.ttf", 36);
         text += "  ";
         TtfFont.Glyph[] glyphs = new TtfFont.Glyph[text.length()];
         for (int i = 0; i < text.length(); i++) glyphs[i] = font.glyph(text.charAt(i));

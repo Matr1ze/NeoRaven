@@ -5,9 +5,7 @@ import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.input.Mouse;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
-import xyz.daikirai.gui.onyx.render.Anim;
 import xyz.daikirai.gui.onyx.render.Blur;
-import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.UI;
 
 import java.io.IOException;
@@ -16,9 +14,9 @@ import java.io.IOException;
  * The ported Material You ClickGUI screen, equivalent to Onyx's {@code GuiScreenImpl3}.
  *
  * <p>Fits the 640x420 panel into 62% of the screen width and 72% of its height (the same ratio
- * the original used), scales it by the module's "Scale" setting and animates the entrance with a
- * 400ms emphasized scale/fade plus a 250ms scrim. The world behind the panel is blurred with the
- * original frosted-glass pipeline when the "Frosted glass" setting is enabled.</p>
+ * the original used), scales it by the module's "Scale" setting and opens without an entrance
+ * animation. The world behind the panel is blurred with the original frosted-glass pipeline when
+ * the "Frosted glass" setting is enabled.</p>
  */
 public final class OnyxClickGui extends GuiScreen {
 
@@ -26,16 +24,12 @@ public final class OnyxClickGui extends GuiScreen {
 
     private final UI ui = new UI();
     private final Panel panel = new Panel();
-    private final Anim open = new Anim(0.0F);
-    private final Anim scrim = new Anim(0.0F);
 
     private long lastFrame;
     private float delta = 16.0F;
     private float scale = 1.0F;
     private float mouseX;
     private float mouseY;
-    private float screenMouseX;
-    private float screenMouseY;
     private float themeScale = -1.0F;
 
     public OnyxClickGui() {
@@ -58,10 +52,6 @@ public final class OnyxClickGui extends GuiScreen {
         this.scale = fitScale();
         this.lastFrame = System.nanoTime();
         panel.layout(this.width / scale, this.height / scale);
-        open.set(0.0F);
-        open.to(1.0F, 400.0F, Ease.EMPHASIZED);
-        scrim.set(0.0F);
-        scrim.to(1.0F, 250.0F, Ease.DECELERATE);
         Blur.request();
     }
 
@@ -74,8 +64,6 @@ public final class OnyxClickGui extends GuiScreen {
         long now = System.nanoTime();
         this.delta = Math.min((now - lastFrame) / 1000000.0F, 100.0F);
         this.lastFrame = now;
-        open.update(delta);
-        scrim.update(delta);
         OnyxClickGuiModule.sync();
         if (themeScale != Theme.scale()) {
             themeScale = Theme.scale();
@@ -87,30 +75,17 @@ public final class OnyxClickGui extends GuiScreen {
         }
     }
 
-    /** Scales the panel during its entrance; input has to invert the same transform. */
-    private float entranceScale() {
-        return 0.92F + 0.08F * open.value();
-    }
-
     /**
      * Converts GUI-space coordinates (the units {@link GuiScreen} hands to the mouse callbacks)
      * into the panel's virtual 640x420 space.
      *
-     * <p>Drawing applies {@code glScale(panelScale)} and then the entrance scale about the panel
-     * centre, so the inverse must undo both. Mixing raw {@code Mouse.getX()} window pixels with
-     * scaled GUI units only looked correct at GUI scale 1; at any larger scale every click was
-     * displaced towards the bottom-left corner.</p>
+     * <p>Mixing raw {@code Mouse.getX()} window pixels with scaled GUI units only looked correct
+     * at GUI scale 1; at any larger scale every click was displaced towards the bottom-left
+     * corner.</p>
      */
     private void setGuiMouse(float guiX, float guiY) {
-        this.screenMouseX = guiX;
-        this.screenMouseY = guiY;
-        float virtualX = guiX / scale;
-        float virtualY = guiY / scale;
-        float centerX = panel.x() + Panel.WIDTH / 2.0F;
-        float centerY = panel.y() + Panel.HEIGHT / 2.0F;
-        float entrance = entranceScale();
-        this.mouseX = centerX + (virtualX - centerX) / entrance;
-        this.mouseY = centerY + (virtualY - centerY) / entrance;
+        this.mouseX = guiX / scale;
+        this.mouseY = guiY / scale;
     }
 
     /** Current cursor position, converted exactly like {@code GuiScreen.handleMouseInput}. */
@@ -133,12 +108,7 @@ public final class OnyxClickGui extends GuiScreen {
 
             ui.push();
             ui.scale(scale, 0.0F, 0.0F);
-            float centerX = panel.x() + Panel.WIDTH / 2.0F;
-            float centerY = panel.y() + Panel.HEIGHT / 2.0F;
-            ui.push();
-            ui.scale(0.92F + 0.08F * open.value(), centerX, centerY);
             panel.draw(ui);
-            ui.pop();
             ui.pop();
         } finally {
             ui.end();
@@ -154,7 +124,7 @@ public final class OnyxClickGui extends GuiScreen {
         if (Theme.frost()) {
             Blur.prepare();
         }
-        ui.rect(0.0F, 0.0F, width, height, Theme.scrim(scrim.value()));
+        ui.rect(0.0F, 0.0F, width, height, Theme.scrim(1.0F));
     }
 
     @Override
@@ -210,6 +180,7 @@ public final class OnyxClickGui extends GuiScreen {
     public void onGuiClosed() {
         Blur.request();
         OnyxClickGuiModule.sync();
+        xyz.daikirai.client.ClientConfig.save();
     }
 
 }

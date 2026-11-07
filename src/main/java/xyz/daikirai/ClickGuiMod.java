@@ -33,8 +33,6 @@ public class ClickGuiMod {
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent e) {
-        // Sample the config folder before anything creates it: a fresh install has no
-        // "keystrokes" directory and gets the welcome screen.
         xyz.daikirai.client.FirstRun.capture();
         MinecraftForge.EVENT_BUS.register(new xyz.daikirai.client.FirstRun());
         ModuleManager.init();
@@ -57,11 +55,8 @@ public class ClickGuiMod {
 
     @SubscribeEvent
     public void onGuiOpen(net.minecraftforge.client.event.GuiOpenEvent event) {
-        if (mc.currentScreen instanceof xyz.daikirai.music.MusicScreen
-                && event.gui == null
-                && ((xyz.daikirai.music.MusicScreen) mc.currentScreen).deferClose()) {
-            event.setCanceled(true);
-            return;
+        if (mc.currentScreen instanceof xyz.daikirai.music.MusicScreen && event.gui == null) {
+            ((xyz.daikirai.music.MusicScreen) mc.currentScreen).deferClose();
         }
         event.gui = xyz.daikirai.gui.onyx.menu.MenuStyle.wrap(event.gui);
         event.gui = xyz.daikirai.gui.onyx.menu.SettingsStyle.wrap(event.gui);

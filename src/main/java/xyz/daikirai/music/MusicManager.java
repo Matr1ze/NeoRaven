@@ -206,6 +206,19 @@ public final class MusicManager {
         saveSettings();
     }
 
+    public int outputMode() {
+        return engine.outputMode();
+    }
+
+    public void setOutputMode(int value) {
+        engine.setOutputMode(value);
+        saveSettings();
+    }
+
+    public String activeOutput() {
+        return engine.activeOutput();
+    }
+
     /** Replaces the queue and starts playing {@code song}. */
     public void play(Song song, List<Song> context) {
         if (song == null) {
@@ -289,6 +302,9 @@ public final class MusicManager {
 
     public void setVolume(float volume) {
         engine.setVolume(volume);
+    }
+
+    public void commitVolume() {
         saveSettings();
     }
 
@@ -784,6 +800,7 @@ public final class MusicManager {
             writer.write("repeat: " + repeat.name() + "\n");
             writer.write("shuffle: " + shuffle + "\n");
             writer.write("level: " + streamLevel + "\n");
+            writer.write("audioOutput: " + engine.outputMode() + "\n");
             writer.write("lyricScale: " + lyricScale + "\n");
             writer.write("lyricAnimation: " + lyricAnimation + "\n");
             writer.write("coverTint: " + coverTint + "\n");
@@ -824,6 +841,11 @@ public final class MusicManager {
                 } else if (key.equals("level")) {
                     if (!value.isEmpty()) {
                         streamLevel = value;
+                    }
+                } else if (key.equals("audioOutput")) {
+                    try {
+                        engine.setOutputMode(Integer.parseInt(value));
+                    } catch (NumberFormatException ignored) {
                     }
                 } else if (key.equals("lyricScale")) {
                     try {

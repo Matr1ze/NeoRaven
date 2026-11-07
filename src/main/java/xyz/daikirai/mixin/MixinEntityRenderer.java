@@ -72,22 +72,6 @@ public class MixinEntityRenderer {
         GuiOpenAnimation.drawScreen(screen, mouseX, mouseY, partialTicks);
     }
 
-    /**
-     * One custom-font scope per rendered frame. {@code updateCameraAndRender} contains the RenderTick
-     * events (where the HUD modules draw), the world, the screen and the chat, so every vanilla
-     * {@code FontRenderer} call inside it - chat lines, tab-list header/footer, F3, tooltips - gets
-     * the ported font. Loading screens draw text outside this method and keep the bitmap font.
-     */
-    @Inject(method = "updateCameraAndRender", at = @At("HEAD"))
-    private void onyx$fontScopeBegin(float partialTicks, long nanoTime, CallbackInfo ci) {
-        xyz.daikirai.gui.onyx.render.GuiFont.begin();
-    }
-
-    @Inject(method = "updateCameraAndRender", at = @At("RETURN"))
-    private void onyx$fontScopeEnd(float partialTicks, long nanoTime, CallbackInfo ci) {
-        xyz.daikirai.gui.onyx.render.GuiFont.end();
-    }
-
     @ModifyConstant(method = "hurtCameraEffect", constant = @Constant(floatValue = 14.0F))
     private float clickgui$hurtCam(float f) {
         return CameraModules.hurtCam();

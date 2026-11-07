@@ -14,7 +14,7 @@ import xyz.daikirai.gui.onyx.render.UI;
 /**
  * Material dialog for joining a server without saving it: one address field, Connect and Cancel.
  *
- * <p>Minecraft's own "Direct Connect" is the same one-off join - the address goes straight into a
+ * <p>Minecraft's own xyz.daikirai.util.Lang.text("Direct Connect") is the same one-off join - the address goes straight into a
  * {@link GuiConnecting} and never touches {@code servers.dat}, so a quick hop to a friend's IP does
  * not leave a permanent entry in the list. A missing port is left to
  * {@code ServerAddress.fromString}, which falls back to 25565 exactly like the vanilla field.</p>
@@ -92,9 +92,9 @@ public final class AndroidDirectConnectScreen extends GuiScreen {
 
         ui.shadow(cardX, cardY, cardWidth, CARD_HEIGHT, 28.0F, 4);
         ui.rounded(cardX, cardY, cardWidth, CARD_HEIGHT, 28.0F, AndroidWallpaper.sheet());
-        ui.textBaseline(Typeface.BODY_MEDIUM, "Direct connect", cardX + 24.0F, cardY + 40.0F,
+        ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Direct connect"), cardX + 24.0F, cardY + 40.0F,
                 AndroidWallpaper.ink(), UI.ALIGN_LEFT);
-        ui.textBaseline(Typeface.CAPTION, "Server address, host or host:port", cardX + 24.0F, cardY + 62.0F,
+        ui.textBaseline(Typeface.CAPTION, xyz.daikirai.util.Lang.text("Server address, host or host:port"), cardX + 24.0F, cardY + 62.0F,
                 AndroidWallpaper.faintInk(), UI.ALIGN_LEFT);
         drawField();
 
@@ -105,10 +105,10 @@ public final class AndroidDirectConnectScreen extends GuiScreen {
         ui.rounded(bx, by, bw, 30.0F, 15.0F, connectHovered
                 ? Material.mix(AndroidWallpaper.primary(), AndroidWallpaper.card(), 0.12F)
                 : AndroidWallpaper.primary());
-        ui.text(Typeface.LABEL, "Connect", bx + bw / 2.0F, by + 15.0F, AndroidWallpaper.onPrimary(),
+        ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Connect"), bx + bw / 2.0F, by + 15.0F, AndroidWallpaper.onPrimary(),
                 UI.ALIGN_CENTER);
         ui.rounded(bx - 8.0F - bw, by, bw, 30.0F, 15.0F, AndroidWallpaper.surfaceHigh());
-        ui.text(Typeface.LABEL, "Cancel", bx - 8.0F - bw / 2.0F, by + 15.0F, AndroidWallpaper.ink(),
+        ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Cancel"), bx - 8.0F - bw / 2.0F, by + 15.0F, AndroidWallpaper.ink(),
                 UI.ALIGN_CENTER);
         ui.alphaPop();
         ui.pop();
@@ -166,14 +166,14 @@ public final class AndroidDirectConnectScreen extends GuiScreen {
     private void connect() {
         String address = addressField.getText().trim();
         if (address.isEmpty()) {
-            error = "Enter a server address";
+            error = xyz.daikirai.util.Lang.text("Enter a server address");
             return;
         }
         if (address.indexOf(' ') >= 0) {
-            error = "Server addresses cannot contain spaces";
+            error = xyz.daikirai.util.Lang.text("Server addresses cannot contain spaces");
             return;
         }
-        ServerData data = new ServerData("Direct Connect", address, false);
+        ServerData data = new ServerData(xyz.daikirai.util.Lang.text("Direct Connect"), address, false);
         mc.displayGuiScreen(new GuiConnecting(parent, mc, data));
     }
 

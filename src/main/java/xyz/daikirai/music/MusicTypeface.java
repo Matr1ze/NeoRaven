@@ -9,17 +9,15 @@ import java.io.File;
 /**
  * The music player's type scale, drawn entirely in MiSans Medium.
  *
- * <p>Everything <em>inside</em> the player UI (window, lyric view, compact card) uses this one face
- * for every language, so a single string is always a single run. Mixed runs are what used to tear
- * titles apart: each {@link TtfFont} lays its glyphs out from its own em-box top, so "Google Sans
- * English + system CJK fallback" never shared a baseline.</p>
+ * <p>Everything in the player UI (window, lyric view, compact card) and the rest of the ClickGUI
+ * uses this one face for every language, so a single string is always a single run.</p>
  *
  * <p>MiSans covers Latin, Han and kana, which the previous OPPO Sans 4.0 face did not — Japanese
- * lyrics fell through to the symbol face and rendered as blanks. Outside the player the rule is
- * different: Latin stays Google Sans and every other script uses {@link Typeface#fallback()}.</p>
+ * lyrics fell through to the symbol face and rendered as blanks. Only glyphs missing from MiSans
+ * are read from the system fallback ({@link Typeface#fallback()}).</p>
  *
- * <p>Only this face ships inside the jar ({@code /assets/clickgui/font/misans-medium.ttf}); the
- * fallback face used outside the player is still read from disk.</p>
+ * <p>This face ships inside the jar ({@code /assets/clickgui/font/misans-medium.ttf}); the fallback
+ * face is still read from disk.</p>
  */
 public final class MusicTypeface {
 
@@ -48,9 +46,7 @@ public final class MusicTypeface {
     public static final Typeface.Style CARD_TITLE = style(12.0F, 16.0F, true);
     /*
      * The compact card's own ramp. It is one face end to end (MiSans), so the vertical centring that
-     * UI.text derives from the style's ascent/descent matches the glyphs that are actually drawn —
-     * mixing Google Sans Latin with MiSans CJK inside one row is what left the Han runs sitting a
-     * couple of pixels low.
+     * UI.text derives from the style's ascent/descent matches the glyphs that are actually drawn.
      */
     /** Collapsed island row: one MiSans run for every script (12px). */
     public static final Typeface.Style ISLAND_ROW = style(12.0F, 15.0F, true);
@@ -60,7 +56,7 @@ public final class MusicTypeface {
     public static final Typeface.Style CARD_ARTIST = style(12.5F, 16.0F, false);
     /** Compact card clock/times: 10.5px. */
     public static final Typeface.Style CARD_CLOCK = style(10.5F, 13.0F, true);
-    /** Compact card: Latin in Google Sans, every other script in MiSans Medium. */
+    /** Compact card: MiSans Medium with the player's own raster as the secondary face. */
     public static final Typeface.Style CARD_LYRIC = mixed(14.0F, 18.0F, true);
     public static final Typeface.Style CARD_SUB = mixed(11.0F, 14.0F, true);
     public static final Typeface.Style CARD_TIME = mixed(9.0F, 12.0F, true);
@@ -74,18 +70,18 @@ public final class MusicTypeface {
         if (usable) {
             return Typeface.fromFont(strong ? bold : regular, size, lineHeight);
         }
-        return Typeface.custom(size > 16.0F ? 24.0F : 9.0F, size, lineHeight, strong);
+        return Typeface.fixed(size > 16.0F ? 24.0F : 9.0F, size, lineHeight, strong);
     }
 
-    /** Google Sans for Latin, MiSans Medium for the rest (the compact card only). */
+    /** MiSans with the player's 12pt raster as the secondary face (the compact card only). */
     private static Typeface.Style mixed(float size, float lineHeight, boolean strong) {
         load();
         // Same optical pick as the ClickGUI ramp: 24pt raster for 14px+ headings, 9pt below.
         float optical = size >= 13.0F ? 24.0F : 9.0F;
         if (usable) {
-            return Typeface.mixed(optical, size, lineHeight, strong, strong ? bold : regular);
+            return Typeface.fixedMixed(optical, size, lineHeight, strong, strong ? bold : regular);
         }
-        return Typeface.custom(optical, size, lineHeight, strong);
+        return Typeface.fixed(optical, size, lineHeight, strong);
     }
 
     public static synchronized void load() {

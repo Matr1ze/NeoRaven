@@ -27,9 +27,9 @@ public final class MainMenu extends GuiMainMenu {
                 ()->mc.displayGuiScreen(new AccountsScreen(this)),()->mc.displayGuiScreen(new ProxyScreen(this)),
                 ()->mc.displayGuiScreen(new GuiOptions(this,mc.gameSettings)),()->mc.shutdown()};
         String[] labels={"Singleplayer","Multiplayer","Alt Manager","Proxy","Options","Quit Game"};
-        for(int i=0;i<labels.length;i++) buttons.add(new MenuButton(logicalWidth/2-110,top+i*52,220,42,labels[i],null,0,actions[i]));
-        buttons.add(new MenuButton(14,logicalHeight-44,64,30,"Mods",null,2,()->mc.displayGuiScreen(new GuiModList(this))));
-        buttons.add(new MenuButton(86,logicalHeight-44,104,30,"Background",null,2,()->mc.displayGuiScreen(new BackgroundScreen(this))));
+        for(int i=0;i<labels.length;i++) buttons.add(new MenuButton(logicalWidth/2-110,top+i*52,220,42,xyz.daikirai.util.Lang.text(labels[i]),null,0,actions[i]));
+        buttons.add(new MenuButton(14,logicalHeight-44,64,30,xyz.daikirai.util.Lang.text("Mods"),null,2,()->mc.displayGuiScreen(new GuiModList(this))));
+        buttons.add(new MenuButton(86,logicalHeight-44,104,30,xyz.daikirai.util.Lang.text("Background"),null,2,()->mc.displayGuiScreen(new BackgroundScreen(this))));
     }
     @Override public void drawScreen(int mx,int my,float ticks) {
         OnyxClickGuiModule.sync();

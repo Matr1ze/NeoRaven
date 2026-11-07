@@ -36,7 +36,6 @@ public final class CustomGuiModule extends Module {
     private static SliderSetting scoreboardPositionY;
 
     private static ButtonSetting font;
-    private static SliderSetting fontWeight;
     private static SliderSetting fontSize;
     private static SliderSetting fontSpacing;
     private static ButtonSetting fontShadow;
@@ -69,7 +68,6 @@ public final class CustomGuiModule extends Module {
         scoreboardEditPosition = button("Scoreboard: Edit position");
 
         font = button("Font");
-        fontWeight = slider("Font: Weight");
         fontSize = slider("Font: Size");
         fontSpacing = slider("Font: Letter spacing");
         fontShadow = button("Font: Shadow");
@@ -125,6 +123,17 @@ public final class CustomGuiModule extends Module {
             /** The ported bar replaces the vanilla hotbar and experience bar. */
             @SubscribeEvent
             public void onOverlay(RenderGameOverlayEvent.Pre event) {
+                if (ownScreenOpen()
+                        && (event.type == RenderGameOverlayEvent.ElementType.HEALTH
+                        || event.type == RenderGameOverlayEvent.ElementType.FOOD
+                        || event.type == RenderGameOverlayEvent.ElementType.ARMOR
+                        || event.type == RenderGameOverlayEvent.ElementType.AIR
+                        || event.type == RenderGameOverlayEvent.ElementType.HEALTHMOUNT
+                        || event.type == RenderGameOverlayEvent.ElementType.EXPERIENCE
+                        || event.type == RenderGameOverlayEvent.ElementType.HOTBAR)) {
+                    event.setCanceled(true);
+                    return;
+                }
                 if (!replacesHotbar()) {
                     return;
                 }
@@ -135,6 +144,11 @@ public final class CustomGuiModule extends Module {
             }
         };
         MinecraftForge.EVENT_BUS.register(listener);
+    }
+
+    private static boolean ownScreenOpen() {
+        net.minecraft.client.gui.GuiScreen screen = Minecraft.getMinecraft().currentScreen;
+        return screen != null && screen.getClass().getName().startsWith("xyz.daikirai.");
     }
 
     /** Called by the overlay hook: the ported bar replaces the vanilla hotbar. */
@@ -219,7 +233,6 @@ public final class CustomGuiModule extends Module {
 
     @Override
     public void onDisable() {
-        // Keep the last frame while the card fades out; the next enable resets the animation state.
         GuiOpenAnimation.reset();
     }
 
@@ -260,12 +273,20 @@ public final class CustomGuiModule extends Module {
         return instance != null && instance.isEnabled() && font != null && font.isToggled();
     }
 
-    public static boolean mediumFont() {
-        return fontWeight == null || fontWeight.getInput() >= 1.0;
-    }
-
     public static float fontSize() {
         return fontSize == null ? 1.0F : (float) fontSize.getInput();
+    }
+
+    public static float interfaceFontSize() {
+        return replacesFont() && fontSize != null ? (float) fontSize.getInput() : 1.0F;
+    }
+
+    public static float interfaceFontSpacing() {
+        return replacesFont() && fontSpacing != null ? (float) fontSpacing.getInput() : 0.0F;
+    }
+
+    public static boolean interfaceFontShadow() {
+        return replacesFont() && fontShadow != null && fontShadow.isToggled();
     }
 
     public static float fontSpacing() {

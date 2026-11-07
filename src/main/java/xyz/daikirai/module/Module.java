@@ -179,7 +179,7 @@ public class Module {
     }
 
     public String getDisplayName() {
-        return this.displayName(this.name);
+        return this.displayName(this.localizedName());
     }
 
     public String displayName(String s) {
@@ -188,6 +188,12 @@ public class Module {
             s = s + HudModule.INFO_SEPARATOR + info;
         }
         return HudModule.lowercase.isToggled() ? s.toLowerCase() : s;
+    }
+
+    /** Localised module name for display only; {@link #name} stays the stable lookup/save key. */
+    public String localizedName() {
+        if (isScript() || isProfile()) return name;
+        return xyz.daikirai.util.Lang.module(name);
     }
 
     public boolean isCloset() {

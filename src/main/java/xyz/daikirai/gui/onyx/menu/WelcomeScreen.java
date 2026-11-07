@@ -222,12 +222,12 @@ public final class WelcomeScreen extends GuiScreen {
 
     private void drawText(float appear) {
         float slide = (1.0F - appear) * 14.0F;
-        ui.text(HEADLINE, "Welcome to your", TEXT_LEFT, HEADLINE_Y + slide, ink, UI.ALIGN_LEFT);
+        ui.text(HEADLINE, xyz.daikirai.util.Lang.text("Welcome to your"), TEXT_LEFT, HEADLINE_Y + slide, ink, UI.ALIGN_LEFT);
         ui.text(HEADLINE, "NeoRaven", TEXT_LEFT, HEADLINE_Y + HEADLINE_LINE + slide, ink,
                 UI.ALIGN_LEFT);
 
         drawRow(0, ROW_LANGUAGE + slide, "\ue894", languageLabel(), false);
-        drawRow(1, ROW_ACCESSIBILITY + slide, "\ue853", "Accessibility", true);
+        drawRow(1, ROW_ACCESSIBILITY + slide, "\ue853", xyz.daikirai.util.Lang.text("Accessibility"), true);
         drawButton(slide);
     }
 
@@ -248,14 +248,14 @@ public final class WelcomeScreen extends GuiScreen {
     private String languageLabel() {
         try {
             String name = mc.getLanguageManager().getCurrentLanguage().toString();
-            return name == null || name.isEmpty() ? "English (United States)" : name;
+            return name == null || name.isEmpty() ? xyz.daikirai.util.Lang.text("English (United States)") : name;
         } catch (Throwable ignored) {
-            return "English (United States)";
+            return xyz.daikirai.util.Lang.text("English (United States)");
         }
     }
 
     private void drawButton(float slide) {
-        String label = "Get started";
+        String label = xyz.daikirai.util.Lang.text("Get started");
         float textWidth = BUTTON_LABEL.width(label);
         float buttonWidth = Math.max(86.0F, textWidth + 32.0F);
         float buttonHeight = 28.0F;
@@ -284,7 +284,7 @@ public final class WelcomeScreen extends GuiScreen {
     }
 
     private boolean buttonHit() {
-        String label = "Get started";
+        String label = xyz.daikirai.util.Lang.text("Get started");
         float buttonWidth = Math.max(86.0F, BUTTON_LABEL.width(label) + 32.0F);
         return mouseOver(BUTTON_RIGHT - buttonWidth, BUTTON_Y, buttonWidth, 28.0F);
     }

@@ -32,7 +32,7 @@ public final class Icons {
     /** Title-cased category label, as the Onyx rail showed it. */
     public static String label(Category category) {
         String name = category.name();
-        return name.substring(0, 1).toUpperCase() + name.substring(1);
+        return xyz.daikirai.util.Lang.category(name.substring(0, 1).toUpperCase() + name.substring(1));
     }
 
     /** Category glyph; Onyx used the same five icons, the rest map to the closest match. */

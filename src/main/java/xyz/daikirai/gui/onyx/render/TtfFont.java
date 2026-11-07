@@ -1,6 +1,7 @@
 package xyz.daikirai.gui.onyx.render;
 
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.texture.TextureUtil;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -22,12 +23,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * TrueType font renderer with a mip-mapped alpha atlas, ported from Onyx's {@code render.font.Ayg}.
+ * TrueType font renderer with a mip-mapped RGBA atlas, ported from Onyx's {@code render.font.Ayg}.
  *
  * <p>Glyphs are rasterised at up to 192px through java.awt, packed into an atlas with the same
- * 8px margin the original used and simply downscaled by a matrix for smaller sizes. Keeping the
- * rasteriser, margin and scale identical is what makes the Material type metrics line up with
- * the reference client.</p>
+ * 8px margin the original used and simply downscaled by a matrix for smaller sizes. The atlas
+ * stores white RGB with the glyph coverage in alpha, matching EdMoonlight's rasteriser: an
+ * alpha-only or intensity texture exposes black RGB on drivers that do not fold intensity into
+ * the colour channels, which turns every glyph into a solid block.</p>
  */
 public final class TtfFont {
 
@@ -285,10 +287,19 @@ public final class TtfFont {
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL12_MAX_LEVEL, MIP_LEVELS - 1);
         GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
+        ByteBuffer clear = BufferUtils.createByteBuffer(atlasSize * atlasSize * 4);
+        for (int i = 0; i < atlasSize * atlasSize; i++) {
+            clear.put((byte) 0xFF);
+            clear.put((byte) 0xFF);
+            clear.put((byte) 0xFF);
+            clear.put((byte) 0x00);
+        }
         for (int level = 0; level < MIP_LEVELS; level++) {
             int dimension = atlasSize >> level;
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, level, GL11.GL_ALPHA, dimension, dimension, 0,
-                    GL11.GL_ALPHA, GL11.GL_UNSIGNED_BYTE, BufferUtils.createByteBuffer(dimension * dimension));
+            clear.clear();
+            clear.limit(dimension * dimension * 4);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, level, GL11.GL_RGBA, dimension, dimension, 0,
+                    GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, clear);
         }
         GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
     }
@@ -322,11 +333,17 @@ public final class TtfFont {
         GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
     }
 
-    private void uploadLevel(int level, int x, int y, int width, int height, byte[] data) {
-        ByteBuffer buffer = BufferUtils.createByteBuffer(width * height);
-        buffer.put(data, 0, width * height).flip();
+    private void uploadLevel(int level, int x, int y, int width, int height, byte[] coverage) {
+        ByteBuffer buffer = BufferUtils.createByteBuffer(width * height * 4);
+        for (int i = 0; i < width * height; i++) {
+            buffer.put((byte) 0xFF);
+            buffer.put((byte) 0xFF);
+            buffer.put((byte) 0xFF);
+            buffer.put(coverage[i]);
+        }
+        buffer.flip();
         GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, level, x, y, width, height,
-                GL11.GL_ALPHA, GL11.GL_UNSIGNED_BYTE, buffer);
+                GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
     }
 
     private static byte[] downsample(byte[] source, int width, int height, int targetWidth, int targetHeight) {
@@ -361,9 +378,11 @@ public final class TtfFont {
             }
             // Toggle through GlStateManager so a cap left behind by raw glEnable/glDisable calls
             // cannot leave the glyphs untextured (which draws solid blocks instead of letters).
+            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
             GlStateManager.disableTexture2D();
             GlStateManager.enableTexture2D();
             GlStateManager.bindTexture(texture);
+            GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
             GL11.glColor4f((color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F,
                     (color & 0xFF) / 255.0F, (color >>> 24) / 255.0F);
             GL11.glBegin(GL11.GL_QUADS);
@@ -400,9 +419,11 @@ public final class TtfFont {
         if (glyph.isEmpty() || texture == -1) {
             return;
         }
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         GlStateManager.disableTexture2D();
         GlStateManager.enableTexture2D();
         GlStateManager.bindTexture(texture);
+        GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
         GlStateManager.color((color >> 16 & 255) / 255.0F, (color >> 8 & 255) / 255.0F,
                 (color & 255) / 255.0F, (color >>> 24) / 255.0F);
         float x0 = x + glyph.bearingX * factor;

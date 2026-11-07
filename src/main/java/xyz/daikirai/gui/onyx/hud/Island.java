@@ -127,7 +127,7 @@ public final class Island {
     private int flashColor = 0xFFFFFFFF;
 
     private boolean bedActive;
-    private String bedLabel = "Bed";
+    private String bedLabel = xyz.daikirai.util.Lang.text("Bed");
     private float bedPercent;
 
     private boolean gappleActive;
@@ -136,7 +136,7 @@ public final class Island {
 
     private boolean blockinActive;
     private float blockinPercent;
-    private String blockinLabel = "Blockin";
+    private String blockinLabel = xyz.daikirai.util.Lang.text("Blockin");
 
     private boolean musicActive;
     private boolean musicInternal;
@@ -468,8 +468,8 @@ public final class Island {
             if (!module.announceToggles()) {
                 continue;
             }
-            notifyText = Text.strip(candidate.getName());
-            notifyBadge = enabled ? "ON" : "OFF";
+            notifyText = Text.strip(candidate.localizedName());
+            notifyBadge = enabled ? xyz.daikirai.util.Lang.text("ON") : xyz.daikirai.util.Lang.text("OFF");
             notifyPositive = enabled;
             hold = Math.max(0.1F, module.holdSeconds()) * 1000.0F;
             flashColor = enabled ? Theme.scheme().primary : Theme.scheme().error;
@@ -500,9 +500,9 @@ public final class Island {
             BlockPos target = BedAuraModule.target;
             if (bedAura != null && bedAura.isEnabled() && target != null && mc.theWorld != null) {
                 Block block = mc.theWorld.getBlockState(target).getBlock();
-                String label = block == null ? "Block" : block.getLocalizedName();
+                String label = block == null ? xyz.daikirai.util.Lang.text("Block") : block.getLocalizedName();
                 if (label == null || label.isEmpty()) {
-                    label = "Block";
+                    label = xyz.daikirai.util.Lang.text("Block");
                 }
                 bedLabel = label;
                 bedPercent = Material.clamp(BedAuraModule.progress, 0.0F, 1.0F);
@@ -631,7 +631,7 @@ public final class Island {
         if (!artist.isEmpty() && musicStyle().supports(artist)) {
             return artist;
         }
-        return "Now playing";
+        return xyz.daikirai.util.Lang.text("Now playing");
     }
 
     private void chooseContent() {
@@ -654,11 +654,11 @@ public final class Island {
             nextText = musicTitle;
         } else if (velocityActive) {
             nextKind = VELOCITY;
-            nextText = "Velocity";
+            nextText = xyz.daikirai.util.Lang.module("Velocity");
             nextBadge = velocityTickLabel();
         } else if (gappleActive) {
             nextKind = GAUGE;
-            nextText = "Gapple";
+            nextText = xyz.daikirai.util.Lang.text("Gapple");
             nextBadge = Math.min(gappleCount, AutoGappleModule.targetPackets())
                     + "/" + AutoGappleModule.targetPackets();
         } else if (bedActive) {
@@ -671,7 +671,7 @@ public final class Island {
             nextBadge = Math.round(blockinPercent * 100.0F) + "%";
         } else if (gaugeActive) {
             nextKind = GAUGE;
-            nextText = "Blocks";
+            nextText = xyz.daikirai.util.Lang.text("Blocks");
             nextBadge = String.valueOf(gaugeCount);
             nextPositive = !gaugeAlert;
         } else if (musicActive) {

@@ -228,7 +228,7 @@ public final class Keybinds {
                 scheme.onPrimaryContainer);
 
         float titleX = PAD + HEADER_ICON + HEADER_TITLE_GAP;
-        ui.text(Typeface.HEADLINE, "Keybinds", titleX, top + HEADER / 2.0F, scheme.onSurface,
+        ui.text(Typeface.HEADLINE, xyz.daikirai.util.Lang.module("Keybinds"), titleX, top + HEADER / 2.0F, scheme.onSurface,
                 UI.ALIGN_LEFT);
 
         if (module.showCount()) {
@@ -338,13 +338,13 @@ public final class Keybinds {
 
         if (t < 0.999F) {
             ui.alphaPush(1.0F - t);
-            ui.text(Typeface.MICRO, "OFF", chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
+            ui.text(Typeface.MICRO, xyz.daikirai.util.Lang.text("OFF"), chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
                     textColor, UI.ALIGN_CENTER);
             ui.alphaPop();
         }
         if (t > 0.001F) {
             ui.alphaPush(t);
-            ui.text(Typeface.MICRO, "ON", chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
+            ui.text(Typeface.MICRO, xyz.daikirai.util.Lang.text("ON"), chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
                     textColor, UI.ALIGN_CENTER);
             ui.alphaPop();
         }
@@ -369,7 +369,7 @@ public final class Keybinds {
             }
             wanted.add(candidate);
         }
-        wanted.sort(Comparator.comparing(m -> Text.strip(m.getName()).toLowerCase()));
+        wanted.sort(Comparator.comparing(m -> Text.strip(m.localizedName()).toLowerCase()));
 
         for (Entry entry : cache.values()) {
             entry.wanted = false;
@@ -452,7 +452,7 @@ public final class Keybinds {
     private float cardWidth(KeybindsModule module, float keycapWidth, float nameWidth) {
         float rows = PAD * 2.0F + ROW_PAD * 2.0F + keycapWidth + KEYCAP_NAME_GAP + nameWidth
                 + 6.0F + CHIP_WIDTH + CHIP_MORPH;
-        float title = Typeface.HEADLINE.width("Keybinds");
+        float title = Typeface.HEADLINE.width(xyz.daikirai.util.Lang.module("Keybinds"));
         float header = PAD * 2.0F + HEADER_ICON + HEADER_TITLE_GAP + title;
         if (module.showCount()) {
             header += 10.0F + Typeface.MICRO.width(entries.size() + "/" + entries.size()) + 14.0F + 8.0F;
@@ -566,7 +566,7 @@ public final class Keybinds {
     /** One module row and every animation attached to it. */
     private static final class Entry {
         private final Module module;
-        private final String name;
+        private String name;
         private final Anim state = new Anim(0.0F);
         private final Anim show = new Anim(0.0F);
         private final Anim flash = new Anim(0.0F);
@@ -579,7 +579,7 @@ public final class Keybinds {
 
         private Entry(Module module) {
             this.module = module;
-            this.name = Text.strip(module.getName());
+            this.name = Text.strip(module.localizedName());
             this.lastEnabled = module.isEnabled();
             this.label = label(module.getKeycode());
         }
@@ -588,6 +588,10 @@ public final class Keybinds {
             String next = label(module.getKeycode());
             if (!next.equals(this.label)) {
                 this.label = next;
+            }
+            String localized = Text.strip(module.localizedName());
+            if (!localized.equals(this.name)) {
+                this.name = localized;
             }
         }
 

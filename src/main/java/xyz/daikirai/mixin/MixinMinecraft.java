@@ -29,8 +29,16 @@ public class MixinMinecraft {
         GuiOpenAnimation.opened(currentScreen);
     }
 
+    private static boolean onyx$customScreen(GuiScreen screen) {
+        return screen != null && screen.getClass().getName().startsWith("xyz.daikirai.");
+    }
+
     @Redirect(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;handleInput()V"))
     private void onyx$screenInput(GuiScreen screen) throws IOException {
+        if (!onyx$customScreen(screen)) {
+            screen.handleInput();
+            return;
+        }
         GuiFont.begin();
         try {
             screen.handleInput();
@@ -41,6 +49,10 @@ public class MixinMinecraft {
 
     @Redirect(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;handleMouseInput()V"))
     private void onyx$mouseInput(GuiScreen screen) throws IOException {
+        if (!onyx$customScreen(screen)) {
+            screen.handleMouseInput();
+            return;
+        }
         GuiFont.begin();
         try {
             screen.handleMouseInput();
@@ -51,6 +63,10 @@ public class MixinMinecraft {
 
     @Redirect(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;updateScreen()V"))
     private void onyx$screenTick(GuiScreen screen) {
+        if (!onyx$customScreen(screen)) {
+            screen.updateScreen();
+            return;
+        }
         GuiFont.begin();
         try {
             screen.updateScreen();
@@ -62,6 +78,10 @@ public class MixinMinecraft {
     @Redirect(method = {"displayGuiScreen", "resize"}, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/gui/GuiScreen;setWorldAndResolution(Lnet/minecraft/client/Minecraft;II)V"))
     private void onyx$screenInit(GuiScreen screen, Minecraft mc, int width, int height) {
+        if (!onyx$customScreen(screen)) {
+            screen.setWorldAndResolution(mc, width, height);
+            return;
+        }
         GuiFont.begin();
         try {
             screen.setWorldAndResolution(mc, width, height);

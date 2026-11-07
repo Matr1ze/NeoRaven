@@ -192,7 +192,7 @@ public final class ArrayListHud {
                 row = new Row(candidate);
                 rows.put(candidate, row);
             }
-            String base = candidate.getName();
+            String base = candidate.localizedName();
             if (base == null) {
                 continue;
             }
@@ -231,7 +231,7 @@ public final class ArrayListHud {
         if (mode == 1) {
             order.sort((a, b) -> Float.compare(rows.get(a).textWidth, rows.get(b).textWidth));
         } else if (mode == 2) {
-            order.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+            order.sort((a, b) -> a.localizedName().compareToIgnoreCase(b.localizedName()));
         } else {
             order.sort((a, b) -> Float.compare(rows.get(b).textWidth, rows.get(a).textWidth));
         }

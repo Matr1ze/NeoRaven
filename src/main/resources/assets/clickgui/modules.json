@@ -8989,6 +8989,21 @@
         "labels": null
       },
       {
+        "t": "mode",
+        "name": "Language",
+        "prefix": "",
+        "suffix": "",
+        "value": 0.0,
+        "min": 0.0,
+        "max": 1.0,
+        "step": 1.0,
+        "options": [
+          "Chinese",
+          "English"
+        ],
+        "labels": null
+      },
+      {
         "t": "toggle",
         "name": "Follow GUI scale",
         "value": true
@@ -9372,21 +9387,6 @@
       },
       {
         "t": "slider",
-        "name": "Font: Weight",
-        "prefix": "",
-        "suffix": "",
-        "value": 1.0,
-        "min": 0.0,
-        "max": 1.0,
-        "step": 1.0,
-        "options": [
-          "Regular",
-          "Medium"
-        ],
-        "labels": null
-      },
-      {
-        "t": "slider",
         "name": "Font: Size",
         "prefix": "",
         "suffix": "x",
@@ -9403,16 +9403,16 @@
         "prefix": "",
         "suffix": " px",
         "value": 0.0,
-        "min": -1.0,
-        "max": 1.0,
-        "step": 0.05,
+        "min": -5.0,
+        "max": 5.0,
+        "step": 0.5,
         "options": null,
         "labels": null
       },
       {
         "t": "toggle",
         "name": "Font: Shadow",
-        "value": true
+        "value": false
       },
       {
         "t": "toggle",

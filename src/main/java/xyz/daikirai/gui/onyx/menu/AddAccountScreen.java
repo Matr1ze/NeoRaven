@@ -14,14 +14,14 @@ public final class AddAccountScreen extends MenuScreen {
     private MicrosoftLogin browser;
     public AddAccountScreen(GuiScreen parent) { super(parent,560,360); }
     @Override void createFields() {
-        username=new MenuField("Username",24,142,512,false,16);
-        access=new MenuField("Minecraft access token",24,142,512,true,16384);
-        refresh=new MenuField("Microsoft OAuth refresh token",24,142,512,true,16384);
+        username=new MenuField(xyz.daikirai.util.Lang.text("Username"),24,142,512,false,16);
+        access=new MenuField(xyz.daikirai.util.Lang.text("Minecraft access token"),24,142,512,true,16384);
+        refresh=new MenuField(xyz.daikirai.util.Lang.text("Microsoft OAuth refresh token"),24,142,512,true,16384);
         username.input.setFocused(true);
     }
     @Override void drawContent(Scheme s) {
-        title("Add account");
-        String[] modes={"Offline","Access","Refresh","Microsoft"};
+        title(xyz.daikirai.util.Lang.text("Add account"));
+        String[] modes={xyz.daikirai.util.Lang.text("Offline"),xyz.daikirai.util.Lang.text("Access"),xyz.daikirai.util.Lang.text("Refresh"),xyz.daikirai.util.Lang.text("Microsoft")};
         ui.rounded(24,65,512,34,17,s.surfaceContainerHighest);
         for(int i=0;i<4;i++) {
             final int index=i;
@@ -32,17 +32,17 @@ public final class AddAccountScreen extends MenuScreen {
         if(mode==0) {
             Widgets.toggle(ui,s,24,204,resolve?1:0,mx>=24&&mx<62&&my>=204&&my<226,false);
             button(24,199,300,32,"",null,3,()->resolve=!resolve);
-            ui.text(Typeface.BODY,"Resolve premium UUID",74,215,s.onSurface,UI.ALIGN_LEFT);
+            ui.text(Typeface.BODY,xyz.daikirai.util.Lang.text("Resolve premium UUID"),74,215,s.onSurface,UI.ALIGN_LEFT);
         }
         if(mode==3) {
             ui.icon("\ue7fd",280,154,32,s.primary);
-            button(130,202,300,40,browser==null?"Sign in with Microsoft":"Cancel sign-in",browser==null?"\ue89e":"\ue5cd",1,()->{
+            button(130,202,300,40,browser==null?xyz.daikirai.util.Lang.text("Sign in with Microsoft"):xyz.daikirai.util.Lang.text("Cancel sign-in"),browser==null?"\ue89e":"\ue5cd",1,()->{
                 if(browser!=null) cancelBrowser(); else startBrowser();
             });
-            if(browser!=null) button(226,256,108,30,"Copy link","\ue14d",2,()->{
-                setClipboardString(browser.url); message("Sign-in link copied",false);
+            if(browser!=null) button(226,256,108,30,xyz.daikirai.util.Lang.text("Copy link"),"\ue14d",2,()->{
+                setClipboardString(browser.url); message(xyz.daikirai.util.Lang.text("Sign-in link copied"),false);
             });
-        } else button(430,270,106,38,"Add","\ue145",1,this::submit);
+        } else button(430,270,106,38,xyz.daikirai.util.Lang.text("Add"),"\ue145",1,this::submit);
     }
     private void changeMode(int index) {
         if(mode==index) return;
@@ -52,19 +52,19 @@ public final class AddAccountScreen extends MenuScreen {
     @Override void submit() {
         if(mode==3) { if(browser==null) startBrowser(); return; }
         final int type=mode; final String value=type==0?username.text():type==1?access.text():refresh.text(); final boolean premium=resolve;
-        message("Adding account...",false);
+        message(xyz.daikirai.util.Lang.text("Adding account..."),false);
         task(()-> type==0?AltAccount.offline(value,premium):type==1?AltAccount.access(value):MicrosoftLogin.fromRefresh(value),this::added);
     }
     private void added(AltAccount account) {
         try {
             AccountManager.instance().add(account);
-            ((AccountsScreen)parent).message("Added "+account.name,false); mc.displayGuiScreen(parent);
+            ((AccountsScreen)parent).message(xyz.daikirai.util.Lang.text("Added ")+account.name,false); mc.displayGuiScreen(parent);
         } catch(IOException e) { message(e.getMessage(),true); }
     }
     private void startBrowser() {
         try {
             final MicrosoftLogin login=new MicrosoftLogin(); browser=login;
-            message("Waiting for Microsoft sign-in...",false);
+            message(xyz.daikirai.util.Lang.text("Waiting for Microsoft sign-in..."),false);
             login.result.whenComplete((account,e)->mc.addScheduledTask(()->{
                 if(browser!=login) return;
                 browser=null;
@@ -72,13 +72,13 @@ public final class AddAccountScreen extends MenuScreen {
             }));
             AccountManager.WORKER.execute(()-> {
                 try { java.awt.Desktop.getDesktop().browse(java.net.URI.create(login.url)); }
-                catch(Exception e) { mc.addScheduledTask(()->{ if(browser==login) message("Browser unavailable. Use Copy link.",true); }); }
+                catch(Exception e) { mc.addScheduledTask(()->{ if(browser==login) message(xyz.daikirai.util.Lang.text("Browser unavailable. Use Copy link."),true); }); }
             });
-        } catch(IOException e) { message("Could not start sign-in on localhost:1337",true); }
+        } catch(IOException e) { message(xyz.daikirai.util.Lang.text("Could not start sign-in on localhost:1337"),true); }
     }
     private void cancelBrowser() {
         MicrosoftLogin old=browser; browser=null; if(old!=null) old.close();
-        message("Sign-in cancelled",false);
+        message(xyz.daikirai.util.Lang.text("Sign-in cancelled"),false);
     }
     @Override public void onGuiClosed() { cancelBrowser(); super.onGuiClosed(); }
 }

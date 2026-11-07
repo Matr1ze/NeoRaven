@@ -27,9 +27,9 @@ import java.util.Calendar;
  */
 public final class MenuClock {
 
-    /** The Google Sans Flex face the rest of the UI uses; loaded at 48px so the atlas rasters 192px. */
+    /** The shared MiSans face used across the client; loaded at 48px so the atlas rasters 192px. */
     private static final String DISPLAY_FACE =
-            "/assets/onyx/font/ttf/googlesansflex_24pt-regular.ttf";
+            "/assets/clickgui/font/misans-medium.ttf";
 
     /** Design-space centre line of the 640x360 title screen. */
     private static final float CENTER_X = 320.0F;
@@ -58,7 +58,7 @@ public final class MenuClock {
         }
         if (display == null) {
             display = digits == null ? Typeface.DISPLAY
-                    : Typeface.fromFont(digits, DIGITAL_SIZE, DIGITAL_SIZE * 1.12F);
+                    : Typeface.fixedFromFont(digits, DIGITAL_SIZE, DIGITAL_SIZE * 1.12F);
         }
         return display;
     }
@@ -174,6 +174,6 @@ public final class MenuClock {
 
     /** Label for the clock-style button's accessibility text (English like the rest of the menu). */
     public static String styleName() {
-        return style() == MenuTheme.CLOCK_ANALOG ? "Analog clock" : "Digital clock";
+        return xyz.daikirai.util.Lang.text(style() == MenuTheme.CLOCK_ANALOG ? "Analog clock" : "Digital clock");
     }
 }

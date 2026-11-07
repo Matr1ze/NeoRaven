@@ -6,30 +6,11 @@ import javazoom.jl.decoder.Header;
 import javazoom.jl.decoder.Obuffer;
 import javazoom.jl.decoder.SampleBuffer;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine;
-import javax.sound.sampled.SourceDataLine;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 
-/**
- * MP3 playback for the music player.
- *
- * <p>Melodify ran its own LWJGL3 OpenAL device on a private thread. Minecraft 1.8.9 already owns
- * an OpenAL context through LWJGL2, and making a second one current from another thread would
- * fight with the game's sound engine (either the game's sounds or the music would go silent,
- * depending on which thread called {@code alcMakeContextCurrent} last). So the port keeps the
- * same architecture — one private audio thread, streamed chunks, JLayer decoding — but writes the
- * PCM to a {@link SourceDataLine} instead: a separate Java Sound output that coexists with the
- * game's own mixer.</p>
- *
- * <p>The engine only ever plays a local file; downloading (and resolving the signed NetEase URL)
- * belongs to {@link MusicManager}, so a playlist change never blocks the audio thread.</p>
- */
 public final class AudioEngine {
 
     /** Notified when a track reaches its end without being stopped or replaced. */
@@ -37,10 +18,14 @@ public final class AudioEngine {
         void onTrackEnded();
     }
 
-    private static final int LINE_BUFFER_FRAMES = 8192;
+    public static final int OUTPUT_AUTO = 0;
+    public static final int OUTPUT_JAVA_SOUND = 1;
+    public static final int OUTPUT_GAME = 2;
 
     private final Object lock = new Object();
 
+    private volatile int outputMode = OUTPUT_AUTO;
+    private volatile String activeOutput = "";
     private volatile boolean disposed;
     private volatile File file;
     private volatile boolean wantPlay;
@@ -56,7 +41,7 @@ public final class AudioEngine {
     private volatile Listener listener;
 
     private Thread thread;
-    private volatile SourceDataLine line;
+    private volatile AudioOutput line;
     private volatile long trackSerial;
 
     public void setListener(Listener value) {
@@ -65,10 +50,39 @@ public final class AudioEngine {
 
     public void setVolume(float value) {
         this.volume = clamp(value, 0.0F, 1.0F);
+        AudioOutput current = this.line;
+        if (current != null && current.hasGain()) {
+            current.setGain(this.volume);
+        }
     }
 
     public float volume() {
         return volume;
+    }
+
+    public void setOutputMode(int value) {
+        int mode = value == OUTPUT_JAVA_SOUND || value == OUTPUT_GAME ? value : OUTPUT_AUTO;
+        if (mode == this.outputMode) {
+            return;
+        }
+        synchronized (lock) {
+            this.outputMode = mode;
+            if (file != null) {
+                if (wantPlay) {
+                    this.seekRequestMs = Math.max(0L, positionMs);
+                }
+                this.trackSerial++;
+                lock.notifyAll();
+            }
+        }
+    }
+
+    public int outputMode() {
+        return outputMode;
+    }
+
+    public String activeOutput() {
+        return activeOutput;
     }
 
     public void setDurationMs(long value) {
@@ -208,11 +222,13 @@ public final class AudioEngine {
             try {
                 runTrack(target, serial);
             } catch (Throwable t) {
-                this.error = t.getClass().getSimpleName()
-                        + (t.getMessage() == null ? "" : ": " + t.getMessage());
-                this.buffering = false;
-                this.wantPlay = false;
-                closeLine();
+                if (serial == trackSerial) {
+                    this.error = t.getClass().getSimpleName()
+                            + (t.getMessage() == null ? "" : ": " + t.getMessage());
+                    this.buffering = false;
+                    this.wantPlay = false;
+                    closeLine();
+                }
                 sleep(160L);
             }
         }
@@ -226,7 +242,7 @@ public final class AudioEngine {
         this.peak = 0.0F;
 
         Bitstream stream = null;
-        SourceDataLine output = null;
+        AudioOutput output = null;
         try {
             stream = new Bitstream(new BufferedInputStream(new FileInputStream(target), 256 * 1024));
             Header header = stream.readFrame();
@@ -255,27 +271,63 @@ public final class AudioEngine {
                 }
             }
 
-            AudioFormat format = new AudioFormat(frequency, 16, channels, true, false);
-            DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
-            output = (SourceDataLine) AudioSystem.getLine(info);
-            output.open(format, LINE_BUFFER_FRAMES * channels * 2);
-            output.start();
+            output = openOutput(frequency, channels);
+            if (output == null) {
+                throw new IOException("no audio output available");
+            }
             this.line = output;
+            if (output.hasGain()) {
+                output.setGain(volume);
+            }
             this.buffering = false;
             this.positionMs = baseMs;
 
             long playedFrames = 0L;
             byte[] pcm = new byte[1152 * 2 * 2];
-            float gainStep = 256.0F / Math.max(1, frequency);
 
             while (!disposed) {
                 if (serial != trackSerial) {
                     return;
                 }
+                if (output.isLost()) {
+                    long resumeAt = Math.max(0L, this.positionMs);
+                    AudioOutput reopened = reopenOutput(output, serial, frequency, channels);
+                    if (reopened == null) {
+                        this.buffering = false;
+                        return;
+                    }
+                    if (reopened.isLost()) {
+                        close(reopened);
+                        this.buffering = false;
+                        return;
+                    }
+                    output = reopened;
+                    this.line = output;
+                    if (output.hasGain()) {
+                        output.setGain(volume);
+                    }
+                    this.seekRequestMs = resumeAt;
+                    this.positionMs = resumeAt;
+                    this.buffering = true;
+                    continue;
+                }
                 long pendingSeek = this.seekRequestMs;
                 if (pendingSeek >= 0L) {
                     this.seekRequestMs = -1L;
-                    output.flush();
+                    try {
+                        output.flush();
+                    } catch (Throwable lost) {
+                        AudioOutput reopened = reopenOutput(output, serial, frequency, channels);
+                        if (reopened == null) {
+                            this.buffering = false;
+                            return;
+                        }
+                        output = reopened;
+                        this.line = output;
+                        if (output.hasGain()) {
+                            output.setGain(volume);
+                        }
+                    }
                     // Re-open the file: skipTo() counts frames from wherever the stream currently
                     // is, so skipping on the live stream made every mid-song seek land at a
                     // position that drifted further the longer the song had played.
@@ -284,12 +336,14 @@ public final class AudioEngine {
                     Header freshHeader = fresh.readFrame();
                     if (freshHeader == null) {
                         fresh.close();
+                        this.buffering = false;
                         return;
                     }
                     decoder = new Decoder();
                     buffer = decode(decoder, freshHeader, fresh);
                     if (buffer == null) {
                         fresh.close();
+                        this.buffering = false;
                         return;
                     }
                     int freshChannels = Math.max(1, Math.min(2, decoder.getOutputChannels()));
@@ -297,6 +351,7 @@ public final class AudioEngine {
                         // A different channel layout cannot be written to the open line; let the
                         // track restart with its own format instead of feeding mismatched PCM.
                         fresh.close();
+                        this.buffering = false;
                         return;
                     }
                     closeQuietly(stream);
@@ -308,12 +363,15 @@ public final class AudioEngine {
                     this.positionMs = baseMs;
                     this.gain = 0.0F;
                     if (targetHeader == null) {
+                        this.buffering = false;
                         return;
                     }
                     buffer = decode(decoder, targetHeader, stream);
                     if (buffer == null) {
+                        this.buffering = false;
                         return;
                     }
+                    this.buffering = false;
                     continue;
                 }
                 if (!wantPlay) {
@@ -323,19 +381,38 @@ public final class AudioEngine {
                     continue;
                 }
 
-                float targetGain = volume;
-                this.gain = this.gain < targetGain
-                        ? Math.min(targetGain, this.gain + gainStep)
-                        : Math.max(targetGain, this.gain - gainStep);
-
                 // JLayer's getBufferLength() counts *interleaved* samples: bufferp advances by
                 // `channels` for every frame. Treating it as a frame count made the position run
                 // at 2x on stereo, which is what put the progress bar far ahead of the audio.
                 int interleaved = buffer.getBufferLength();
                 int frames = Math.max(0, interleaved / Math.max(1, channels));
-                int bytes = toPcm16(buffer.getBuffer(), interleaved, channels, this.gain, pcm);
+                float fadeStep = frames / Math.max(1.0F, frequency * 0.08F);
+                this.gain = Math.min(1.0F, this.gain + fadeStep);
+                boolean hardwareGain = output.hasGain();
+                if (hardwareGain) {
+                    output.setGain(volume);
+                }
+                float appliedGain = hardwareGain ? this.gain : this.gain * volume;
+                int bytes = toPcm16(buffer.getBuffer(), interleaved, channels, appliedGain, pcm);
                 if (bytes > 0) {
-                    output.write(pcm, 0, bytes);
+                    try {
+                        output.write(pcm, 0, bytes);
+                    } catch (Throwable failure) {
+                        long resumeAt = Math.max(0L, this.positionMs);
+                        AudioOutput reopened = reopenOutput(output, serial, frequency, channels);
+                        if (reopened == null) {
+                            throw failure;
+                        }
+                        output = reopened;
+                        this.line = output;
+                        if (output.hasGain()) {
+                            output.setGain(volume);
+                        }
+                        this.seekRequestMs = resumeAt;
+                        this.positionMs = resumeAt;
+                        this.buffering = true;
+                        continue;
+                    }
                 }
                 playedFrames += frames;
                 this.positionMs = baseMs + playedFrames * 1000L / frequency;
@@ -350,7 +427,19 @@ public final class AudioEngine {
                     break;
                 }
             }
-            output.drain();
+            try {
+                output.drain();
+            } catch (Throwable lost) {
+                AudioOutput reopened = reopenOutput(output, serial, frequency, channels);
+                if (reopened != null) {
+                    output = reopened;
+                    this.line = output;
+                    try {
+                        output.drain();
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
         } finally {
             closeQuietly(stream);
             if (this.line == output) {
@@ -370,6 +459,74 @@ public final class AudioEngine {
                 } catch (Throwable ignored) {
                 }
             }
+        }
+    }
+
+    private AudioOutput openOutput(int frequency, int channels) {
+        boolean gameFirst = outputMode == OUTPUT_GAME
+                || (outputMode == OUTPUT_AUTO && AudioRuntime.preferGameAudio());
+        AudioOutput preferred = gameFirst
+                ? openGame(frequency, channels)
+                : openJavaSound(frequency, channels);
+        if (preferred != null) {
+            this.activeOutput = gameFirst ? "game OpenAL" : "Java Sound";
+            return preferred;
+        }
+        AudioOutput fallback = gameFirst
+                ? openJavaSound(frequency, channels)
+                : openGame(frequency, channels);
+        if (fallback != null) {
+            this.activeOutput = gameFirst ? "Java Sound" : "game OpenAL";
+            return fallback;
+        }
+        this.activeOutput = "";
+        return null;
+    }
+
+    private AudioOutput reopenOutput(AudioOutput broken, long serial, int frequency, int channels) {
+        if (!broken.isLost()) {
+            return null;
+        }
+        close(broken);
+        if (this.line == broken) {
+            this.line = null;
+        }
+        if (outputMode != OUTPUT_JAVA_SOUND && broken instanceof OpenAlAudioOutput) {
+            long deadline = System.currentTimeMillis() + 3000L;
+            while (!disposed && serial == trackSerial && System.currentTimeMillis() < deadline) {
+                AudioOutput reopened = openGame(frequency, channels);
+                if (reopened != null) {
+                    this.activeOutput = "game OpenAL";
+                    this.line = reopened;
+                    return reopened;
+                }
+                sleep(100L);
+            }
+        }
+        if (disposed || serial != trackSerial) {
+            return null;
+        }
+        AudioOutput reopened = openOutput(frequency, channels);
+        if (reopened != null) {
+            this.line = reopened;
+            return reopened;
+        }
+        return null;
+    }
+
+    private AudioOutput openGame(int frequency, int channels) {
+        try {
+            return OpenAlAudioOutput.open(frequency, channels);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private AudioOutput openJavaSound(int frequency, int channels) {
+        try {
+            return JavaSoundAudioOutput.open(frequency, channels);
+        } catch (Throwable ignored) {
+            return null;
         }
     }
 
@@ -449,20 +606,14 @@ public final class AudioEngine {
     }
 
     private void closeLine() {
-        SourceDataLine current = this.line;
+        AudioOutput current = this.line;
         this.line = null;
         close(current);
     }
 
-    private static void close(SourceDataLine output) {
-        if (output == null) {
-            return;
-        }
-        try {
-            output.stop();
-            output.flush();
+    private static void close(AudioOutput output) {
+        if (output != null) {
             output.close();
-        } catch (Throwable ignored) {
         }
     }
 

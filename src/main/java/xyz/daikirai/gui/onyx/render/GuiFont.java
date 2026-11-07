@@ -10,7 +10,6 @@ import xyz.daikirai.module.render.CustomGuiModule;
 
 /** Onyx's vanilla GUI font: a 7px cap height inside Minecraft's unchanged 9px line box. */
 public final class GuiFont {
-    private static final String ROOT = "/assets/onyx/font/ttf/googlesansflex_24pt-";
     private static final String COLORS = "0123456789abcdef";
     private static final String OBFUSCATED = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int BOLD = 1;
@@ -18,7 +17,6 @@ public final class GuiFont {
     private static final int RANDOM = 4;
     private static final int STRIKE = 8;
     private static final int UNDERLINE = 16;
-    private static final TtfFont[] FONTS = new TtfFont[4];
     private static final ThreadLocal<Integer> SCOPE = new ThreadLocal<Integer>() {
         @Override
         protected Integer initialValue() {
@@ -63,17 +61,9 @@ public final class GuiFont {
         System.err.println("[onyx] GUI font fell back to Minecraft's bitmap font: " + error);
     }
 
-    private static TtfFont font(int index) {
-        if (FONTS[index] == null) {
-            String[] weights = {"regular", "medium", "semibold", "bold"};
-            FONTS[index] = TtfFont.load(ROOT + weights[index] + ".ttf", 24.0F);
-        }
-        return FONTS[index];
-    }
-
     private static final class Metrics {
-        final TtfFont normal = font(CustomGuiModule.mediumFont() ? 1 : 0);
-        final TtfFont bold = font(CustomGuiModule.mediumFont() ? 3 : 2);
+        final TtfFont normal = Typeface.text24();
+        final TtfFont bold = Typeface.text24();
         final float scale = 7.0F / Math.max(1.0F, normal.ascent()) * CustomGuiModule.fontSize();
         final float spacing = CustomGuiModule.fontSpacing();
 
@@ -224,10 +214,11 @@ public final class GuiFont {
             Metrics metrics = new Metrics();
             // Match Onyx's upload-before-draw order for both shadow and foreground passes.
             metrics.prepare(text);
-            // The glyph atlas is a GL_ALPHA texture: it only shows the text colour while
-            // GL_MODULATE is the env mode, unit 0 is sampled, texturing and blending are on and
-            // lighting is off. World renderers leave raw glEnable/glDisable calls behind, and any
-            // one of those states being wrong renders every glyph black, so rebuild them here.
+            // The glyph atlas is an RGBA texture with white RGB and coverage in alpha, so
+            // GL_MODULATE tints the glyphs with the caller's colour. Unit 0 must be sampled,
+            // texturing and blending must be on, and lighting must be off. World renderers leave
+            // raw glEnable/glDisable calls behind, and any one of those states being wrong renders
+            // every glyph black, so rebuild them here.
             GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
             GlStateManager.disableLighting();
             GlStateManager.disableAlpha();

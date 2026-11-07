@@ -203,7 +203,7 @@ public final class PotionHud {
         sort(module, rows);
         if (rows.isEmpty() && chatOpen) {
             // Onyx showed a placeholder row so the card could still be grabbed with the chat open.
-            rows.add(new Row(-1, NO_EFFECTS, null, -1, Theme.scheme().primary, false,
+            rows.add(new Row(-1, xyz.daikirai.util.Lang.text(NO_EFFECTS), null, -1, Theme.scheme().primary, false,
                     Integer.MAX_VALUE, 0));
         }
         return rows;
@@ -255,7 +255,7 @@ public final class PotionHud {
     }
 
     private static float contentWidth(PotionHudModule module, List<Row> rows) {
-        float width = 29.0F + Typeface.HEADLINE.width(TITLE);
+        float width = 29.0F + Typeface.HEADLINE.width(xyz.daikirai.util.Lang.text(TITLE));
         for (Row row : rows) {
             float nameWidth = Math.min(Typeface.BODY_MEDIUM.width(row.name), NAME_MAX);
             float rowWidth = 18.0F + nameWidth;
@@ -324,7 +324,7 @@ public final class PotionHud {
 
         ui.scissorPush(0.0F, 0.0F, width, height);
         ui.icon(HEADER_ICON, 12.0F, 15.0F, 12.0F, scheme.primary);
-        ui.text(Typeface.HEADLINE, TITLE, 23.0F, 15.0F, scheme.onSurface, UI.ALIGN_LEFT);
+        ui.text(Typeface.HEADLINE, xyz.daikirai.util.Lang.text(TITLE), 23.0F, 15.0F, scheme.onSurface, UI.ALIGN_LEFT);
         ui.rect(PAD, DIVIDER_Y, Math.max(0.0F, width - PAD * 2.0F), 1.0F,
                 Material.withAlpha(scheme.outlineVariant, 0.6F));
 

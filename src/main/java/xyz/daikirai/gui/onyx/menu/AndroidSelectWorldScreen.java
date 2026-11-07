@@ -35,7 +35,7 @@ public final class AndroidSelectWorldScreen extends AndroidListScreen {
             worlds.addAll(mc.getSaveLoader().getSaveList());
             loadError = null;
         } catch (Exception error) {
-            loadError = error.getMessage() == null ? "Could not read the world list" : error.getMessage();
+            loadError = error.getMessage() == null ? xyz.daikirai.util.Lang.text("Could not read the world list") : error.getMessage();
         }
         selected = -1;
         scrollTarget = 0.0F;
@@ -43,7 +43,7 @@ public final class AndroidSelectWorldScreen extends AndroidListScreen {
 
     @Override
     protected String title() {
-        return "Singleplayer";
+        return xyz.daikirai.util.Lang.text("Singleplayer");
     }
 
     @Override
@@ -51,7 +51,7 @@ public final class AndroidSelectWorldScreen extends AndroidListScreen {
         if (loadError != null) {
             return loadError;
         }
-        return worlds.size() + (worlds.size() == 1 ? " world" : " worlds");
+        return worlds.size() + (worlds.size() == 1 ? " " + xyz.daikirai.util.Lang.text("world") : " " + xyz.daikirai.util.Lang.text("worlds"));
     }
 
     @Override
@@ -61,7 +61,7 @@ public final class AndroidSelectWorldScreen extends AndroidListScreen {
 
     @Override
     protected String emptyText() {
-        return "No worlds yet - create one to start";
+        return xyz.daikirai.util.Lang.text("No worlds yet - create one to start");
     }
 
     @Override
@@ -98,10 +98,10 @@ public final class AndroidSelectWorldScreen extends AndroidListScreen {
             text.append("  \u00b7  ").append(Character.toUpperCase(mode.charAt(0))).append(mode.substring(1));
         }
         if (world.isHardcoreModeEnabled()) {
-            text.append("  \u00b7  Hardcore");
+            text.append("  \u00b7  ").append(xyz.daikirai.util.Lang.text("Hardcore"));
         }
         if (world.getCheatsEnabled()) {
-            text.append("  \u00b7  Cheats");
+            text.append("  \u00b7  ").append(xyz.daikirai.util.Lang.text("Cheats"));
         }
         return ui.truncate(Typeface.CAPTION, text.toString(), cardWidth() - 130.0F);
     }
@@ -124,10 +124,10 @@ public final class AndroidSelectWorldScreen extends AndroidListScreen {
 
     @Override
     protected void buildActions(List<Action> actions) {
-        actions.add(new Action("Create New World", FILLED, () -> mc.displayGuiScreen(new GuiCreateWorld(this))));
-        actions.add(new Action("Re-Create", TEXT, this::recreate, selected >= 0));
-        actions.add(new Action("Delete", DANGER, this::askDelete, selected >= 0));
-        actions.add(new Action("Play", TONAL, () -> play(selected), selected >= 0));
+        actions.add(new Action(xyz.daikirai.util.Lang.text("Create New World"), FILLED, () -> mc.displayGuiScreen(new GuiCreateWorld(this))));
+        actions.add(new Action(xyz.daikirai.util.Lang.text("Re-Create"), TEXT, this::recreate, selected >= 0));
+        actions.add(new Action(xyz.daikirai.util.Lang.text("Delete"), DANGER, this::askDelete, selected >= 0));
+        actions.add(new Action(xyz.daikirai.util.Lang.text("Play"), TONAL, () -> play(selected), selected >= 0));
     }
 
     private void recreate() {
@@ -147,8 +147,8 @@ public final class AndroidSelectWorldScreen extends AndroidListScreen {
             return;
         }
         final SaveFormatComparator world = worlds.get(selected);
-        confirm("Delete world?", "\"" + world.getDisplayName() + "\" and its folder will be deleted permanently.",
-                "Delete", () -> delete(world));
+        confirm(xyz.daikirai.util.Lang.text("Delete world?"), "\"" + world.getDisplayName() + "\" " + xyz.daikirai.util.Lang.text("and its folder will be deleted permanently."),
+                xyz.daikirai.util.Lang.text("Delete"), () -> delete(world));
     }
 
     private void delete(SaveFormatComparator world) {
