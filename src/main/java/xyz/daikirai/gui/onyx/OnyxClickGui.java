@@ -163,9 +163,9 @@ public final class OnyxClickGui extends GuiScreen {
             ui.gradient(0.0F, 0.0F, width, height, scheme.surfaceContainerLow, scheme.surface);
             return;
         }
-        if (Theme.frost() && Blur.ready() && (menu || !Theme.liquidGlass())) {
-            // In liquid mode the live world stays sharp; only the menu needs the frozen snapshot
-            // because no world pass is rendered behind it. The glass panels do their own lensing.
+        if (Theme.frost() && Blur.ready()) {
+            // Frosted glass owns the full-screen backdrop in both modes. Liquid glass only changes
+            // how the surfaces composite that backdrop, so enabling it must not remove the blur.
             ui.frost(0.0F, 0.0F, width, height, 0.0F, scheme.surface, 0.0F);
         }
         ui.rect(0.0F, 0.0F, width, height, Theme.scrim(scrim.value()));
