@@ -31,6 +31,7 @@ public final class Theme {
     private static float tint = 0.25F;
     private static float scale = 1.0F;
     private static boolean frost = true;
+    private static boolean liquidGlass = true;
     private static boolean followGuiScale = true;
 
     private static Scheme scheme;
@@ -70,6 +71,14 @@ public final class Theme {
 
     public static boolean frost() {
         return frost;
+    }
+
+    public static void liquidGlass(boolean value) {
+        liquidGlass = value;
+    }
+
+    public static boolean liquidGlass() {
+        return liquidGlass;
     }
 
     /**

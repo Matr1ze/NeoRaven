@@ -43,9 +43,11 @@ public final class UI {
 
     private static Shader shapeShader;
     private static Shader frostShader;
+    private static Shader liquidShader;
     private static Shader imageShader;
     private static boolean shapeFailed;
     private static boolean frostFailed;
+    private static boolean liquidFailed;
     private static boolean imageFailed;
 
     private final Deque<int[]> scissors = new ArrayDeque<int[]>();
@@ -63,6 +65,10 @@ public final class UI {
         if (frostShader == null && !frostFailed) {
             frostShader = Shader.load("onyx_frost");
             frostFailed = !frostShader.valid();
+        }
+        if (liquidShader == null && !liquidFailed) {
+            liquidShader = Shader.load("onyx_liquid_glass");
+            liquidFailed = !liquidShader.valid();
         }
         if (imageShader == null && !imageFailed) {
             imageShader = Shader.load("onyx_image");
@@ -465,6 +471,55 @@ public final class UI {
         GlStateManager.disableTexture2D();
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.resetColor();
+    }
+
+    /**
+     * Draws an SDF rounded rectangle that refracts the current blurred backdrop. The lens bends
+     * the sampled scene inward near the rim, a slow ripple distorts that bend, and a faint rim
+     * light gives the surface thickness without drawing an extra border.
+     */
+    public boolean liquidGlass(float x, float y, float w, float h, float radius,
+                               int tint, float coverage, float bevel) {
+        if (w <= 0.0F || h <= 0.0F || liquidShader == null || !liquidShader.valid() || !Blur.ready()) {
+            return false;
+        }
+        int color = applyAlpha(tint);
+        if (color >>> 24 == 0) {
+            return false;
+        }
+        float r = Theme.radius(radius, w, h);
+        Minecraft mc = Minecraft.getMinecraft();
+
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+        GlStateManager.bindTexture(Blur.texture());
+        GlStateManager.enableTexture2D();
+        liquidShader.use();
+        liquidShader.uniform1i("Sampler0", 0);
+        liquidShader.uniform2f("uHalfExtents", w / 2.0F, h / 2.0F);
+        liquidShader.uniform1f("uRadius", r);
+        liquidShader.uniform1f("uPixel", pixel);
+        liquidShader.uniform2f("uScreenSize", mc.displayWidth, mc.displayHeight);
+        liquidShader.uniform1f("uTint",
+                Material.alpha(color) / 255.0F * Material.clamp(coverage, 0.0F, 1.0F));
+        liquidShader.uniform1f("uTime", (System.currentTimeMillis() % 100000L) / 1000.0F);
+        liquidShader.uniform1f("uBevel", bevel);
+
+        GL11.glColor4f((color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F,
+                (color & 0xFF) / 255.0F, (color >>> 24) / 255.0F);
+        float centerX = x + w / 2.0F;
+        float centerY = y + h / 2.0F;
+        GL11.glBegin(GL11.GL_QUADS);
+        localVertex(x, y, centerX, centerY);
+        localVertex(x, y + h, centerX, centerY);
+        localVertex(x + w, y + h, centerX, centerY);
+        localVertex(x + w, y, centerX, centerY);
+        GL11.glEnd();
+
+        Shader.unbind();
+        GlStateManager.disableTexture2D();
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.resetColor();
+        return true;
     }
 
     private static void localVertex(float x, float y, float centerX, float centerY) {

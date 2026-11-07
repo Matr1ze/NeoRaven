@@ -182,7 +182,11 @@ public final class Panel {
         ui.shadow(x, y, WIDTH, HEIGHT, RADIUS, 3);
         ui.rounded(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer);
         if (Theme.frost() && Blur.ready()) {
-            ui.frost(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer);
+            boolean liquid = Theme.liquidGlass()
+                    && ui.liquidGlass(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer, 0.76F, 34.0F);
+            if (!liquid) {
+                ui.frost(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer);
+            }
         } else {
             ui.rounded(x, y, WIDTH, HEIGHT, RADIUS,
                     Material.withAlpha(scheme.surfaceContainer, Theme.frost() ? 0.92F : 0.97F));
