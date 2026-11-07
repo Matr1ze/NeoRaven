@@ -163,10 +163,9 @@ public final class OnyxClickGui extends GuiScreen {
             ui.gradient(0.0F, 0.0F, width, height, scheme.surfaceContainerLow, scheme.surface);
             return;
         }
-        if (Theme.frost() && Blur.ready()) {
-            // Replace the sharp scene with the same blurred texture the panel's frost samples.
-            // Doing this only inside the panel made the surrounding window look flat and grey;
-            // the old ClickGUI blurred the complete backdrop.
+        if (Theme.frost() && Blur.ready() && (menu || !Theme.liquidGlass())) {
+            // In liquid mode the live world stays sharp; only the menu needs the frozen snapshot
+            // because no world pass is rendered behind it. The glass panels do their own lensing.
             ui.frost(0.0F, 0.0F, width, height, 0.0F, scheme.surface, 0.0F);
         }
         ui.rect(0.0F, 0.0F, width, height, Theme.scrim(scrim.value()));

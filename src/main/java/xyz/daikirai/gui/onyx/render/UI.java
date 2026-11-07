@@ -493,8 +493,12 @@ public final class UI {
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         GlStateManager.bindTexture(Blur.texture());
         GlStateManager.enableTexture2D();
+        GlStateManager.setActiveTexture(GL13.GL_TEXTURE1);
+        GlStateManager.bindTexture(Blur.sharpTexture());
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         liquidShader.use();
         liquidShader.uniform1i("Sampler0", 0);
+        liquidShader.uniform1i("Sampler1", 1);
         liquidShader.uniform2f("uHalfExtents", w / 2.0F, h / 2.0F);
         liquidShader.uniform1f("uRadius", r);
         liquidShader.uniform1f("uPixel", pixel);
@@ -516,6 +520,9 @@ public final class UI {
         GL11.glEnd();
 
         Shader.unbind();
+        GlStateManager.setActiveTexture(GL13.GL_TEXTURE1);
+        GlStateManager.bindTexture(0);
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         GlStateManager.disableTexture2D();
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.resetColor();

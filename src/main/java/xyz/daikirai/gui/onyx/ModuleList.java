@@ -328,7 +328,7 @@ public final class ModuleList {
             int background = Material.mix(scheme.surfaceContainerHigh, scheme.secondaryContainer, t);
             ui.rounded(x, y, w, h, 12.0F, background);
             if (Theme.frost() && Theme.liquidGlass()) {
-                ui.liquidGlass(x, y, w, h, 12.0F, background, 0.70F, 14.0F);
+                ui.liquidGlass(x, y, w, h, 12.0F, background, 0.30F, 14.0F);
             }
             if (hover.value() > 0.001F) {
                 ui.rounded(x, y, w, h, 12.0F,
