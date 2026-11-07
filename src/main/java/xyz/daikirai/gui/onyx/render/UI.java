@@ -474,6 +474,22 @@ public final class UI {
     }
 
     /**
+     * Draws a small control surface with the same glass material as the ClickGUI. The solid tint
+     * is always painted first as a fallback; frosted/liquid modes then replace it with the current
+     * backdrop so search fields, switches and selection pills do not stay flat grey.
+     */
+    public void glassSurface(float x, float y, float w, float h, float radius,
+                             int tint, float coverage, float bevel) {
+        rounded(x, y, w, h, radius, tint);
+        if (!Theme.frost() || !Theme.liquidGlass() || !Blur.ready()) {
+            return;
+        }
+        if (!liquidGlass(x, y, w, h, radius, tint, coverage, bevel)) {
+            frost(x, y, w, h, radius, tint, coverage);
+        }
+    }
+
+    /**
      * Draws an SDF rounded rectangle that refracts the current blurred backdrop. The lens bends
      * the sampled scene inward near the rim, a slow ripple distorts that bend, and a faint rim
      * light gives the surface thickness without drawing an extra border.

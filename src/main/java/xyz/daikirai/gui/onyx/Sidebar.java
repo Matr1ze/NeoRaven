@@ -139,8 +139,13 @@ public final class Sidebar {
     public void draw(UI ui, Scheme scheme, float mouseX, float mouseY) {
         ui.scissorPush(x - 10.0F, y, w + 20.0F, clipHeight());
         float pill = pillY.value() - scroll.value() + 2.0F;
-        ui.rounded(x + (w - PILL_WIDTH) / 2.0F, y + pill, PILL_WIDTH, PILL_HEIGHT, PILL_HEIGHT / 2.0F,
-                themeSelected ? Material.withAlpha(scheme.secondaryContainer, 0.0F) : scheme.secondaryContainer);
+        if (themeSelected) {
+            ui.rounded(x + (w - PILL_WIDTH) / 2.0F, y + pill, PILL_WIDTH, PILL_HEIGHT, PILL_HEIGHT / 2.0F,
+                    Material.withAlpha(scheme.secondaryContainer, 0.0F));
+        } else {
+            ui.glassSurface(x + (w - PILL_WIDTH) / 2.0F, y + pill, PILL_WIDTH, PILL_HEIGHT,
+                    PILL_HEIGHT / 2.0F, scheme.secondaryContainer, 0.52F, 10.0F);
+        }
 
         for (int i = 0; i < categories.size(); i++) {
             Category category = categories.get(i);
@@ -169,8 +174,8 @@ public final class Sidebar {
         float themeY = y + h - BOTTOM_ITEM_HEIGHT;
         boolean active = themeSelected;
         if (active) {
-            ui.rounded(x + (w - PILL_WIDTH) / 2.0F, themeY + 2.0F, PILL_WIDTH, PILL_HEIGHT, PILL_HEIGHT / 2.0F,
-                    scheme.secondaryContainer);
+            ui.glassSurface(x + (w - PILL_WIDTH) / 2.0F, themeY + 2.0F, PILL_WIDTH, PILL_HEIGHT,
+                    PILL_HEIGHT / 2.0F, scheme.secondaryContainer, 0.52F, 10.0F);
         } else if (themeHover.hover.value() > 0.001F) {
             ui.rounded(x + (w - PILL_WIDTH) / 2.0F, themeY + 2.0F, PILL_WIDTH, PILL_HEIGHT, PILL_HEIGHT / 2.0F,
                     Material.withAlpha(scheme.onSurface, 0.08F * themeHover.hover.value()));
