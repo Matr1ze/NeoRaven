@@ -268,6 +268,11 @@ public final class UI {
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         GlStateManager.enableTexture2D();
+        // GUI avatars want smooth scaling, but skins are shared with the world renderer. Leaving
+        // GL_LINEAR on a 64x64 skin blurs the model and bleeds the transparent black texels of
+        // the hat layer into visible pixels, which shows up as dark seam lines around the head.
+        int previousMinFilter = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER);
+        int previousMagFilter = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         GL11.glColor4f((c >> 16 & 0xFF) / 255.0F, (c >> 8 & 0xFF) / 255.0F,
@@ -282,6 +287,8 @@ public final class UI {
         GL11.glTexCoord2f(u1, v0);
         GL11.glVertex2f(x + w, y);
         GL11.glEnd();
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, previousMinFilter);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, previousMagFilter);
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.resetColor();
         GlStateManager.disableTexture2D();
@@ -321,6 +328,8 @@ public final class UI {
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         GlStateManager.enableTexture2D();
+        int previousMinFilter = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER);
+        int previousMagFilter = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 
@@ -340,6 +349,8 @@ public final class UI {
         imageVertex(x + w, y + h, centerX, centerY, 1.0F, 1.0F);
         imageVertex(x + w, y, centerX, centerY, 1.0F, 0.0F);
         GL11.glEnd();
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, previousMinFilter);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, previousMagFilter);
 
         Shader.unbind();
         GlStateManager.disableTexture2D();
