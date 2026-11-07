@@ -123,7 +123,7 @@
   {"name":"Zoom","category":"render","zh":"变焦","desc":"按住按键放大视野。"},
 
   {"name":"AutoRequeue","category":"minigames","zh":"自动重排队","desc":"游戏结束后自动重新排队。"},
-  {"name":"AutoWho","category":"minigames","zh":"自动 who","desc":"自动执行 /who 命令。"},
+  {"name":"AutoWho","category":"minigames","zh":"自动查询","desc":"自动执行 /who 查询玩家列表。"},
   {"name":"Bed Wars","category":"minigames","zh":"起床战争","desc":"显示起床战争警报和 HUD。"},
   {"name":"Bridge Info","category":"minigames","zh":"搭桥信息","desc":"显示搭桥相关信息，主要面向单挑。"},
   {"name":"Duels Stats","category":"minigames","zh":"决斗统计","desc":"显示决斗模式的战绩统计。"},
