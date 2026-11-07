@@ -16,9 +16,9 @@ public final class ScriptReflection {
         WINDOW_ID(C0DPacketCloseWindow.class, "field_149556_a", "windowId"),
         FLY_SPEED(C13PacketPlayerAbilities.class, "field_149497_e", "flySpeed"),
         WALK_SPEED(C13PacketPlayerAbilities.class, "field_149495_f", "walkSpeed"),
-        TITLE(GuiIngame.class, "field_175201_x", ""),
-        SUBTITLE(GuiIngame.class, "field_175200_y", ""),
-        TITLE_TIMER(GuiIngame.class, "field_175195_w", ""),
+        TITLE(GuiIngame.class, "field_175201_x", "displayedTitle"),
+        SUBTITLE(GuiIngame.class, "field_175200_y", "displayedSubTitle"),
+        TITLE_TIMER(GuiIngame.class, "field_175195_w", "titlesTimer"),
         HEADER(GuiPlayerTabOverlay.class, "field_175256_i", "header"),
         FOOTER(GuiPlayerTabOverlay.class, "field_175255_h", "footer");
 
