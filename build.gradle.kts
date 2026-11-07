@@ -49,6 +49,12 @@ tasks.processResources {
 }
 tasks.withType<JavaCompile> { options.encoding = "UTF-8" }
 
+tasks.named<JavaExec>("runClient") {
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    })
+}
+
 tasks.jar {
     from(embed.map { if (it.isDirectory) it else zipTree(it) }) {
         exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "META-INF/MANIFEST.MF", "LICENSE.txt")

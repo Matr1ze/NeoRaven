@@ -212,6 +212,14 @@ public final class Panel {
         }
         ui.scissorPop();
 
+        if (!drawingDetail() && !dragging) {
+            Module hovered = list.tooltipModule();
+            if (hovered != null) {
+                ModuleTooltip.draw(ui, scheme, hovered, lastMouseX, lastMouseY,
+                        x, y, WIDTH, HEIGHT);
+            }
+        }
+
         toasts.draw(ui, scheme, x + WIDTH / 2.0F, y + HEIGHT);
     }
 
