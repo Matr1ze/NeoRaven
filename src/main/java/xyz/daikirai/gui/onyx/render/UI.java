@@ -635,13 +635,14 @@ public final class UI {
             legacy(style, text, x, y, color, align, false);
             return;
         }
-        float width = style.width(text);
+        Typeface.Style render = style.forText(text);
+        float width = render.width(text);
         if (align == ALIGN_CENTER) {
             x -= width / 2.0F;
         } else if (align == ALIGN_RIGHT) {
             x -= width;
         }
-        draw(style, text, x, y + style.ascent() / 2.0F - 7.0F * style.scale(), color);
+        draw(render, text, x, y + render.ascent() / 2.0F - 7.0F * render.scale(), color);
     }
 
     /** Draws a string with its top at {@code y} (matches Onyx's leading-anchored text). */
@@ -653,13 +654,14 @@ public final class UI {
             legacy(style, text, x, y, color, align, true);
             return;
         }
-        float width = style.width(text);
+        Typeface.Style render = style.forText(text);
+        float width = render.width(text);
         if (align == ALIGN_CENTER) {
             x -= width / 2.0F;
         } else if (align == ALIGN_RIGHT) {
             x -= width;
         }
-        draw(style, text, x, y + style.ascent() - 7.0F * style.scale(), color);
+        draw(render, text, x, y + render.ascent() - 7.0F * render.scale(), color);
     }
 
     /**
@@ -680,23 +682,24 @@ public final class UI {
         }
         float total = 0.0F;
         for (xyz.daikirai.gui.onyx.LegacyText.Run run : runs) {
-            total += style.width(run.text);
+            total += style.forText(run.text).width(run.text);
         }
         float cursor = align == ALIGN_CENTER ? x - total / 2.0F
                 : align == ALIGN_RIGHT ? x - total : x;
-        float shift = top ? style.ascent() / 2.0F : 0.0F;
         for (xyz.daikirai.gui.onyx.LegacyText.Run run : runs) {
-            float runWidth = style.width(run.text);
+            Typeface.Style render = style.forText(run.text);
+            float runWidth = render.width(run.text);
+            float shift = top ? render.ascent() / 2.0F : 0.0F;
             if (top) {
-                textTop(style, run.text, cursor, y, run.color, ALIGN_LEFT);
+                textTop(render, run.text, cursor, y, run.color, ALIGN_LEFT);
             } else {
-                text(style, run.text, cursor, y, run.color, ALIGN_LEFT);
+                text(render, run.text, cursor, y, run.color, ALIGN_LEFT);
             }
             if (run.strikethrough) {
                 rect(cursor, y - 0.5F + shift, runWidth, 1.0F, run.color);
             }
             if (run.underline) {
-                rect(cursor, y + style.ascent() * 0.5F + 1.0F + shift, runWidth, 1.0F, run.color);
+                rect(cursor, y + render.ascent() * 0.5F + 1.0F + shift, runWidth, 1.0F, run.color);
             }
             cursor += runWidth;
         }
@@ -711,13 +714,14 @@ public final class UI {
         if (text == null || text.isEmpty()) {
             return;
         }
-        float width = style.width(text);
+        Typeface.Style render = style.forText(text);
+        float width = render.width(text);
         if (align == ALIGN_CENTER) {
             x -= width / 2.0F;
         } else if (align == ALIGN_RIGHT) {
             x -= width;
         }
-        draw(style, text, x, baseline, color);
+        draw(render, text, x, baseline, color);
     }
 
     private void draw(Typeface.Style style, String text, float x, float baseline, int color) {

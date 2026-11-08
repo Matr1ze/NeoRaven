@@ -1,5 +1,8 @@
 package xyz.daikirai.gui.onyx.render;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * The Material type scale used by the Onyx ClickGUI, ported from {@code theme.Util2} and
  * {@code render.font.Util}.
@@ -44,8 +47,11 @@ public final class Typeface {
     /** Tiny text (numeric suffix): 9pt medium at 8px. */
     public static final Style TINY = new Style(9.0F, 8.0F, 10.0F, true);
 
-    private static TtfFont fallback;
-    private static boolean fallbackLoaded;
+    private static TtfFont fallbackSmall;
+    private static TtfFont fallbackLarge;
+    private static boolean fallbackSmallLoaded;
+    private static boolean fallbackLargeLoaded;
+    private static final Map<String, Style> CJK_STYLES = new HashMap<String, Style>();
 
     /**
      * Adds an entry to the type scale for the screens that need sizes the ClickGUI never used
@@ -78,24 +84,40 @@ public final class Typeface {
     }
 
     /**
-     * System CJK fallback font. Google Sans Flex has no CJK coverage, so song titles or script
-     * names in Chinese/Japanese/Korean are drawn with this face instead of rendering as blanks.
+     * System CJK fallback font. Google Sans Flex has no CJK coverage, so Chinese/Japanese/Korean
+     * text is drawn with this face instead of rendering as blanks.
      *
-     * <p>Everything outside the music player is "English in Google Sans, everything else in
-     * MiSans Demibold": {@link Style#draw} switches to this face per character, so Latin stays
-     * Google Sans and any other script lands here. MiSans covers Han + kana, which the previous
-     * OPPO Sans face did not (Japanese lyrics used to fall through to the symbol face).</p>
-     *
-     * <p>Only the player's MiSans Medium is bundled in the jar; this fallback face is read from
-     * disk ({@code D:\Downloads} first), then Microsoft YaHei as the last resort.</p>
+     * <p>The 9pt face is kept for small type. Large ClickGUI headings use Google Sans Flex 24pt,
+     * whose atlas is rasterised at 96px; reusing the old 9pt/36px CJK atlas and scaling it up made
+     * Chinese strokes look soft. The 24pt face is rasterised at 72px in a 4096px atlas, then
+     * minified to the requested style size.</p>
      */
-    public static synchronized TtfFont fallback() {
-        if (fallbackLoaded) {
-            return fallback;
+    public static TtfFont fallback() {
+        return fallbackFor(9.0F);
+    }
+
+    /** Picks the CJK atlas whose nominal size is closest to the primary face. */
+    private static synchronized TtfFont fallbackFor(float primarySize) {
+        boolean large = primarySize > 16.0F;
+        if (large ? fallbackLargeLoaded : fallbackSmallLoaded) {
+            return large ? fallbackLarge : fallbackSmall;
         }
-        fallbackLoaded = true;
-        // 2048 keeps ~2000 CJK/kana glyphs resident; the old 1024 (≈500) filled up on a long
-        // server name list and then silently dropped characters.
+        if (large) {
+            fallbackLargeLoaded = true;
+        } else {
+            fallbackSmallLoaded = true;
+        }
+        TtfFont loaded = loadFallback(large ? 24.0F : 9.0F,
+                large ? 3.0F : 4.0F, large ? 4096 : 2048);
+        if (large) {
+            fallbackLarge = loaded;
+        } else {
+            fallbackSmall = loaded;
+        }
+        return loaded;
+    }
+
+    private static TtfFont loadFallback(float size, float supersample, int atlas) {
         String[] candidates = {
                 "D:\\Downloads\\MiSans-Demibold.ttf",
                 new java.io.File(net.minecraft.client.Minecraft.getMinecraft().mcDataDir,
@@ -114,14 +136,13 @@ public final class Typeface {
             if (!file.isFile()) {
                 continue;
             }
-            TtfFont loaded = TtfFont.loadFile(file, 9.0F, 4.0F, 2048);
+            TtfFont loaded = TtfFont.loadFile(file, size, supersample, atlas);
             if (loaded != null && (loaded.has('中') || loaded.has('あ') || loaded.has('한'))) {
-                fallback = loaded;
-                System.out.println("[onyx] CJK font: " + path);
-                break;
+                System.out.println("[onyx] CJK font: " + path + " @" + size + "pt");
+                return loaded;
             }
         }
-        return fallback;
+        return null;
     }
 
     private static TtfFont symbols;
@@ -163,7 +184,7 @@ public final class Typeface {
         if (c == ' ' || primary.has(c)) {
             return primary;
         }
-        TtfFont cjk = fallback();
+        TtfFont cjk = fallbackFor(primary.size());
         if (cjk != null && cjk.has(c)) {
             return cjk;
         }
@@ -172,6 +193,30 @@ public final class Typeface {
             return symbol;
         }
         return primary;
+    }
+
+    /** Builds a style that draws every script in the text with one high-resolution CJK face. */
+    private static Style cjkStyle(float primarySize, float size, float lineHeight) {
+        TtfFont face = fallbackFor(primarySize);
+        if (face == null) {
+            return null;
+        }
+        String key = primarySize + ":" + size + ":" + lineHeight;
+        Style style = CJK_STYLES.get(key);
+        if (style == null) {
+            style = fromFont(face, size, lineHeight);
+            CJK_STYLES.put(key, style);
+        }
+        return style;
+    }
+
+    private static boolean isCjk(char c) {
+        return c >= '\u2E80' && c <= '\u9FFF'
+                || c >= '\u3000' && c <= '\u303F'
+                || c >= '\u3040' && c <= '\u30FF'
+                || c >= '\uAC00' && c <= '\uD7AF'
+                || c >= '\uF900' && c <= '\uFAFF'
+                || c >= '\uFF00' && c <= '\uFFEF';
     }
 
     private Typeface() {
@@ -257,6 +302,10 @@ public final class Typeface {
             if (text == null || text.isEmpty()) {
                 return 0.0F;
             }
+            Style resolved = forText(text);
+            if (resolved != this) {
+                return resolved.width(text);
+            }
             TtfFont primary = font();
             float total = 0.0F;
             int i = 0;
@@ -278,6 +327,14 @@ public final class Typeface {
          * the requested pixel size (the ambient matrix was already scaled by {@link #scale()}).
          */
         public void draw(String text, int color) {
+            if (text == null || text.isEmpty()) {
+                return;
+            }
+            Style resolved = forText(text);
+            if (resolved != this) {
+                resolved.draw(text, color);
+                return;
+            }
             TtfFont primary = font();
             float primaryBaseline = primary.baseline();
             boolean mixed = mixedScripts(primary, text);
@@ -295,9 +352,10 @@ public final class Typeface {
                 // scaled up to the primary face's nominal size, which also scales its baseline;
                 // without this correction a CJK run sits noticeably lower than the Latin run.
                 float baselineShift = primaryBaseline - run.baseline() * relative;
-                if (mixed && run != primary) {
-                    // CJK outlines sit a little lower than the Latin optical centre at the same
-                    // nominal size. Only nudge mixed lines; a pure-Chinese label stays untouched.
+                if (mixed && run != primary && primary.size() > 16.0F && primary.size() <= 24.0F) {
+                    // CJK outlines sit a little lower than the Latin optical centre in the 24pt
+                    // heading ramp. Small 9pt text must not receive this optical nudge: it moved
+                    // the Han characters in the wallpaper date above their digits.
                     baselineShift -= primary.size() * 0.18F;
                 }
                 net.minecraft.client.renderer.GlStateManager.pushMatrix();
@@ -330,6 +388,45 @@ public final class Typeface {
                 }
             }
             return false;
+        }
+
+        /**
+         * Resolves a style for a concrete string. Standard Onyx styles that contain Han/kana/CJK
+         * punctuation are drawn end-to-end with one CJK face; this keeps digits and Han characters
+         * on the same baseline and uses the high-resolution atlas for every glyph in the line.
+         * Explicit music-player faces and symbol-only strings keep their original mixed-run path.
+         */
+        public Style forText(String text) {
+            if (text == null || text.isEmpty() || explicit != null || secondary != null) {
+                return this;
+            }
+            TtfFont primary = font();
+            TtfFont cjk = fallbackFor(primary.size());
+            if (cjk == null) {
+                return this;
+            }
+            boolean needsCjk = false;
+            for (int i = 0; i < text.length(); i++) {
+                char c = text.charAt(i);
+                if (c == ' ') {
+                    continue;
+                }
+                if (!cjk.has(c)) {
+                    return this;
+                }
+                if (primary.has(c)) {
+                    continue;
+                }
+                if (!isCjk(c)) {
+                    return this;
+                }
+                needsCjk = true;
+            }
+            if (!needsCjk) {
+                return this;
+            }
+            Style style = cjkStyle(primary.size(), size, lineHeight);
+            return style == null ? this : style;
         }
 
         public float ascent() {
