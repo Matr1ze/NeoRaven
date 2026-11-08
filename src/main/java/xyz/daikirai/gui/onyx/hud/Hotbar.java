@@ -216,7 +216,8 @@ public final class Hotbar {
         if (heldName != null && System.currentTimeMillis() < nameUntil) {
             // Above the status rows, which now ride on the bar's top edge.
             ui.text(Typeface.CAPTION, ui.truncate(Typeface.CAPTION, heldName, W - 20.0F),
-                    W / 2.0F, -STATUS_ROW - 24.0F, scheme.onSurface, UI.ALIGN_CENTER);
+                    W / 2.0F, -STATUS_ROW - 24.0F,
+                    Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_CENTER);
         }
     }
 
@@ -266,7 +267,7 @@ public final class Hotbar {
         if (stack.stackSize > 1) {
             String count = String.valueOf(stack.stackSize);
             ui.text(Typeface.MICRO, count, centerX + 8.0F - Typeface.MICRO.width(count),
-                    centerY + 6.0F, scheme.onSurface, UI.ALIGN_LEFT);
+                    centerY + 6.0F, Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
         }
 
         if (stack.isItemDamaged() && stack.getMaxDamage() > 0) {

@@ -33,7 +33,12 @@ public final class DetailPage {
 
     private final List<Row> rows = new ArrayList<Row>();
     private final Anim scroll = new Anim(0.0F);
+    private final Anim scrollHover = new Anim(0.0F);
     private final List<Setting> builtFrom = new ArrayList<Setting>();
+
+    private boolean scrollbarHovered;
+    private boolean scrollbarDragging;
+    private float scrollbarGrabOffset;
 
     private Module module;
     private float x;
@@ -71,6 +76,7 @@ public final class DetailPage {
         this.rows.clear();
         this.scroll.set(0.0F);
         this.scrollTarget = 0.0F;
+        this.scrollbarDragging = false;
         this.binding = false;
         this.menuIndex = -1;
         this.activeRow = null;
@@ -133,12 +139,17 @@ public final class DetailPage {
         scroll.set(scrollTarget);
         this.menuIndex = -1;
         this.activeRow = null;
+        this.scrollbarDragging = false;
         this.binding = wasBinding;
     }
 
     public void close() {
         this.module = null;
         this.rows.clear();
+        if (activeRow != null) {
+            activeRow.release();
+        }
+        this.scrollbarDragging = false;
         this.binding = false;
         this.menuIndex = -1;
         this.activeRow = null;
@@ -160,6 +171,14 @@ public final class DetailPage {
         scrollTarget = Material.clamp(scrollTarget, 0.0F, visible);
         scroll.to(scrollTarget, 250.0F, Ease.DECELERATE);
         scroll.update(delta);
+
+        boolean overBar = interactive && barContains(mouseX, mouseY);
+        scrollbarHovered = overBar;
+        scrollHover.to(overBar || scrollbarDragging ? 1.0F : 0.0F, 150.0F, Ease.DECELERATE);
+        scrollHover.update(delta);
+        if (scrollbarDragging) {
+            applyScrollbar(mouseY);
+        }
 
         float offset = y - scroll.value();
         for (int i = 0; i < rows.size(); i++) {
@@ -196,7 +215,7 @@ public final class DetailPage {
         }
 
         if (module.getSettings().isEmpty()) {
-            ui.text(Typeface.BODY, "This module has no settings",
+            ui.text(Typeface.BODY, xyz.daikirai.util.Lang.text("This module has no settings"),
                     x + w / 2.0F, y + h / 2.0F, scheme.onSurfaceVariant, UI.ALIGN_CENTER);
         }
         ui.scissorPop();
@@ -208,11 +227,49 @@ public final class DetailPage {
 
         float visible = contentHeight - h;
         if (visible > 0.5F) {
-            float trackHeight = Math.max(24.0F, h * (h / contentHeight));
+            float trackHeight = trackHeight();
             float fraction = Material.clamp(scroll.value() / visible, 0.0F, 1.0F);
-            ui.rounded(x + w - 4.0F, y + (h - trackHeight) * fraction, 4.0F, trackHeight, 2.0F,
-                    Material.withAlpha(scheme.outlineVariant, 0.8F));
+            float hover = scrollHover.value();
+            if (hover > 0.001F) {
+                ui.rounded(x + w - 8.0F, y, 6.0F, h, 3.0F,
+                        Material.withAlpha(scheme.surfaceContainerHighest, 0.55F * hover));
+            }
+            float width = 4.0F + 2.0F * hover;
+            float barX = x + w - 4.0F - 2.0F * hover;
+            int color = scrollbarDragging || scrollbarHovered
+                    ? Material.withAlpha(scheme.primary, 0.9F)
+                    : Material.withAlpha(scheme.outlineVariant, 0.8F);
+            ui.rounded(barX, y + (h - trackHeight) * fraction, width, trackHeight, width / 2.0F, color);
         }
+    }
+
+    private float trackHeight() {
+        return Math.max(24.0F, h * (h / contentHeight));
+    }
+
+    private float barY() {
+        float visible = Math.max(0.0F, contentHeight - h);
+        float fraction = visible <= 0.0F ? 0.0F : Material.clamp(scroll.value() / visible, 0.0F, 1.0F);
+        return y + (h - trackHeight()) * fraction;
+    }
+
+    private boolean barContains(float mouseX, float mouseY) {
+        if (contentHeight - h <= 0.5F) {
+            return false;
+        }
+        return mouseX >= x + w - 10.0F && mouseX < x + w
+                && mouseY >= y && mouseY < y + h;
+    }
+
+    private void applyScrollbar(float mouseY) {
+        float visible = Math.max(0.0F, contentHeight - h);
+        if (visible <= 0.0F) {
+            return;
+        }
+        float travel = Math.max(1.0F, h - trackHeight());
+        float top = Material.clamp(mouseY - scrollbarGrabOffset - y, 0.0F, travel);
+        scrollTarget = Material.clamp(top / travel * visible, 0.0F, visible);
+        scroll.set(scrollTarget);
     }
 
     public boolean click(float mouseX, float mouseY, int button) {
@@ -237,6 +294,17 @@ public final class DetailPage {
         if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + h) {
             return false;
         }
+        if (button == 0 && barContains(mouseX, mouseY)) {
+            float top = barY();
+            if (mouseY >= top && mouseY < top + trackHeight()) {
+                scrollbarGrabOffset = mouseY - top;
+            } else {
+                scrollbarGrabOffset = trackHeight() / 2.0F;
+                applyScrollbar(mouseY);
+            }
+            scrollbarDragging = true;
+            return true;
+        }
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
             if (mouseY >= row.y && mouseY < row.y + row.height && row.click(mouseX, mouseY, button)) {
@@ -253,12 +321,17 @@ public final class DetailPage {
     }
 
     public void drag(float mouseX, float mouseY, int button) {
+        if (scrollbarDragging && button == 0) {
+            applyScrollbar(mouseY);
+            return;
+        }
         if (activeRow != null && button == 0) {
             activeRow.drag(mouseX, mouseY);
         }
     }
 
     public void release() {
+        scrollbarDragging = false;
         if (activeRow != null) {
             activeRow.release();
             activeRow = null;
@@ -373,11 +446,11 @@ public final class DetailPage {
         @Override
         void draw(UI ui, Scheme scheme, float mouseX, float mouseY) {
             Widgets.stateLayer(ui, scheme, x, y + 2.0F, w, height - 4.0F, 8.0F, hover.value(), 0.0F, scheme.onSurface);
-            ui.text(Typeface.LABEL, "Bind", x + 8.0F, y + height / 2.0F, scheme.onSurfaceVariant, UI.ALIGN_LEFT);
+            ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Bind"), x + 8.0F, y + height / 2.0F, scheme.onSurfaceVariant, UI.ALIGN_LEFT);
             String label;
             int color;
             if (binding) {
-                label = "Press a key...";
+                label = xyz.daikirai.util.Lang.text("Press a key...");
                 color = scheme.primary;
             } else {
                 label = keyName(module == null ? 0 : module.getKeycode());
@@ -388,8 +461,8 @@ public final class DetailPage {
             ui.rounded(modesX, y + 5, 124, 24, 6, scheme.surfaceContainerHigh);
             boolean hold = module.isHoldBind();
             ui.rounded(modesX + (hold ? 62 : 0), y + 5, 62, 24, 6, scheme.primaryContainer);
-            ui.text(Typeface.LABEL, "Toggle", modesX + 31, y + height / 2, hold ? scheme.onSurfaceVariant : scheme.onPrimaryContainer, UI.ALIGN_CENTER);
-            ui.text(Typeface.LABEL, "Hold", modesX + 93, y + height / 2, hold ? scheme.onPrimaryContainer : scheme.onSurfaceVariant, UI.ALIGN_CENTER);
+            ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Toggle"), modesX + 31, y + height / 2, hold ? scheme.onSurfaceVariant : scheme.onPrimaryContainer, UI.ALIGN_CENTER);
+            ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Hold"), modesX + 93, y + height / 2, hold ? scheme.onPrimaryContainer : scheme.onSurfaceVariant, UI.ALIGN_CENTER);
         }
 
         @Override
@@ -406,11 +479,11 @@ public final class DetailPage {
 
         private String keyName(int key) {
             if (key == 0) {
-                return "None";
+                return xyz.daikirai.util.Lang.text("None");
             }
-            if (key < 0) return "Mouse " + (key + 101);
+            if (key < 0) return xyz.daikirai.util.Lang.text("Mouse") + " " + (key + 101);
             String name = Keyboard.getKeyName(Math.abs(key));
-            return name == null ? "None" : name;
+            return name == null ? xyz.daikirai.util.Lang.text("None") : name;
         }
     }
 
@@ -434,7 +507,7 @@ public final class DetailPage {
 
         @Override
         void update(float delta, float mouseX, float mouseY, boolean interactive) {
-            hover.to(interactive && hovered(mouseX, mouseY) ? 1.0F : 0.0F, 150.0F, Ease.DECELERATE);
+            hover.to(interactive && overTrack(mouseX, mouseY) ? 1.0F : 0.0F, 150.0F, Ease.DECELERATE);
             active.to(dragging ? 1.0F : 0.0F, 150.0F, Ease.DECELERATE);
             hover.update(delta);
             active.update(delta);
@@ -442,14 +515,21 @@ public final class DetailPage {
             visual.update(delta);
         }
 
+        private boolean overTrack(float mouseX, float mouseY) {
+            float trackX = x + 8.0F;
+            float trackW = w - 16.0F;
+            return mouseX >= trackX - 10.0F && mouseX < trackX + trackW + 10.0F
+                    && mouseY >= y + 16.0F && mouseY < y + height;
+        }
+
         @Override
         void draw(UI ui, Scheme scheme, float mouseX, float mouseY) {
             float trackX = x + 8.0F;
             float trackW = w - 16.0F;
-            ui.text(Typeface.LABEL, setting.getName(), x + 8.0F, y + 10.0F, scheme.onSurfaceVariant, UI.ALIGN_LEFT);
+            ui.text(Typeface.LABEL, setting.localizedName(), x + 8.0F, y + 10.0F, scheme.onSurfaceVariant, UI.ALIGN_LEFT);
             ui.text(Typeface.LABEL, setting.getDisplay(false), x + w - 8.0F, y + 10.0F, scheme.primary, UI.ALIGN_RIGHT);
             Widgets.slider(ui, scheme, trackX, y + 30.0F, trackW, visual.value(),
-                    hover.value() > 0.5F, dragging);
+                    hover.value(), dragging);
         }
 
         @Override
@@ -502,8 +582,10 @@ public final class DetailPage {
         @Override
         void draw(UI ui, Scheme scheme, float mouseX, float mouseY) {
             Widgets.stateLayer(ui, scheme, x, y + 2.0F, w, height - 4.0F, 8.0F, hover.value(), 0.0F, scheme.onSurface);
-            ui.text(Typeface.LABEL, setting.getName(), x + 8.0F, y + height / 2.0F, scheme.onSurfaceVariant, UI.ALIGN_LEFT);
-            String display = setting.getDisplay(false);
+            ui.text(Typeface.LABEL, setting.localizedName(), x + 8.0F, y + height / 2.0F, scheme.onSurfaceVariant, UI.ALIGN_LEFT);
+            String display = setting.isMode()
+                    ? xyz.daikirai.util.Lang.setting(setting.options[(int) setting.getInput()])
+                    : setting.getDisplay(false);
             float textWidth = Typeface.BODY_MEDIUM.width(display);
             ui.text(Typeface.BODY_MEDIUM, display, x + w - 30.0F, y + height / 2.0F, scheme.primary, UI.ALIGN_RIGHT);
             ui.icon(Icons.EXPAND_MORE, x + w - 14.0F, y + height / 2.0F, 16.0F,
@@ -570,7 +652,11 @@ public final class DetailPage {
         }
 
         void drawMenu(UI ui, Scheme scheme, int hovered) {
-            Widgets.menu(ui, scheme, menuX(), menuY(), menuWidth(), setting.options,
+            String[] options = new String[setting.options.length];
+            for (int i = 0; i < options.length; i++) {
+                options[i] = xyz.daikirai.util.Lang.setting(setting.options[i]);
+            }
+            Widgets.menu(ui, scheme, menuX(), menuY(), menuWidth(), options,
                     (int) setting.getInput(), hovered, 1.0F, menuHeight(), DetailPage.this.menuScroll);
         }
     }
@@ -605,7 +691,7 @@ public final class DetailPage {
         void draw(UI ui, Scheme scheme, float mouseX, float mouseY) {
             Widgets.stateLayer(ui, scheme, x, y + 2.0F, w, height - 4.0F, 8.0F, hover.value(), pressed ? 1.0F : 0.0F,
                     scheme.onSurface);
-            ui.text(Typeface.LABEL, setting.getName(), x + 8.0F, y + height / 2.0F, scheme.onSurface, UI.ALIGN_LEFT);
+            ui.text(Typeface.LABEL, setting.localizedName(), x + 8.0F, y + height / 2.0F, scheme.onSurface, UI.ALIGN_LEFT);
             Widgets.toggle(ui, scheme, x + w - 46.0F, y + (height - 22.0F) / 2.0F, toggle.value(),
                     hover.value() > 0.5F, pressed);
         }
@@ -649,7 +735,7 @@ public final class DetailPage {
         void draw(UI ui, Scheme scheme, float mouseX, float mouseY) {
             Widgets.stateLayer(ui, scheme, x, y + 2.0F, w, height - 4.0F, 8.0F, hover.value(), pressed ? 1.0F : 0.0F,
                     scheme.primary);
-            ui.text(Typeface.LABEL, setting.getName(), x + 8.0F, y + height / 2.0F, scheme.primary, UI.ALIGN_LEFT);
+            ui.text(Typeface.LABEL, setting.localizedName(), x + 8.0F, y + height / 2.0F, scheme.primary, UI.ALIGN_LEFT);
             ui.icon(Icons.CHEVRON_RIGHT, x + w - 14.0F, y + height / 2.0F, 16.0F, scheme.primary);
             if (setting instanceof xyz.daikirai.module.setting.ColorSetting)
                 ui.rounded(x + w - 48, y + 9, 18, 16, 3, ((xyz.daikirai.module.setting.ColorSetting) setting).color());
@@ -698,7 +784,7 @@ public final class DetailPage {
         private List<String> rowsFor(float width) {
             List<String> result = new ArrayList<String>();
             StringBuilder current = new StringBuilder();
-            for (String word : setting.getDesc().split(" ")) {
+            for (String word : xyz.daikirai.util.Lang.text(setting.getDesc()).split(" ")) {
                 String candidate = current.length() == 0 ? word : current + " " + word;
                 if (Typeface.BODY.width(candidate) > width - 16.0F && current.length() > 0) {
                     result.add(current.toString());

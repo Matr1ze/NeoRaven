@@ -1,6 +1,7 @@
 package xyz.daikirai.gui.onyx.menu;
 
 import xyz.daikirai.client.ClientConfig;
+import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -31,6 +32,8 @@ public final class MenuTheme {
     private static int dock;
     private static int blurMode = 2;
     private static int clockStyle = CLOCK_DIGITAL;
+    /** The ClickGUI's third appearance mode: bright frosted glass instead of a solid scheme. */
+    private static boolean glass;
 
     private MenuTheme() {
     }
@@ -54,7 +57,9 @@ public final class MenuTheme {
                     }
                     String key = line.substring(0, eq).trim().toLowerCase(Locale.ROOT);
                     String value = line.substring(eq + 1).trim();
-                    if (key.equals("dark")) {
+                    if (key.equals("glass")) {
+                        glass = value.equals("1");
+                    } else if (key.equals("dark")) {
                         dark = value.equals("1");
                     } else if (key.equals("dockfollow")) {
                         dockFollows = value.equals("1");
@@ -95,6 +100,7 @@ public final class MenuTheme {
             FileWriter writer = new FileWriter(FILE, false);
             try {
                 writer.write("dark=" + (dark ? 1 : 0) + "\n");
+                writer.write("glass=" + (glass ? 1 : 0) + "\n");
                 writer.write("dockFollow=" + (dockFollows ? 1 : 0) + "\n");
                 writer.write("blurMode=" + blurMode + "\n");
                 writer.write("clockFace=" + clockStyle + "\n");
@@ -114,15 +120,30 @@ public final class MenuTheme {
 
     public static void setDark(boolean value) {
         load();
-        if (dark == value) {
-            return;
+        if (dark != value) {
+            dark = value;
+            save();
         }
-        dark = value;
-        save();
+        OnyxClickGuiModule.syncModeFromMenu(value);
     }
 
     public static void toggle() {
         setDark(!dark());
+    }
+
+    /** Whether the ClickGUI draws its bright frosted-glass appearance. */
+    public static boolean glass() {
+        load();
+        return glass;
+    }
+
+    public static void setGlass(boolean value) {
+        load();
+        if (glass != value) {
+            glass = value;
+            save();
+        }
+        OnyxClickGuiModule.syncModeFromMenu(dark);
     }
 
     /** 0 = off, 1 = Mica blur, 2 = the client's own frosted glass. */

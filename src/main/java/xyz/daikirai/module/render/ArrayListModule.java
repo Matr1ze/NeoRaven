@@ -155,6 +155,16 @@ public final class ArrayListModule extends Module {
         return HUD;
     }
 
+    /**
+     * Draws the list once from inside a screen (see {@code HudPass}): the ClickGUI and the music
+     * window morph out of the island with the HUD still on screen instead of cutting it on frame 1.
+     */
+    public static void renderHud() {
+        if (instance != null) {
+            HUD.render(instance, false);
+        }
+    }
+
     // ------------------------------------------------------------------ //
     // Accessors used by the renderer
     // ------------------------------------------------------------------ //

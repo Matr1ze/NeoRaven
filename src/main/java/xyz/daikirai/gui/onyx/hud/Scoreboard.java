@@ -182,7 +182,7 @@ public final class Scoreboard {
         ui.scissorPush(0.0F, 0.0F, width, height);
         if (hasTitle) {
             LegacyText.draw(ui, Typeface.HEADLINE, title, width / 2.0F, TITLE_Y, UI.ALIGN_CENTER,
-                    scheme.onSurface);
+                    Theme.hudText(scheme.primary, scheme.onSurface));
             ui.rect(PAD, DIVIDER_Y, Math.max(0.0F, width - PAD * 2.0F), 1.0F,
                     Material.withAlpha(scheme.outlineVariant, 0.6F));
         }
@@ -191,10 +191,11 @@ public final class Scoreboard {
             float centerY = rowsTop + i * ROW_HEIGHT + ROW_HEIGHT / 2.0F;
             String text = LegacyText.truncate(Typeface.CAPTION, row.text, rowMax);
             LegacyText.draw(ui, Typeface.CAPTION, text, PAD, centerY, UI.ALIGN_LEFT,
-                    scheme.onSurfaceVariant);
+                    Theme.hudText(scheme.primary, scheme.onSurfaceVariant));
             if (scores) {
                 ui.text(Typeface.CAPTION, row.scoreText(), width - PAD, centerY,
-                        scheme.onSurfaceVariant, UI.ALIGN_RIGHT);
+                        Material.withAlpha(Theme.hudText(scheme.primary, scheme.onSurfaceVariant), 0.78F),
+                        UI.ALIGN_RIGHT);
             }
         }
         ui.scissorPop();

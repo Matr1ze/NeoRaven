@@ -66,22 +66,38 @@ public final class Widgets {
      * @param fraction value in 0..1
      */
     public static void slider(UI ui, Scheme scheme, float x, float y, float width, float fraction,
-                              boolean hovered, boolean active) {
-        float trackHeight = active || hovered ? 6.0F : 4.0F;
+                              float hover, boolean active) {
+        float h = Material.clamp(hover, 0.0F, 1.0F);
+        float trackHeight = active ? 7.0F : 4.0F + 2.0F * h;
         float trackY = y - trackHeight / 2.0F;
         float f = Material.clamp(fraction, 0.0F, 1.0F);
-        float thumbRadius = active ? 8.0F : (hovered ? 7.50F : 7.0F);
+        float thumbRadius = active ? 8.0F : 7.0F + 0.5F * h;
 
-        ui.rounded(x, trackY, width, trackHeight, trackHeight / 2.0F, scheme.surfaceContainerHighest);
+        if (active || h > 0.001F) {
+            float halo = active ? 1.0F : h;
+            ui.rounded(x - 2.0F, trackY - 5.0F, width + 4.0F, trackHeight + 10.0F,
+                    (trackHeight + 10.0F) / 2.0F, Material.withAlpha(scheme.primary, 0.08F * halo));
+        }
+
+        int unfilled = h > 0.001F
+                ? Material.mix(scheme.surfaceContainerHighest, scheme.onSurface, 0.07F * h)
+                : scheme.surfaceContainerHighest;
+        ui.rounded(x, trackY, width, trackHeight, trackHeight / 2.0F, unfilled);
         float filled = width * f;
         if (filled > 0.0F) {
             ui.rounded(x, trackY, filled, trackHeight, trackHeight / 2.0F, scheme.primary);
         }
-        if (active || hovered) {
-            ui.circle(x + filled, trackY + trackHeight / 2.0F, 12.0F, Material.withAlpha(scheme.primary, 0.12F));
+        if (active || h > 0.001F) {
+            ui.circle(x + filled, trackY + trackHeight / 2.0F, 12.0F + 3.0F * (active ? 1.0F : h),
+                    Material.withAlpha(scheme.primary, 0.12F + (active ? 0.08F : 0.02F * h)));
         }
-        ui.circle(x + filled, trackY + trackHeight / 2.0F, thumbRadius + 0.5F, Material.withAlpha(scheme.shadow, 0.3F));
+        ui.circle(x + filled, trackY + trackHeight / 2.0F, thumbRadius + 1.0F, Material.withAlpha(scheme.shadow, 0.32F));
         ui.circle(x + filled, trackY + trackHeight / 2.0F, thumbRadius, scheme.primary);
+        if (active || h > 0.001F) {
+            ui.outline(x + filled - thumbRadius - 1.0F, trackY + trackHeight / 2.0F - thumbRadius - 1.0F,
+                    (thumbRadius + 1.0F) * 2.0F, (thumbRadius + 1.0F) * 2.0F, thumbRadius + 1.0F, 1.0F,
+                    Material.withAlpha(scheme.onPrimary, (active ? 0.55F : 0.35F * h)));
+        }
     }
 
     /** Material menu surface with one row per option. */

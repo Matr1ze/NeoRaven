@@ -19,6 +19,7 @@ import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
 import xyz.daikirai.gui.onyx.render.WavyProgressIndicator;
+import xyz.daikirai.client.RenderDispatcher;
 import xyz.daikirai.music.MusicIsland;
 import xyz.daikirai.music.MusicManager;
 import xyz.daikirai.music.MusicTypeface;
@@ -31,7 +32,10 @@ import xyz.daikirai.module.player.AutoSwapModule;
 import xyz.daikirai.module.player.AutoBlockinModule;
 import xyz.daikirai.module.player.BedAuraModule;
 import xyz.daikirai.module.player.ChestStealerModule;
+import xyz.daikirai.module.movement.FlyModule;
+import xyz.daikirai.module.network.BlinkModule;
 import xyz.daikirai.module.player.Scaffold2Module;
+import xyz.daikirai.module.render.LowHealthModule;
 import xyz.daikirai.module.render.WatermarkModule;
 
 import javax.imageio.ImageIO;
@@ -84,11 +88,19 @@ public final class Island {
     private static final int GAUGE = 2;
     private static final int MUSIC = 3;
     private static final int VELOCITY = 4;
+    private static final int DEBUG = 5;
+    private static final int ALERT = 6;
+    private static final int FLY = 7;
+    private static final int BLINK = 8;
 
     private static final String CLIENT_NAME = "NeoRaven";
     private static final String MUSIC_ICON = "\ue405";
+    /** Material Icons "warning". */
+    private static final String WARN_ICON = "\ue002";
 
     private final UI ui = new UI();
+    /** Second island style ("Island = Samsara"); owns the HUD entirely while it is selected. */
+    private final SamsaraIsland samsara = new SamsaraIsland();
     private final Anim visible = new Anim(0.0F);
     private final Anim contentWidth = new Anim(MIN_CONTENT);
     private final Anim contentHeight = new Anim(HEIGHT);
@@ -111,6 +123,8 @@ public final class Island {
     private String previousText = "";
     private String badge = "";
     private String previousBadge = "";
+    private String arrow = "";
+    private String previousArrow = "";
     private boolean positive = true;
     private boolean previousPositive = true;
     private float previousGaugeFill;
@@ -127,7 +141,7 @@ public final class Island {
     private int flashColor = 0xFFFFFFFF;
 
     private boolean bedActive;
-    private String bedLabel = "Bed";
+    private String bedLabel = xyz.daikirai.util.Lang.text("Bed");
     private float bedPercent;
 
     private boolean gappleActive;
@@ -136,7 +150,7 @@ public final class Island {
 
     private boolean blockinActive;
     private float blockinPercent;
-    private String blockinLabel = "Blockin";
+    private String blockinLabel = xyz.daikirai.util.Lang.text("Blockin");
 
     private boolean musicActive;
     private boolean musicInternal;
@@ -146,6 +160,22 @@ public final class Island {
     private boolean velocityActive;
     private int velocityTicks;
     private int velocityPackets;
+
+    private boolean blinkActive;
+    private int blinkTicks;
+    private boolean blinkAutoDisable;
+    private float blinkPercent;
+
+    private final IslandDebug debug = new IslandDebug();
+    private boolean debugActive;
+    private IslandDebug.Snapshot debugSnapshot;
+
+    private boolean flyActive;
+    private double flySpeed;
+
+    private boolean alertActive;
+    private boolean alertRed;
+    private boolean alertContainer;
 
     private boolean dragging;
     private float dragOffsetX;
@@ -159,6 +189,12 @@ public final class Island {
     /** Draws (and updates) the island; {@code preview} keeps it visible for the position editor. */
     public void render(WatermarkModule module, boolean preview) {
         if (module == null) {
+            return;
+        }
+        // "Island = Samsara": the ported Samsara island replaces this whole surface, including its
+        // own shell, spacing and notices. Everything below belongs to the NeoRaven style.
+        if (WatermarkModule.samsaraMode()) {
+            samsara.render(module, preview);
             return;
         }
         float delta = tick();
@@ -234,8 +270,12 @@ public final class Island {
         if (!preview) {
             handleDrag(module, mc, resolution);
         }
-        boolean drawLogo = module.logo() && kind != MUSIC && ensureLogo();
+        boolean drawLogo = module.logo() && kind != MUSIC && kind != ALERT && ensureLogo();
         boolean frosted = tabExpansion > 0.001F ? WatermarkModule.tablistFrosted() : module.frosted();
+        // "Red island" paints the pill with the theme's error container while the alert is up. The
+        // logo yields to the warning icon, so the whole pill reads as one alarm surface.
+        alertContainer = alertActive && alertRed && kind == ALERT;
+        int containerColor = alertContainer ? scheme.errorContainer : scheme.surfaceContainerHigh;
 
         GlStateManager.pushMatrix();
         mc.entityRenderer.setupOverlayRendering();
@@ -251,9 +291,9 @@ public final class Island {
 
             float radius = pillHeight / 2.0F + (24.0F - pillHeight / 2.0F) * expansion;
             ui.shadow(0.0F, 0.0F, islandWidth, islandHeight, radius, 3);
-            ui.rounded(0.0F, 0.0F, islandWidth, islandHeight, radius, scheme.surfaceContainerHigh);
+            ui.rounded(0.0F, 0.0F, islandWidth, islandHeight, radius, containerColor);
             if (frosted && Blur.ready()) {
-                ui.frost(0.0F, 0.0F, islandWidth, islandHeight, radius, scheme.surfaceContainerHigh,
+                ui.frost(0.0F, 0.0F, islandWidth, islandHeight, radius, containerColor,
                         FROST_COVERAGE);
             }
             // No resting border: the outline is only the state-change flash ring.
@@ -274,13 +314,13 @@ public final class Island {
             float t = morph.value();
             if (t < 0.999F) {
                 ui.alphaPush(1.0F - t);
-                drawContent(ui, scheme, previousKind, previousText, previousBadge, previousPositive,
+                drawContent(ui, scheme, previousKind, previousText, previousBadge, previousArrow, previousPositive,
                         islandWidth, islandHeight, -6.0F * t, previousGaugeFill);
                 ui.alphaPop();
             }
             if (t > 0.001F) {
                 ui.alphaPush(t);
-                drawContent(ui, scheme, kind, text, badge, positive, islandWidth, islandHeight,
+                drawContent(ui, scheme, kind, text, badge, arrow, positive, islandWidth, islandHeight,
                         6.0F * (1.0F - t), gaugeFillAnim.value());
                 ui.alphaPop();
             }
@@ -341,20 +381,21 @@ public final class Island {
     }
 
     private void drawContent(UI ui, Scheme scheme, int contentKind, String contentText, String contentBadge,
-                             boolean contentPositive, float islandWidth, float islandHeight,
+                             String contentArrow, boolean contentPositive, float islandWidth, float islandHeight,
                              float offsetX, float fill) {
         switch (contentKind) {
             case TOGGLE: {
                 String label = ui.truncate(Typeface.LABEL_TIGHT, contentText, MAX_TEXT);
                 ui.text(Typeface.LABEL_TIGHT, label, TEXT_X + offsetX, islandHeight / 2.0F,
-                        scheme.onSurface, UI.ALIGN_LEFT);
+                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 if (contentBadge != null && !contentBadge.isEmpty()) {
                     float badgeWidth = 10.0F + Typeface.CAPTION.width(contentBadge);
                     float badgeX = TEXT_X + offsetX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
                     ui.rounded(badgeX, islandHeight / 2.0F - 6.0F, badgeWidth, 12.0F, 6.0F,
                             contentPositive ? scheme.primaryContainer : scheme.surfaceContainerHighest);
                     ui.text(Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F, islandHeight / 2.0F,
-                            contentPositive ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+                            contentPositive ? scheme.onPrimaryContainer
+                                    : Theme.hudText(scheme.primary, scheme.onSurfaceVariant),
                             UI.ALIGN_CENTER);
                 }
                 break;
@@ -362,9 +403,11 @@ public final class Island {
             case GAUGE: {
                 float left = TEXT_X + 2.0F + offsetX;
                 float right = islandWidth - 9.0F + offsetX;
-                ui.text(Typeface.CAPTION, contentText, left, 11.0F, scheme.onSurfaceVariant, UI.ALIGN_LEFT);
+                ui.text(Typeface.CAPTION, contentText, left, 11.0F,
+                        Theme.hudText(scheme.primary, scheme.onSurfaceVariant), UI.ALIGN_LEFT);
                 ui.text(Typeface.LABEL_TIGHT, contentBadge, right, 11.0F,
-                        contentPositive ? scheme.onSurface : scheme.error, UI.ALIGN_RIGHT);
+                        contentPositive ? Theme.hudText(scheme.primary, scheme.onSurface) : scheme.error,
+                        UI.ALIGN_RIGHT);
                 float barY = islandHeight - 11.0F;
                 float barWidth = Math.max(0.0F, right - left);
                 WavyProgressIndicator.Style style = new WavyProgressIndicator.Style(
@@ -381,7 +424,7 @@ public final class Island {
                 ui.icon(MUSIC_ICON, 15.35F + offsetX, islandHeight / 2.0F, 14.0F, scheme.primary);
                 String label = ui.truncate(style, contentText, maxText);
                 ui.text(style, label, TEXT_X + offsetX, islandHeight / 2.0F,
-                        scheme.onSurface, UI.ALIGN_LEFT);
+                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 float barsX = TEXT_X + offsetX + style.width(label) + 6.0F;
                 for (int i = 0; i < 3; i++) {
                     float level = musicPlaying
@@ -396,7 +439,7 @@ public final class Island {
             case VELOCITY: {
                 String label = ui.truncate(Typeface.LABEL_TIGHT, contentText, MAX_TEXT);
                 ui.text(Typeface.LABEL_TIGHT, label, TEXT_X + offsetX, islandHeight / 2.0F,
-                        scheme.primary, UI.ALIGN_LEFT);
+                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 if (contentBadge != null && !contentBadge.isEmpty()) {
                     float badgeWidth = 10.0F + Typeface.CAPTION.width(contentBadge);
                     float badgeX = TEXT_X + offsetX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
@@ -407,9 +450,64 @@ public final class Island {
                 }
                 break;
             }
+            case BLINK: {
+                String label = ui.truncate(Typeface.LABEL_TIGHT, contentText, MAX_TEXT);
+                ui.text(Typeface.LABEL_TIGHT, label, TEXT_X + offsetX, islandHeight / 2.0F,
+                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
+                if (contentBadge != null && !contentBadge.isEmpty()) {
+                    float diameter = Math.max(14.0F, Typeface.CAPTION.width(contentBadge) + 4.0F);
+                    float badgeX = TEXT_X + offsetX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
+                    ui.rounded(badgeX, islandHeight / 2.0F - diameter / 2.0F,
+                            diameter, diameter, diameter / 2.0F, scheme.primaryContainer);
+                    ui.text(Typeface.CAPTION, contentBadge, badgeX + diameter / 2.0F,
+                            islandHeight / 2.0F, scheme.onPrimaryContainer, UI.ALIGN_CENTER);
+                }
+                break;
+            }
+            case FLY: {
+                String label = ui.truncate(Typeface.LABEL_TIGHT, contentText, MAX_TEXT);
+                ui.text(Typeface.LABEL_TIGHT, label, TEXT_X + offsetX, islandHeight / 2.0F,
+                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
+                if (contentBadge != null && !contentBadge.isEmpty()) {
+                    float badgeWidth = 10.0F + Typeface.CAPTION.width(contentBadge);
+                    float badgeX = TEXT_X + offsetX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
+                    ui.rounded(badgeX, islandHeight / 2.0F - 6.0F, badgeWidth, 12.0F, 6.0F,
+                            scheme.primaryContainer);
+                    ui.text(Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F, islandHeight / 2.0F,
+                            scheme.onPrimaryContainer, UI.ALIGN_CENTER);
+                }
+                break;
+            }
+            case DEBUG: {
+                float left = TEXT_X + offsetX;
+                ui.text(Typeface.LABEL_TIGHT, contentText, left, islandHeight / 2.0F,
+                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
+                float arrowWidth = Typeface.LABEL_TIGHT.width(arrow);
+                if (arrowWidth > 0.0F) {
+                    float arrowX = left + Typeface.LABEL_TIGHT.width(contentText) + 6.0F;
+                    ui.text(Typeface.LABEL_TIGHT, contentArrow, arrowX + arrowWidth / 2.0F,
+                            islandHeight / 2.0F, Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_CENTER);
+                }
+                if (!contentBadge.isEmpty()) {
+                    float badgeWidth = 10.0F + Typeface.CAPTION.width(contentBadge);
+                    float badgeX = islandWidth - 7.0F - badgeWidth + offsetX;
+                    ui.rounded(badgeX, islandHeight / 2.0F - 6.0F, badgeWidth, 12.0F, 6.0F,
+                            scheme.primaryContainer);
+                    ui.text(Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F,
+                            islandHeight / 2.0F, scheme.onPrimaryContainer, UI.ALIGN_CENTER);
+                }
+                break;
+            }
+            case ALERT: {
+                int tint = alertContainer ? scheme.onErrorContainer : scheme.error;
+                ui.icon(WARN_ICON, 15.35F + offsetX, islandHeight / 2.0F, 14.0F, tint);
+                ui.text(Typeface.LABEL_TIGHT, contentText, TEXT_X + offsetX, islandHeight / 2.0F,
+                        tint, UI.ALIGN_LEFT);
+                break;
+            }
             default:
                 ui.text(Typeface.LABEL_TIGHT, contentText, TEXT_X + offsetX, islandHeight / 2.0F,
-                        scheme.onSurface, UI.ALIGN_LEFT);
+                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 break;
         }
     }
@@ -433,6 +531,12 @@ public final class Island {
             blockinActive = false;
             musicActive = false;
             velocityActive = false;
+            flyActive = false;
+            debugActive = false;
+            debugSnapshot = null;
+            debug.reset();
+            alertActive = false;
+            alertRed = false;
             states.clear();
         }
 
@@ -468,8 +572,8 @@ public final class Island {
             if (!module.announceToggles()) {
                 continue;
             }
-            notifyText = Text.strip(candidate.getName());
-            notifyBadge = enabled ? "ON" : "OFF";
+            notifyText = Text.strip(candidate.localizedName());
+            notifyBadge = enabled ? xyz.daikirai.util.Lang.text("ON") : xyz.daikirai.util.Lang.text("OFF");
             notifyPositive = enabled;
             hold = Math.max(0.1F, module.holdSeconds()) * 1000.0F;
             flashColor = enabled ? Theme.scheme().primary : Theme.scheme().error;
@@ -478,7 +582,8 @@ public final class Island {
         }
     }
 
-    private static boolean trackable(Module candidate, WatermarkModule self) {
+    /** Shared with the Samsara style so both islands stay quiet about the same modules. */
+    static boolean trackable(Module candidate, WatermarkModule self) {
         if (candidate == null || candidate == self || candidate.noToggle || candidate.isProfile()) {
             return false;
         }
@@ -500,9 +605,9 @@ public final class Island {
             BlockPos target = BedAuraModule.target;
             if (bedAura != null && bedAura.isEnabled() && target != null && mc.theWorld != null) {
                 Block block = mc.theWorld.getBlockState(target).getBlock();
-                String label = block == null ? "Block" : block.getLocalizedName();
+                String label = block == null ? xyz.daikirai.util.Lang.text("Block") : block.getLocalizedName();
                 if (label == null || label.isEmpty()) {
-                    label = "Block";
+                    label = xyz.daikirai.util.Lang.text("Block");
                 }
                 bedLabel = label;
                 bedPercent = Material.clamp(BedAuraModule.progress, 0.0F, 1.0F);
@@ -565,6 +670,54 @@ public final class Island {
                 velocityPackets = impl.delayPackets();
                 velocityActive = true;
             }
+        }
+
+        // Blink used to draw its tick counter below the crosshair. Keep the same counter on the
+        // island: a finite auto-disable timer becomes a Scaffold-style wave gauge, otherwise it
+        // uses the compact name + circular count badge used by the Velocity row.
+        blinkActive = false;
+        blinkAutoDisable = false;
+        blinkPercent = 0.0F;
+        Module blink = ModuleManager.get("Blink");
+        if (BlinkModule.displayEnabled() && blink != null && blink.isEnabled() && BlinkModule.instance != null
+                && BlinkModule.instance.isBlinking()) {
+            blinkTicks = BlinkModule.displayTicks();
+            blinkAutoDisable = BlinkModule.hasAutoDisable();
+            blinkPercent = BlinkModule.autoDisableProgress();
+            blinkActive = true;
+        }
+
+        debugSnapshot = null;
+        debugActive = module.debug() && mc.thePlayer != null && mc.theWorld != null;
+        if (debugActive) {
+            debugSnapshot = debug.update(mc.thePlayer, module.debugMove(), module.debugLanding(),
+                    module.debugAttack(), module.debugHurt());
+            debugActive = debugSnapshot != null;
+        }
+        if (!debugActive) {
+            debug.reset();
+        }
+
+        // Fly's own "Show BPS" readout moves to the island while Watermark draws it.
+        flyActive = false;
+        if (module.flyBps()) {
+            FlyModule fly = FlyModule.instance;
+            // The island switch is independent of the module's own "Show BPS" (that one is now
+            // only the crosshair readout).
+            if (fly != null && fly.isEnabled() && mc.thePlayer != null) {
+                flySpeed = RenderDispatcher.bps(mc.thePlayer, 2);
+                flyActive = true;
+            }
+        }
+
+        // Low Health: a separate module feeds the island, nothing is drawn while it is disabled.
+        alertActive = false;
+        alertRed = false;
+        LowHealthModule lowHealth = LowHealthModule.instance;
+        if (lowHealth != null && lowHealth.isEnabled() && mc.thePlayer != null && mc.theWorld != null
+                && lowHealth.triggered(mc.thePlayer.getHealth())) {
+            alertActive = true;
+            alertRed = lowHealth.redIsland();
         }
     }
 
@@ -631,7 +784,7 @@ public final class Island {
         if (!artist.isEmpty() && musicStyle().supports(artist)) {
             return artist;
         }
-        return "Now playing";
+        return xyz.daikirai.util.Lang.text("Now playing");
     }
 
     private void chooseContent() {
@@ -643,22 +796,50 @@ public final class Island {
         // it is collapsed its lyric row must yield to the Scaffold block gauge and the BedAura
         // progress, or a playing song hides both of them for the whole match.
         boolean musicCard = musicActive && miniOpen.value() > 0.5F;
+        // Hit / hurt lines are one-shot combat feedback: they outrank the music card and the
+        // Velocity2 delay row, otherwise a knockback would hide the very line that reports it.
+        boolean debugEvent = debugActive && debugSnapshot.state == IslandDebug.EVENT;
 
         if (hold > 0.0F) {
             nextKind = TOGGLE;
             nextText = notifyText;
             nextBadge = notifyBadge;
             nextPositive = notifyPositive;
+        } else if (debugEvent) {
+            nextKind = DEBUG;
+            nextText = debugSnapshot.label();
+            nextBadge = debugSnapshot.badge();
+        } else if (alertActive) {
+            // Low Health outranks music / Velocity2 / the debug rows: it is the one thing the
+            // player must notice before the next hit lands.
+            nextKind = ALERT;
+            nextText = "Low Health";
         } else if (musicCard) {
             nextKind = MUSIC;
             nextText = musicTitle;
         } else if (velocityActive) {
             nextKind = VELOCITY;
-            nextText = "Velocity";
+            nextText = xyz.daikirai.util.Lang.module("Velocity");
             nextBadge = velocityTickLabel();
+        } else if (blinkActive && blinkAutoDisable) {
+            nextKind = GAUGE;
+            nextText = "Blink";
+            nextBadge = Math.round(blinkPercent * 100.0F) + "%";
+        } else if (blinkActive) {
+            nextKind = BLINK;
+            nextText = "Blink";
+            nextBadge = String.valueOf(blinkTicks);
+        } else if (flyActive) {
+            nextKind = FLY;
+            nextText = "Fly";
+            nextBadge = flySpeed + " bps";
+        } else if (debugActive) {
+            nextKind = DEBUG;
+            nextText = debugSnapshot.label();
+            nextBadge = debugSnapshot.badge();
         } else if (gappleActive) {
             nextKind = GAUGE;
-            nextText = "Gapple";
+            nextText = xyz.daikirai.util.Lang.text("Gapple");
             nextBadge = Math.min(gappleCount, AutoGappleModule.targetPackets())
                     + "/" + AutoGappleModule.targetPackets();
         } else if (bedActive) {
@@ -671,7 +852,7 @@ public final class Island {
             nextBadge = Math.round(blockinPercent * 100.0F) + "%";
         } else if (gaugeActive) {
             nextKind = GAUGE;
-            nextText = "Blocks";
+            nextText = xyz.daikirai.util.Lang.text("Blocks");
             nextBadge = String.valueOf(gaugeCount);
             nextPositive = !gaugeAlert;
         } else if (musicActive) {
@@ -689,6 +870,8 @@ public final class Island {
             changed = !nextText.equals(text) || !nextBadge.equals(badge) || nextPositive != positive;
         } else if (nextKind == MUSIC) {
             changed = !nextText.equals(text);
+        } else if (nextKind == DEBUG) {
+            changed = !nextText.equals(text) || !debugSnapshot.arrow().equals(arrow);
         } else {
             // Gauge values are refreshed in place: Onyx only re-morphed on a state change, so the
             // block counter must not restart the island animation on every block.
@@ -699,11 +882,13 @@ public final class Island {
             previousKind = kind;
             previousText = text;
             previousBadge = badge;
+            previousArrow = arrow;
             previousPositive = positive;
             previousGaugeFill = gaugeFillAnim.value();
             kind = nextKind;
             text = nextText;
             badge = nextBadge;
+            arrow = debugActive ? debugSnapshot.arrow() : "";
             positive = nextPositive;
             morph.set(0.0F);
             morph.to(1.0F, 250.0F, Ease.EMPHASIZED_DECELERATE);
@@ -711,6 +896,7 @@ public final class Island {
             kind = nextKind;
             text = nextText;
             badge = nextBadge;
+            arrow = debugActive ? debugSnapshot.arrow() : "";
             positive = nextPositive;
         }
     }
@@ -729,16 +915,30 @@ public final class Island {
                         + Typeface.LABEL_TIGHT.width(badge)) + 4.0F;
             case MUSIC:
                 return Math.min(musicStyle().width(text), musicTextMax()) + 6.0F + 10.0F;
-            case VELOCITY: {
+            case VELOCITY:
+            case FLY: {
                 float textWidth = Math.min(Typeface.LABEL_TIGHT.width(text), MAX_TEXT);
                 return textWidth + 6.0F + 10.0F + Typeface.CAPTION.width(badge);
             }
+            case BLINK:
+                return Math.min(Typeface.LABEL_TIGHT.width(text), MAX_TEXT) + 6.0F
+                        + Math.max(14.0F, Typeface.CAPTION.width(badge) + 4.0F);
+            case DEBUG: {
+                float arrowWidth = Typeface.LABEL_TIGHT.width(this.arrow);
+                return Typeface.LABEL_TIGHT.width(text) + (arrowWidth > 0.0F ? arrowWidth + 6.0F : 0.0F)
+                        + 6.0F + 10.0F + Typeface.CAPTION.width(badge);
+            }
+            case ALERT:
+                return Typeface.LABEL_TIGHT.width(text) + 4.0F;
             default:
                 return Typeface.LABEL_TIGHT.width(text);
         }
     }
 
     private float gaugeFillTarget() {
+        if (kind == GAUGE && blinkActive && blinkAutoDisable && "Blink".equals(text)) {
+            return blinkPercent;
+        }
         if (gappleActive) {
             return gapplePercent;
         }
@@ -798,27 +998,31 @@ public final class Island {
     }
 
     public boolean inside(float mouseX, float mouseY) {
+        if (WatermarkModule.samsaraMode()) {
+            return samsara.inside(mouseX, mouseY);
+        }
         return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }
 
     public float left() {
-        return x;
+        return WatermarkModule.samsaraMode() ? samsara.left() : x;
     }
 
     public float top() {
-        return y;
+        return WatermarkModule.samsaraMode() ? samsara.top() : y;
     }
 
     public float width() {
-        return w;
+        return WatermarkModule.samsaraMode() ? samsara.width() : w;
     }
 
     public float height() {
-        return h;
+        return WatermarkModule.samsaraMode() ? samsara.height() : h;
     }
 
     /** Clears per-session state so re-enabling starts from a clean idle island. */
     public void reset() {
+        samsara.reset();
         states.clear();
         hold = 0.0F;
         gaugeActive = false;
@@ -829,6 +1033,15 @@ public final class Island {
         musicActive = false;
         musicInternal = false;
         velocityActive = false;
+        blinkActive = false;
+        blinkAutoDisable = false;
+        blinkPercent = 0.0F;
+        flyActive = false;
+        debugActive = false;
+        debugSnapshot = null;
+        debug.reset();
+        alertActive = false;
+        alertRed = false;
         kind = IDLE;
         previousKind = IDLE;
         text = CLIENT_NAME;
@@ -853,6 +1066,10 @@ public final class Island {
 
     /** Primes the exact return endpoint before the GUI gives rendering back to the HUD. */
     public void returnFromMusic(boolean mini) {
+        if (WatermarkModule.samsaraMode()) {
+            samsara.reset();
+            return;
+        }
         hold = 0.0F;
         refreshMusicSource();
         kind = musicActive ? MUSIC : IDLE;
@@ -876,12 +1093,18 @@ public final class Island {
 
     /** Design-space size of the surface (before the HUD scale is applied). */
     public float designWidth() {
+        if (WatermarkModule.samsaraMode()) {
+            return samsara.designWidth();
+        }
         float pill = FIXED_WIDTH + contentWidth.value();
         float expansion = Material.clamp(miniOpen.value(), 0.0F, 1.0F);
         return pill + (MusicIsland.miniWidth() - pill) * expansion;
     }
 
     public float designHeight() {
+        if (WatermarkModule.samsaraMode()) {
+            return samsara.designHeight();
+        }
         float pill = contentHeight.value();
         float expansion = Material.clamp(miniOpen.value(), 0.0F, 1.0F);
         return pill + (MusicIsland.miniHeight() - pill) * expansion;
@@ -892,6 +1115,9 @@ public final class Island {
      * {@link #render}. The player window starts and ends its morph on exactly this rect.
      */
     public float[] measure() {
+        if (WatermarkModule.samsaraMode()) {
+            return samsara.measure();
+        }
         Minecraft mc = Minecraft.getMinecraft();
         ScaledResolution resolution = new ScaledResolution(mc);
         WatermarkModule module = WatermarkModule.instance;
@@ -914,13 +1140,17 @@ public final class Island {
      * from the exact HUD artwork that was on screen a frame earlier.
      */
     public void snapshot(UI target, Scheme scheme, boolean logo) {
+        if (WatermarkModule.samsaraMode()) {
+            samsara.snapshot(target);
+            return;
+        }
         float designWidth = designWidth();
         float designHeight = designHeight();
         if (logo && ensureLogo()) {
             target.image(LOGO, 7.0F + (LOGO_WIDTH - LOGO_HEIGHT) / 2.0F, (designHeight - LOGO_HEIGHT) / 2.0F,
                     LOGO_HEIGHT, LOGO_HEIGHT, 0.0F, 0.0F, 1.0F, 1.0F, scheme.primary);
         }
-        drawContent(target, scheme, kind, text, badge, positive, designWidth, designHeight, 0.0F,
+        drawContent(target, scheme, kind, text, badge, arrow, positive, designWidth, designHeight, 0.0F,
                 gaugeFillAnim.value());
         if (kind == MUSIC) {
             drawMusicProgress(target, scheme, designWidth, designHeight, designHeight / 2.0F);
@@ -929,6 +1159,10 @@ public final class Island {
 
     /** Handles transport clicks before chat receives them. Header drags still use handleDrag(). */
     public boolean musicClick(float mouseX, float mouseY) {
+        // The Samsara island has no mini player, so it must not claim the music clicks.
+        if (WatermarkModule.samsaraMode()) {
+            return false;
+        }
         if (!MusicIsland.hasTrack() || miniOpen.value() < 0.98F || !inside(mouseX, mouseY)) return false;
         // The card is drawn in its own 296x130 design space, so the click map stays in that space.
         float localX = (mouseX - x) * MusicIsland.MINI_WIDTH / w;
@@ -945,6 +1179,11 @@ public final class Island {
     /** Texture the island logo is uploaded under (used by the dev harness). */
     public static ResourceLocation logoResource() {
         return LOGO;
+    }
+
+    /** Package-private so the Samsara style can draw the same client mark. */
+    static boolean prepareLogo() {
+        return ensureLogo();
     }
 
     private static boolean ensureLogo() {

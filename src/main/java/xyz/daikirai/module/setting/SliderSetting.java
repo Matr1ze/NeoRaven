@@ -71,7 +71,9 @@ public class SliderSetting extends Setting {
         d = (double) Math.round(d * (1.0 / this.interval)) / (1.0 / this.interval);
         if (this.value != d) {
             this.value = d;
-            xyz.daikirai.client.Profiles.markModified();
+            if (this.saved) {
+                xyz.daikirai.client.Profiles.markModified();
+            }
         }
         this.setVisualInput(d);
     }

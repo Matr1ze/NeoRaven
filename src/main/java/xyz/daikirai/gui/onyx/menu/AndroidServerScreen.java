@@ -92,12 +92,12 @@ public final class AndroidServerScreen extends GuiScreen {
         float cardHeight = CARD_HEIGHT;
         ui.shadow(cardX, cardY, cardWidth, cardHeight, 28.0F, 4);
         ui.rounded(cardX, cardY, cardWidth, cardHeight, 28.0F, AndroidWallpaper.sheet());
-        ui.textBaseline(Typeface.BODY_MEDIUM, index >= 0 ? "Edit server" : "Add server", cardX + 24.0F,
+        ui.textBaseline(Typeface.BODY_MEDIUM, index >= 0 ? xyz.daikirai.util.Lang.text("Edit server") : xyz.daikirai.util.Lang.text("Add server"), cardX + 24.0F,
                 cardY + 40.0F, AndroidWallpaper.ink(), UI.ALIGN_LEFT);
-        ui.textBaseline(Typeface.CAPTION, "Name and address of the server", cardX + 24.0F, cardY + 62.0F,
+        ui.textBaseline(Typeface.CAPTION, xyz.daikirai.util.Lang.text("Name and address of the server"), cardX + 24.0F, cardY + 62.0F,
                 AndroidWallpaper.faintInk(), UI.ALIGN_LEFT);
-        drawField("Server name", nameField, cardX + 24.0F, fieldY(0));
-        drawField("Server address", addressField, cardX + 24.0F, fieldY(1));
+        drawField(xyz.daikirai.util.Lang.text("Server name"), nameField, cardX + 24.0F, fieldY(0));
+        drawField(xyz.daikirai.util.Lang.text("Server address"), addressField, cardX + 24.0F, fieldY(1));
         if (!error.isEmpty()) {
             ui.textBaseline(Typeface.CAPTION, error, cardX + 24.0F, cardY + 200.0F, AndroidWallpaper.errorInk(), UI.ALIGN_LEFT);
         }
@@ -108,10 +108,10 @@ public final class AndroidServerScreen extends GuiScreen {
         boolean addHovered = point(mx, my, bx, by, bw, 30.0F);
         ui.rounded(bx, by, bw, 30.0F, 15.0F, addHovered ? Material.mix(AndroidWallpaper.primary(), AndroidWallpaper.card(), 0.12F)
                 : AndroidWallpaper.primary());
-        ui.text(Typeface.LABEL, index >= 0 ? "Save" : "Add", bx + bw / 2.0F, by + 15.0F,
+        ui.text(Typeface.LABEL, index >= 0 ? xyz.daikirai.util.Lang.text("Save") : "Add", bx + bw / 2.0F, by + 15.0F,
                 AndroidWallpaper.onPrimary(), UI.ALIGN_CENTER);
         ui.rounded(bx - 8.0F - bw, by, bw, 30.0F, 15.0F, AndroidWallpaper.surfaceHigh());
-        ui.text(Typeface.LABEL, "Cancel", bx - 8.0F - bw / 2.0F, by + 15.0F, AndroidWallpaper.ink(),
+        ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Cancel"), bx - 8.0F - bw / 2.0F, by + 15.0F, AndroidWallpaper.ink(),
                 UI.ALIGN_CENTER);
         ui.alphaPop();
         ui.pop();
@@ -165,7 +165,7 @@ public final class AndroidServerScreen extends GuiScreen {
     private void submit() {
         String address = addressField.getText().trim();
         if (address.isEmpty()) {
-            error = "Enter a server address";
+            error = xyz.daikirai.util.Lang.text("Enter a server address");
             return;
         }
         String name = nameField.getText().trim();

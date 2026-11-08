@@ -8965,6 +8965,11 @@
         "labels": null
       },
       {
+        "t": "toggle",
+        "name": "HUD text color",
+        "value": false
+      },
+      {
         "t": "slider",
         "name": "Background tint",
         "prefix": "",
@@ -8989,6 +8994,21 @@
         "labels": null
       },
       {
+        "t": "mode",
+        "name": "Language",
+        "prefix": "",
+        "suffix": "",
+        "value": 1.0,
+        "min": 0.0,
+        "max": 1.0,
+        "step": 1.0,
+        "options": [
+          "Chinese",
+          "English"
+        ],
+        "labels": null
+      },
+      {
         "t": "toggle",
         "name": "Follow GUI scale",
         "value": true
@@ -8997,6 +9017,22 @@
         "t": "toggle",
         "name": "Frosted glass",
         "value": true
+      },
+      {
+        "t": "mode",
+        "name": "Appearance",
+        "prefix": "",
+        "suffix": "",
+        "value": 0.0,
+        "min": 0.0,
+        "max": 2.0,
+        "step": 1.0,
+        "options": [
+          "Dark",
+          "Light",
+          "Translucent"
+        ],
+        "labels": null
       },
       {
         "t": "button",
@@ -9016,6 +9052,21 @@
     "lite": false,
     "failed": null,
     "settings": [
+      {
+        "t": "mode",
+        "name": "Island",
+        "prefix": "",
+        "suffix": "",
+        "value": 0.0,
+        "min": 0.0,
+        "max": 1.0,
+        "step": 1.0,
+        "options": [
+          "NeoRaven",
+          "Samsara"
+        ],
+        "labels": null
+      },
       {
         "t": "toggle",
         "name": "Module toggles",
@@ -9199,6 +9250,36 @@
       },
       {
         "t": "toggle",
+        "name": "Fly bps",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Debug",
+        "value": false
+      },
+      {
+        "t": "toggle",
+        "name": "Debug: Move",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Debug: Landing",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Debug: Attack",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Debug: Hurt",
+        "value": true
+      },
+      {
+        "t": "toggle",
         "name": "Info panel",
         "value": true
       },
@@ -9215,6 +9296,185 @@
       {
         "t": "toggle",
         "name": "Info: server",
+        "value": true
+      },
+      {
+        "t": "slider",
+        "name": "Samsara: Position X",
+        "prefix": "",
+        "suffix": "%",
+        "value": 50.0,
+        "min": 0.0,
+        "max": 100.0,
+        "step": 0.01,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Samsara: Position Y",
+        "prefix": "",
+        "suffix": "%",
+        "value": 0.0,
+        "min": 0.0,
+        "max": 100.0,
+        "step": 0.01,
+        "options": null,
+        "labels": null
+      }
+    ]
+  },
+  {
+    "cls": "R632",
+    "name": "Low Health",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "slider",
+        "name": "Min hearts",
+        "prefix": "",
+        "suffix": "",
+        "value": 4.0,
+        "min": 0.5,
+        "max": 10.0,
+        "step": 0.5,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Red island",
+        "value": true
+      }
+    ]
+  },
+  {
+    "cls": "OnyxNotifications",
+    "name": "Notifications",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "slider",
+        "name": "Scale",
+        "prefix": "",
+        "suffix": "x",
+        "value": 0.85,
+        "min": 0.5,
+        "max": 2,
+        "step": 0.05,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Position X",
+        "prefix": "",
+        "suffix": "%",
+        "value": 82,
+        "min": 0,
+        "max": 100,
+        "step": 0.01,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Position Y",
+        "prefix": "",
+        "suffix": "%",
+        "value": 8,
+        "min": 0,
+        "max": 100,
+        "step": 0.01,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Frosted glass",
+        "value": true
+      },
+      {
+        "t": "button",
+        "name": "Edit position",
+        "value": false
+      },
+      {
+        "t": "slider",
+        "name": "Hold",
+        "prefix": "",
+        "suffix": "s",
+        "value": 3,
+        "min": 0.5,
+        "max": 10,
+        "step": 0.1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Max stack",
+        "prefix": "",
+        "suffix": "",
+        "value": 5,
+        "min": 1,
+        "max": 10,
+        "step": 1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Module toggles",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Scaffold blocks",
+        "value": true
+      },
+      {
+        "t": "slider",
+        "name": "Low blocks",
+        "prefix": "",
+        "suffix": "",
+        "value": 32,
+        "min": 1,
+        "max": 128,
+        "step": 1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Bed breaker",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Now playing",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Progress bar",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Subtitle",
         "value": true
       }
     ]
@@ -9235,7 +9495,7 @@
         "name": "Scale",
         "prefix": "",
         "suffix": "x",
-        "value": 1.0,
+        "value": 0.75,
         "min": 0.5,
         "max": 2.0,
         "step": 0.05,
@@ -9295,6 +9555,21 @@
         "t": "toggle",
         "name": "Show count",
         "value": true
+      },
+      {
+        "t": "mode",
+        "name": "Style",
+        "prefix": "",
+        "suffix": "",
+        "value": 0.0,
+        "min": 0.0,
+        "max": 1.0,
+        "step": 1.0,
+        "options": [
+          "Modern",
+          "Retro"
+        ],
+        "labels": null
       }
     ]
   },
@@ -9372,21 +9647,6 @@
       },
       {
         "t": "slider",
-        "name": "Font: Weight",
-        "prefix": "",
-        "suffix": "",
-        "value": 1.0,
-        "min": 0.0,
-        "max": 1.0,
-        "step": 1.0,
-        "options": [
-          "Regular",
-          "Medium"
-        ],
-        "labels": null
-      },
-      {
-        "t": "slider",
         "name": "Font: Size",
         "prefix": "",
         "suffix": "x",
@@ -9403,16 +9663,16 @@
         "prefix": "",
         "suffix": " px",
         "value": 0.0,
-        "min": -1.0,
-        "max": 1.0,
-        "step": 0.05,
+        "min": -5.0,
+        "max": 5.0,
+        "step": 0.5,
         "options": null,
         "labels": null
       },
       {
         "t": "toggle",
         "name": "Font: Shadow",
-        "value": true
+        "value": false
       },
       {
         "t": "toggle",
@@ -9883,6 +10143,18 @@
       {
         "t": "desc",
         "name": "NetEase Cloud Music with synced lyrics. Bind a key to open."
+      },
+      {
+        "t": "slider",
+        "name": "GUI Scale",
+        "prefix": "",
+        "suffix": "x",
+        "value": 1.0,
+        "min": 0.5,
+        "max": 2.0,
+        "step": 0.05,
+        "options": null,
+        "labels": null
       }
     ]
   },
@@ -10344,6 +10616,102 @@
         "max": 160.0,
         "step": 5.0,
         "options": null,
+        "labels": null
+      }
+    ]
+  },
+  {
+    "cls": "R610",
+    "name": "Fireball Predict",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": []
+  },
+  {
+    "cls": "R611",
+    "name": "Clock",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": []
+  },
+  {
+    "cls": "R612",
+    "name": "Halo",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": []
+  },
+  {
+    "cls": "R613",
+    "name": "Flag Detector",
+    "category": "player",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "toggle",
+        "name": "Chat",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Notifications",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Sound",
+        "value": false
+      },
+      {
+        "t": "toggle",
+        "name": "Velocity resets",
+        "value": true
+      },
+      {
+        "t": "slider",
+        "name": "Min distance",
+        "prefix": "",
+        "suffix": " b",
+        "value": 0.15,
+        "min": 0.05,
+        "max": 3.0,
+        "step": 0.05,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "mode",
+        "name": "Details",
+        "prefix": "",
+        "suffix": "",
+        "value": 0.0,
+        "min": 0.0,
+        "max": 1.0,
+        "step": 1.0,
+        "options": [
+          "Full",
+          "Short"
+        ],
         "labels": null
       }
     ]

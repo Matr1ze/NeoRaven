@@ -4,10 +4,10 @@ package xyz.daikirai.gui.onyx.material;
  * Material 3 colour roles, generated from a single accent seed exactly like the Onyx
  * ClickGUI did ({@code theme.PrimaryOnPrimaryRecord}).
  *
- * <p>The scheme is always the dark variant: surfaces sit between tone 4 and 24, the accent
- * roles between tone 20 and 90. {@code tint} controls how much accent colour bleeds into the
- * neutral (surface) palettes, {@code neutralCut}/{@code surfaceCut} desaturate very bright or
- * very dim seeds so the seed stays readable.</p>
+ * <p>Both Material 3 tonal variants are generated from the same accent seed. {@code tint} controls
+ * how much accent colour bleeds into the neutral (surface) palettes,
+ * {@code neutralCut}/{@code surfaceCut} desaturate very bright or very dim seeds so the seed stays
+ * readable.</p>
  */
 public final class Scheme {
 
@@ -97,6 +97,11 @@ public final class Scheme {
      * @param tint   0..1, how much accent the neutral surfaces keep
      */
     public static Scheme of(int accent, float tint) {
+        return of(accent, tint, true);
+    }
+
+    /** Builds either the Material 3 light or dark colour roles from the same seed. */
+    public static Scheme of(int accent, float tint, boolean dark) {
         float[] hsv = Material.hsv(accent);
         Material.Hct base = Material.Hct.fromInt(Material.fromHsv(hsv[0], hsv[1], 1.0F, 255));
 
@@ -114,19 +119,58 @@ public final class Scheme {
         Material.TonalPalette neutralBright = Material.TonalPalette.of(hue, 64.0 * accentStrength);
         Material.TonalPalette error = Material.TonalPalette.of(25.0, 84.0);
 
+        if (dark) {
+            return new Scheme(
+                    primary.tone(80.0, neutralCut), primary.tone(20.0), primary.tone(30.0, neutralCut), primary.tone(90.0),
+                    secondary.tone(80.0, neutralCut), secondary.tone(20.0), secondary.tone(30.0, neutralCut), secondary.tone(90.0),
+                    tertiary.tone(80.0, neutralCut), tertiary.tone(20.0), tertiary.tone(30.0, neutralCut), tertiary.tone(90.0),
+                    error.tone(80.0), error.tone(20.0), error.tone(30.0), error.tone(90.0),
+                    neutralVariant.tone(6.0, surfaceCut), neutral.tone(90.0), neutralBright.tone(30.0, surfaceCut), neutralBright.tone(80.0),
+                    neutralVariant.tone(6.0, surfaceCut), neutralVariant.tone(24.0, surfaceCut),
+                    neutralVariant.tone(4.0, surfaceCut), neutralVariant.tone(10.0, surfaceCut),
+                    neutralVariant.tone(12.0, surfaceCut), neutralVariant.tone(17.0, surfaceCut),
+                    neutralVariant.tone(22.0, surfaceCut),
+                    neutralBright.tone(60.0, surfaceCut), neutralBright.tone(30.0, surfaceCut),
+                    neutral.tone(90.0), neutral.tone(20.0), primary.tone(40.0, neutralCut),
+                    neutral.tone(0.0), neutral.tone(0.0));
+        }
+
         return new Scheme(
-                primary.tone(80.0, neutralCut), primary.tone(20.0), primary.tone(30.0, neutralCut), primary.tone(90.0),
-                secondary.tone(80.0, neutralCut), secondary.tone(20.0), secondary.tone(30.0, neutralCut), secondary.tone(90.0),
-                tertiary.tone(80.0, neutralCut), tertiary.tone(20.0), tertiary.tone(30.0, neutralCut), tertiary.tone(90.0),
-                error.tone(80.0), error.tone(20.0), error.tone(30.0), error.tone(90.0),
-                neutralVariant.tone(6.0, surfaceCut), neutral.tone(90.0), neutralBright.tone(30.0, surfaceCut), neutralBright.tone(80.0),
-                neutralVariant.tone(6.0, surfaceCut), neutralVariant.tone(24.0, surfaceCut),
-                neutralVariant.tone(4.0, surfaceCut), neutralVariant.tone(10.0, surfaceCut),
-                neutralVariant.tone(12.0, surfaceCut), neutralVariant.tone(17.0, surfaceCut),
-                neutralVariant.tone(22.0, surfaceCut),
-                neutralBright.tone(60.0, surfaceCut), neutralBright.tone(30.0, surfaceCut),
-                neutral.tone(90.0), neutral.tone(20.0), primary.tone(40.0, neutralCut),
+                primary.tone(40.0), primary.tone(100.0), primary.tone(90.0), primary.tone(10.0),
+                secondary.tone(40.0), secondary.tone(100.0), secondary.tone(90.0), secondary.tone(10.0),
+                tertiary.tone(40.0), tertiary.tone(100.0), tertiary.tone(90.0), tertiary.tone(10.0),
+                error.tone(40.0), error.tone(100.0), error.tone(90.0), error.tone(10.0),
+                neutralVariant.tone(98.0), neutral.tone(10.0), neutralBright.tone(90.0), neutralBright.tone(30.0),
+                neutralVariant.tone(87.0), neutralVariant.tone(98.0),
+                neutralVariant.tone(100.0), neutralVariant.tone(96.0),
+                neutralVariant.tone(94.0), neutralVariant.tone(92.0),
+                neutralVariant.tone(90.0),
+                neutralBright.tone(50.0), neutralBright.tone(80.0),
+                neutral.tone(20.0), neutral.tone(95.0), primary.tone(80.0),
                 neutral.tone(0.0), neutral.tone(0.0));
+    }
+
+    /**
+     * The frosted-glass variant used by the {@code Translucent} appearance mode.
+     *
+     * <p>Ink and accent roles come from the dark scheme (white labels, accent toggles), but every neutral
+     * surface is replaced by white at a low alpha, the scrim stays fully transparent and shadows are
+     * switched off. The result reads as a bright blurred pane over the world instead of a dark panel.</p>
+     */
+    public static Scheme glass(int accent, float tint) {
+        Scheme dark = of(accent, tint, true);
+        int accentContainer = Material.mix(0xFFFFFFFF, dark.primary, 0.35F);
+        return new Scheme(
+                dark.primary, dark.onPrimary, accentContainer, 0xFFFFFFFF,
+                dark.secondary, dark.onSecondary, accentContainer, 0xFFFFFFFF,
+                dark.tertiary, dark.onTertiary, accentContainer, 0xFFFFFFFF,
+                dark.error, dark.onError, Material.mix(0xFFFFFFFF, dark.error, 0.35F), 0xFFFFFFFF,
+                0x59FFFFFF, 0xFFFFFFFF, 0x61FFFFFF, 0xF2FFFFFF,
+                0x40FFFFFF, 0x66FFFFFF,
+                0x47FFFFFF, 0x4DFFFFFF, 0x59FFFFFF, 0x66FFFFFF, 0x73FFFFFF,
+                0x8CFFFFFF, 0x59FFFFFF,
+                0xE6FFFFFF, 0xFF101010, dark.inversePrimary,
+                0x00000000, 0x00FFFFFF);
     }
 
     /** Port of {@code theme.Util5.getIntForInt}: Material elevation levels 0..5. */

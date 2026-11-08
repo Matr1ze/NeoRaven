@@ -16,4 +16,9 @@ public class Setting {
     public String getName() {
         return this.name;
     }
+
+    /** Localised setting label for display only; {@link #name} stays the save key. */
+    public String localizedName() {
+        return xyz.daikirai.util.Lang.setting(this.name);
+    }
 }

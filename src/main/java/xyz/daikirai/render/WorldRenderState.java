@@ -1,6 +1,7 @@
 package xyz.daikirai.render;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.AxisAlignedBB;
@@ -41,7 +42,9 @@ public final class WorldRenderState implements AutoCloseable {
         GL11.glPopMatrix();
         GL11.glPopAttrib();
         if (OpenGlHelper.shadersSupported) OpenGlHelper.glUseProgram(program);
-        OpenGlHelper.setActiveTexture(active);
+        // Through the manager, so its cached "active unit" matches the driver again for whoever
+        // draws next (a raw switch here made later texture binds target the wrong unit).
+        GlStateManager.setActiveTexture(active);
         GL11.glMatrixMode(matrix);
     }
 

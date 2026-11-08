@@ -7,6 +7,7 @@ import xyz.daikirai.client.RenderDispatcher;
 import xyz.daikirai.module.Category;
 import xyz.daikirai.module.Module;
 import xyz.daikirai.module.ModuleManager;
+import xyz.daikirai.module.render.WatermarkModule;
 import xyz.daikirai.module.setting.ButtonSetting;
 import xyz.daikirai.module.setting.SliderSetting;
 import xyz.daikirai.util.RenderUtils;
@@ -63,7 +64,16 @@ public class FlyModule extends Module {
         if (!showBps.enabled || e.phase != TickEvent.Phase.END || !Overlay.canRender()) {
             return;
         }
+        // The watermark island shows the same number while it is on; drawing both looked like a
+        // duplicate. With Watermark off (or its "Fly bps" switch off) the crosshair readout stays.
+        if (WatermarkModule.islandOwnsFlyBps()) {
+            return;
+        }
         drawBps();
+    }
+
+    public boolean showBps() {
+        return showBps != null && showBps.isToggled();
     }
 
     public static void drawBps() {

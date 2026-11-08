@@ -106,6 +106,13 @@ public final class MusicManager {
     private volatile boolean lyricAnimation = true;
     private volatile boolean coverTint = true;
 
+    /**
+     * "3D lyrics" (ported from DangoMusic) settings. They live here instead of in a module so the
+     * player window's settings page owns them; {@link WorldLyrics} reads this straight out of the
+     * manager, and {@link #saveSettings()} persists them next to the volume.
+     */
+    public final Lyrics3DSettings lyrics3d = new Lyrics3DSettings();
+
     private boolean settingsLoaded;
 
     private MusicManager() {
@@ -206,6 +213,19 @@ public final class MusicManager {
         saveSettings();
     }
 
+    public int outputMode() {
+        return engine.outputMode();
+    }
+
+    public void setOutputMode(int value) {
+        engine.setOutputMode(value);
+        saveSettings();
+    }
+
+    public String activeOutput() {
+        return engine.activeOutput();
+    }
+
     /** Replaces the queue and starts playing {@code song}. */
     public void play(Song song, List<Song> context) {
         if (song == null) {
@@ -289,6 +309,9 @@ public final class MusicManager {
 
     public void setVolume(float volume) {
         engine.setVolume(volume);
+    }
+
+    public void commitVolume() {
         saveSettings();
     }
 
@@ -784,9 +807,23 @@ public final class MusicManager {
             writer.write("repeat: " + repeat.name() + "\n");
             writer.write("shuffle: " + shuffle + "\n");
             writer.write("level: " + streamLevel + "\n");
+            writer.write("audioOutput: " + engine.outputMode() + "\n");
             writer.write("lyricScale: " + lyricScale + "\n");
             writer.write("lyricAnimation: " + lyricAnimation + "\n");
             writer.write("coverTint: " + coverTint + "\n");
+            Lyrics3DSettings l3 = lyrics3d;
+            writer.write("lyrics3d: " + l3.enabled + "\n");
+            writer.write("lyrics3dScale: " + l3.scale + "\n");
+            writer.write("lyrics3dDistance: " + l3.distance + "\n");
+            writer.write("lyrics3dOffsetX: " + l3.offsetX + "\n");
+            writer.write("lyrics3dOffsetY: " + l3.offsetY + "\n");
+            writer.write("lyrics3dSpread: " + l3.spread + "\n");
+            writer.write("lyrics3dGlow: " + l3.glow + "\n");
+            writer.write("lyrics3dWiggle: " + l3.wiggle + "\n");
+            writer.write("lyrics3dWordPop: " + l3.wordPop + "\n");
+            writer.write("lyrics3dRainbow: " + l3.rainbow + "\n");
+            writer.write("lyrics3dTranslation: " + l3.translation + "\n");
+            writer.write("lyrics3dFollowView: " + l3.followView + "\n");
             writer.write("cookie: " + NeteaseHttp.cookieHeader() + "\n");
             writer.close();
         } catch (Throwable ignored) {
@@ -825,6 +862,11 @@ public final class MusicManager {
                     if (!value.isEmpty()) {
                         streamLevel = value;
                     }
+                } else if (key.equals("audioOutput")) {
+                    try {
+                        engine.setOutputMode(Integer.parseInt(value));
+                    } catch (NumberFormatException ignored) {
+                    }
                 } else if (key.equals("lyricScale")) {
                     try {
                         lyricScale = Math.max(0.8F, Math.min(1.4F, Float.parseFloat(value)));
@@ -834,6 +876,8 @@ public final class MusicManager {
                     lyricAnimation = Boolean.parseBoolean(value);
                 } else if (key.equals("coverTint")) {
                     coverTint = Boolean.parseBoolean(value);
+                } else if (key.startsWith("lyrics3d")) {
+                    applyLyrics3d(key, value);
                 } else if (key.equals("cookie")) {
                     NeteaseHttp.storeAll(value);
                 }
@@ -843,11 +887,59 @@ public final class MusicManager {
         }
     }
 
+    private void applyLyrics3d(String key, String value) {
+        Lyrics3DSettings l3 = lyrics3d;
+        try {
+            if (key.equals("lyrics3d")) {
+                l3.enabled = Boolean.parseBoolean(value);
+            } else if (key.equals("lyrics3dScale")) {
+                l3.scale = Math.max(0.4F, Math.min(2.5F, Float.parseFloat(value)));
+            } else if (key.equals("lyrics3dDistance")) {
+                l3.distance = Math.max(2.0F, Math.min(48.0F, Float.parseFloat(value)));
+            } else if (key.equals("lyrics3dOffsetX")) {
+                l3.offsetX = Math.max(-8.0F, Math.min(8.0F, Float.parseFloat(value)));
+            } else if (key.equals("lyrics3dOffsetY")) {
+                l3.offsetY = Math.max(-6.0F, Math.min(6.0F, Float.parseFloat(value)));
+            } else if (key.equals("lyrics3dSpread")) {
+                l3.spread = Math.max(0.0F, Math.min(60.0F, Float.parseFloat(value)));
+            } else if (key.equals("lyrics3dGlow")) {
+                l3.glow = Boolean.parseBoolean(value);
+            } else if (key.equals("lyrics3dWiggle")) {
+                l3.wiggle = Boolean.parseBoolean(value);
+            } else if (key.equals("lyrics3dWordPop")) {
+                l3.wordPop = Boolean.parseBoolean(value);
+            } else if (key.equals("lyrics3dRainbow")) {
+                l3.rainbow = Boolean.parseBoolean(value);
+            } else if (key.equals("lyrics3dTranslation")) {
+                l3.translation = Boolean.parseBoolean(value);
+            } else if (key.equals("lyrics3dFollowView")) {
+                l3.followView = Boolean.parseBoolean(value);
+            }
+        } catch (NumberFormatException ignored) {
+        }
+    }
+
     /** The game is shutting down: stop the audio line so the process can exit cleanly. */
     public void shutdown() {
         engine.dispose();
         io.shutdownNow();
         poller.shutdownNow();
+    }
+
+    /** Runtime settings of the world-space lyric view, edited from the player window. */
+    public static final class Lyrics3DSettings {
+        public volatile boolean enabled;
+        public volatile float scale = 1.0F;
+        public volatile float distance = 12.0F;
+        public volatile float offsetX;
+        public volatile float offsetY = 0.4F;
+        public volatile float spread = 20.0F;
+        public volatile boolean glow = true;
+        public volatile boolean wiggle = true;
+        public volatile boolean wordPop = true;
+        public volatile boolean rainbow;
+        public volatile boolean translation;
+        public volatile boolean followView = true;
     }
 
     private static String message(Throwable t) {

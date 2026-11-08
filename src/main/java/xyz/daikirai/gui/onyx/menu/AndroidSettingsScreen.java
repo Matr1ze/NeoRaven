@@ -178,19 +178,19 @@ public final class AndroidSettingsScreen extends GuiScreen {
     }
 
     private Row toggle(GameSettings.Options option) {
-        return new Row(SWITCH, option, null, I18n.format(option.getEnumString()), null, null);
+        return new Row(SWITCH, option, null, xyz.daikirai.util.Lang.vanilla(option.getEnumString(), I18n.format(option.getEnumString())), null, null);
     }
 
     private Row cycle(GameSettings.Options option) {
-        return new Row(CYCLE, option, null, I18n.format(option.getEnumString()), null, null);
+        return new Row(CYCLE, option, null, xyz.daikirai.util.Lang.vanilla(option.getEnumString(), I18n.format(option.getEnumString())), null, null);
     }
 
     private Row slider(GameSettings.Options option) {
-        return new Row(SLIDER, option, null, I18n.format(option.getEnumString()), null, null);
+        return new Row(SLIDER, option, null, xyz.daikirai.util.Lang.vanilla(option.getEnumString(), I18n.format(option.getEnumString())), null, null);
     }
 
     private Row volume(SoundCategory category) {
-        String name = I18n.format("soundCategory." + category.getCategoryName());
+        String name = xyz.daikirai.util.Lang.vanilla("soundCategory." + category.getCategoryName(), I18n.format("soundCategory." + category.getCategoryName()));
         return new Row(SLIDER, null, category, name, null, null);
     }
 
@@ -217,7 +217,7 @@ public final class AndroidSettingsScreen extends GuiScreen {
                 rows.add(cycle(GameSettings.Options.PARTICLES));
                 rows.add(toggle(GameSettings.Options.VIEW_BOBBING));
                 rows.add(toggle(GameSettings.Options.ENTITY_SHADOWS));
-                rows.add(action("Fullscreen", settings.fullScreen ? "On" : "Off", mc::toggleFullscreen));
+                rows.add(action(xyz.daikirai.util.Lang.text("Fullscreen"), xyz.daikirai.util.Lang.text(settings.fullScreen ? "On" : "Off"), mc::toggleFullscreen));
                 break;
             case 1:
                 rows.add(volume(SoundCategory.MASTER));
@@ -234,7 +234,7 @@ public final class AndroidSettingsScreen extends GuiScreen {
                 rows.add(slider(GameSettings.Options.SENSITIVITY));
                 rows.add(toggle(GameSettings.Options.INVERT_MOUSE));
                 rows.add(toggle(GameSettings.Options.TOUCHSCREEN));
-                rows.add(link("Key bindings", "Movement, inventory, chat", () -> mc.displayGuiScreen(new GuiControls(this, gs()))));
+                rows.add(link(xyz.daikirai.util.Lang.text("Key bindings"), xyz.daikirai.util.Lang.text("Movement, inventory, chat"), () -> mc.displayGuiScreen(new GuiControls(this, gs()))));
                 break;
             case 3:
                 rows.add(cycle(GameSettings.Options.CHAT_VISIBILITY));
@@ -250,9 +250,9 @@ public final class AndroidSettingsScreen extends GuiScreen {
                 break;
             default:
                 rows.add(cycle(GameSettings.Options.GUI_SCALE));
-                rows.add(link("Resource packs", "Textures and sounds", () -> mc.displayGuiScreen(new GuiScreenResourcePacks(this))));
-                rows.add(link("Skin customization", "Cape, jacket, sleeves", () -> mc.displayGuiScreen(new GuiCustomizeSkin(this))));
-                rows.add(link("Language", mc.getLanguageManager().getCurrentLanguage().getLanguageCode(),
+                rows.add(link(xyz.daikirai.util.Lang.text("Resource packs"), xyz.daikirai.util.Lang.text("Textures and sounds"), () -> mc.displayGuiScreen(new GuiScreenResourcePacks(this))));
+                rows.add(link(xyz.daikirai.util.Lang.text("Skin customization"), xyz.daikirai.util.Lang.text("Cape, jacket, sleeves"), () -> mc.displayGuiScreen(new GuiCustomizeSkin(this))));
+                rows.add(link(xyz.daikirai.util.Lang.text("Language"), mc.getLanguageManager().getCurrentLanguage().getLanguageCode(),
                         () -> mc.displayGuiScreen(new GuiLanguage(this, gs(), mc.getLanguageManager()))));
                 rows.add(toggle(GameSettings.Options.FORCE_UNICODE_FONT));
                 rows.add(toggle(GameSettings.Options.USE_VBO));
@@ -286,10 +286,10 @@ public final class AndroidSettingsScreen extends GuiScreen {
         }
         float value = gs().getOptionFloatValue(row.option);
         if (row.option == GameSettings.Options.FRAMERATE_LIMIT) {
-            return value >= 260.0F ? I18n.format("options.framerateLimit.max") : Math.round(value) + " fps";
+            return value >= 260.0F ? xyz.daikirai.util.Lang.vanilla("options.framerateLimit.max", I18n.format("options.framerateLimit.max")) : Math.round(value) + " " + xyz.daikirai.util.Lang.text("fps");
         }
         if (row.option == GameSettings.Options.RENDER_DISTANCE) {
-            return Math.round(value) + " chunks";
+            return Math.round(value) + " " + xyz.daikirai.util.Lang.text("chunks");
         }
         if (row.option == GameSettings.Options.FOV) {
             return Math.round(value) + "\u00b0";
@@ -374,7 +374,7 @@ public final class AndroidSettingsScreen extends GuiScreen {
      * into its own rounded shape on top of the group - the Android 16 settings pattern.
      */
     private void drawRail() {
-        ui.textBaseline(Typeface.HEADLINE_LARGE, I18n.format("options.title"), railX + 4.0F, 26.0F,
+        ui.textBaseline(Typeface.HEADLINE_LARGE, xyz.daikirai.util.Lang.vanilla("options.title", I18n.format("options.title")), railX + 4.0F, 26.0F,
                 AndroidWallpaper.ink(), UI.ALIGN_LEFT);
         float groupHeight = ITEM_HEIGHT * CATEGORY_LABELS.length;
         ui.shadow(railX, RAIL_Y, RAIL_WIDTH, groupHeight, 24.0F, 1);
@@ -397,9 +397,9 @@ public final class AndroidSettingsScreen extends GuiScreen {
                     selected ? Material.withAlpha(AndroidWallpaper.onPrimaryContainer(), 0.12F)
                             : AndroidWallpaper.surfaceHigh());
             ui.icon(CATEGORY_ICONS[i], railX + 30.0F, y + ITEM_HEIGHT / 2.0F, 17.0F, glyph);
-            ui.text(Typeface.BODY_MEDIUM, CATEGORY_LABELS[i], railX + 54.0F, y + 20.0F,
+            ui.text(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text(CATEGORY_LABELS[i]), railX + 54.0F, y + 20.0F,
                     selected ? AndroidWallpaper.onPrimaryContainer() : AndroidWallpaper.ink(), UI.ALIGN_LEFT);
-            ui.text(Typeface.CAPTION, CATEGORY_HINTS[i], railX + 54.0F, y + 35.0F,
+            ui.text(Typeface.CAPTION, xyz.daikirai.util.Lang.text(CATEGORY_HINTS[i]), railX + 54.0F, y + 35.0F,
                     selected ? Material.withAlpha(AndroidWallpaper.onPrimaryContainer(), 0.7F)
                             : AndroidWallpaper.faintInk(), UI.ALIGN_LEFT);
         }
@@ -408,19 +408,19 @@ public final class AndroidSettingsScreen extends GuiScreen {
         ui.rounded(railX, modsY, RAIL_WIDTH, modsHeight, 14.0F,
                 Material.withAlpha(AndroidWallpaper.ink(), modsHovered ? 0.08F : 0.04F));
         ui.icon(ICON_EXTENSION, railX + 22.0F, modsY + modsHeight / 2.0F, 16.0F, AndroidWallpaper.onSurfaceVariant());
-        ui.text(Typeface.LABEL, "Mods", railX + 40.0F, modsY + modsHeight / 2.0F,
+        ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Mods"), railX + 40.0F, modsY + modsHeight / 2.0F,
                 AndroidWallpaper.onSurfaceVariant(), UI.ALIGN_LEFT);
     }
 
     private void drawPane() {
         float fade = Material.clamp(paneAnim.value(), 0.0F, 1.0F);
-        ui.textBaseline(Typeface.HEADLINE_LARGE, CATEGORY_LABELS[category], cardX + 4.0F, 26.0F,
+        ui.textBaseline(Typeface.HEADLINE_LARGE, xyz.daikirai.util.Lang.text(CATEGORY_LABELS[category]), cardX + 4.0F, 26.0F,
                 AndroidWallpaper.ink(), UI.ALIGN_LEFT);
         boolean doneHovered = point(mx, my, doneX, doneY, doneWidth, doneHeight);
         ui.rounded(doneX, doneY, doneWidth, doneHeight, 15.0F,
                 doneHovered ? AndroidWallpaper.primaryContainer()
                         : Material.mix(AndroidWallpaper.card(), AndroidWallpaper.primaryContainer(), 0.55F));
-        ui.text(Typeface.LABEL, "Done", doneX + doneWidth / 2.0F, doneY + doneHeight / 2.0F,
+        ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Done"), doneX + doneWidth / 2.0F, doneY + doneHeight / 2.0F,
                 AndroidWallpaper.onPrimaryContainer(), UI.ALIGN_CENTER);
 
         ui.shadow(cardX, cardY, cardWidth, cardHeight, CARD_RADIUS, 2);

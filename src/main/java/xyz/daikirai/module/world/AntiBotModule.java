@@ -95,7 +95,7 @@ public class AntiBotModule extends Module {
         Minecraft mc = Minecraft.getMinecraft();
         String s = "&7Entity &b" + p.getEntityId() + " &7joined: &r" + p.getDisplayName().getUnformattedText() + (watchdog ? " &7(&cwatchdog&7)" : "");
         try {
-            ChatComponentText text = new ChatComponentText(Chat.color(Chat.PREFIX + s));
+            ChatComponentText text = new ChatComponentText(Chat.color(Chat.prefix() + s));
             String hover = "&ename: &r" + p.getName() + "\n&edisplay name: &r" + p.getDisplayName().getUnformattedText()
                     + "\n&estripped: &r" + Chat.strip(p.getDisplayName().getUnformattedText()) + "\n&euuid: &7" + p.getUniqueID()
                     + "\n&ex: &7" + p.posX + "\n&ey: &7" + p.posY + "\n&ez: &7" + p.posZ + "\n&eyaw: &7" + p.rotationYaw

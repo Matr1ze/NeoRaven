@@ -237,7 +237,7 @@ public class TestModule extends Module {
                     Chat.print("&7players within &b20 &7blocks of &d" + dcName);
                     for (EntityPlayer p : mc.theWorld.playerEntities) {
                         if (p == mc.thePlayer || p.getName().equalsIgnoreCase(dcName) || target.getDistanceSqToEntity(p) > 400.0) continue;
-                        ChatComponentText line = new ChatComponentText(Chat.color(Chat.PREFIX + " &7- "));
+                        ChatComponentText line = new ChatComponentText(Chat.color(Chat.prefix() + " &7- "));
                         ChatStyle style = new ChatStyle();
                         style.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(Chat.color("&7click to paste username"))));
                         style.setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, p.getName()));
@@ -253,7 +253,7 @@ public class TestModule extends Module {
             List<EntityPlayer> players = mc.theWorld.playerEntities;
             for (int i = 0; i < players.size(); ++i) {
                 EntityPlayer p = players.get(i);
-                ChatComponentText line = new ChatComponentText(Chat.color(Chat.PREFIX + "&7" + p.getName()));
+                ChatComponentText line = new ChatComponentText(Chat.color(Chat.prefix() + "&7" + p.getName()));
                 ChatStyle style = new ChatStyle();
                 style.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(Chat.color("&7uuid: &r" + p.getUniqueID()))));
                 line.setChatStyle(style);
@@ -264,7 +264,7 @@ public class TestModule extends Module {
             MathUtils.dedupe(infos);
             for (NetworkPlayerInfo info : infos) {
                 ScorePlayerTeam team = info.getPlayerTeam();
-                ChatComponentText line = new ChatComponentText(Chat.color(Chat.PREFIX + "&7" + info.getGameProfile().getName()));
+                ChatComponentText line = new ChatComponentText(Chat.color(Chat.prefix() + "&7" + info.getGameProfile().getName()));
                 ChatStyle style = new ChatStyle();
                 style.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(Chat.color("&7uuid: &r" + info.getGameProfile().getId()
                         + (team == null ? "&7no team found" : "\n&7team name: &r" + team.getTeamName() + "\n&7registered: &r" + team.getRegisteredName())))));
@@ -280,7 +280,7 @@ public class TestModule extends Module {
                     for (String name : names) {
                         members = members + "\n&r" + name;
                     }
-                    ChatComponentText line = new ChatComponentText(Chat.color(Chat.PREFIX + "&7" + team.getTeamName()));
+                    ChatComponentText line = new ChatComponentText(Chat.color(Chat.prefix() + "&7" + team.getTeamName()));
                     ChatStyle style = new ChatStyle();
                     style.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(Chat.color(members))));
                     line.setChatStyle(style);

@@ -27,7 +27,7 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
-@Mod(modid = "clickgui", name = "NeoRaven", version = "1.1", clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
+@Mod(modid = "clickgui", name = "NeoRaven", version = "1.2", clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
 public class ClickGuiMod {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
@@ -57,6 +57,12 @@ public class ClickGuiMod {
 
     @SubscribeEvent
     public void onGuiOpen(net.minecraftforge.client.event.GuiOpenEvent event) {
+        if (mc.currentScreen instanceof xyz.daikirai.gui.onyx.OnyxClickGui
+                && event.gui == null
+                && ((xyz.daikirai.gui.onyx.OnyxClickGui) mc.currentScreen).deferClose()) {
+            event.setCanceled(true);
+            return;
+        }
         if (mc.currentScreen instanceof xyz.daikirai.music.MusicScreen
                 && event.gui == null
                 && ((xyz.daikirai.music.MusicScreen) mc.currentScreen).deferClose()) {

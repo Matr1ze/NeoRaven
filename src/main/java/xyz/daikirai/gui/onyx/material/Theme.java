@@ -1,5 +1,7 @@
 package xyz.daikirai.gui.onyx.material;
 
+import xyz.daikirai.gui.onyx.menu.MenuTheme;
+
 /**
  * Live theme state for the ported Material You ClickGUI, mirroring Onyx's {@code theme.Util4}.
  *
@@ -32,10 +34,26 @@ public final class Theme {
     private static float scale = 1.0F;
     private static boolean frost = true;
     private static boolean followGuiScale = true;
+    /** Whether HUD labels use the active accent instead of neutral surface ink (off by default). */
+    private static boolean hudTextColor = false;
+    /**
+     * Translucent ("glass") mode: every surface fill keeps {@link #TRANSLUCENT_SURFACE} of its alpha
+     * and the frosted backdrop shows through instead. Text and icons stay fully opaque.
+     */
+    private static boolean translucent = false;
+
+    /** How much of a surface fill survives in translucent mode. */
+    public static final float TRANSLUCENT_SURFACE = 0.46F;
+    /** Frost coverage while translucent: high enough that the panel still reads as one surface. */
+    public static final float TRANSLUCENT_FROST = 0.34F;
+    /** The screen scrim lightens in translucent mode so more of the world stays visible. */
+    public static final float TRANSLUCENT_SCRIM = 0.45F;
 
     private static Scheme scheme;
     private static int builtAccent = 0;
     private static float builtTint = -1.0F;
+    private static boolean builtDark;
+    private static boolean builtTranslucent;
 
     private Theme() {
     }
@@ -72,6 +90,32 @@ public final class Theme {
         return frost;
     }
 
+    public static void hudTextColor(boolean value) {
+        hudTextColor = value;
+    }
+
+    public static boolean hudTextColor() {
+        return hudTextColor;
+    }
+
+    public static void translucent(boolean value) {
+        translucent = value;
+    }
+
+    public static boolean translucent() {
+        return translucent;
+    }
+
+    /** Chooses the accent when enabled, otherwise preserving the neutral HUD text colour. */
+    public static int hudText(int accent, int legacy) {
+        return hudTextColor ? accent : legacy;
+    }
+
+    /** The shared appearance mode used by the ClickGUI, HUD cards, music player and title screens. */
+    public static boolean dark() {
+        return MenuTheme.dark();
+    }
+
     /**
      * Whether the rewritten screens measure their design canvases in vanilla GUI units.
      *
@@ -99,10 +143,14 @@ public final class Theme {
 
     /** Current colour roles (rebuilt lazily when the seed changes). */
     public static Scheme scheme() {
-        if (scheme == null || builtAccent != accent || builtTint != tint) {
-            scheme = Scheme.of(accent, tint);
+        boolean dark = dark();
+        if (scheme == null || builtAccent != accent || builtTint != tint || builtDark != dark
+                || builtTranslucent != translucent) {
+            scheme = translucent ? Scheme.glass(accent, tint) : Scheme.of(accent, tint, dark);
             builtAccent = accent;
             builtTint = tint;
+            builtDark = dark;
+            builtTranslucent = translucent;
         }
         return scheme;
     }
@@ -127,6 +175,10 @@ public final class Theme {
 
     /** Scrim colour over the (blurred) world, {@code 0.32 * fade} alpha in Onyx. */
     public static int scrim(float fade) {
+        if (translucent) {
+            // Glass mode keeps the world undimmed; the blur is what separates the pane from it.
+            return 0;
+        }
         return Material.withAlpha(scheme().scrim | 0xFF000000, Material.clamp(0.32F * fade, 0.0F, 1.0F));
     }
 }

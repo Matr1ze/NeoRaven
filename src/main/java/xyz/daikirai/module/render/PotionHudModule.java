@@ -121,6 +121,13 @@ public final class PotionHudModule extends Module {
         return HUD;
     }
 
+    /** Draws the card once from inside a screen (see {@code HudPass}). */
+    public static void renderHud() {
+        if (instance != null) {
+            HUD.render(instance, false);
+        }
+    }
+
     public boolean frosted() {
         return frostedGlass == null || frostedGlass.isToggled();
     }

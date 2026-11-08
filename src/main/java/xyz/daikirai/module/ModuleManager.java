@@ -121,6 +121,8 @@ public final class ModuleManager {
         if (customGui != null) {
             customGui.enable();
         }
+        Module notifications = get("Notifications");
+        if (notifications != null) notifications.enable();
         Module targetHud = get("TargetHUD");
         if (targetHud != null) {
             targetHud.enable();
@@ -249,7 +251,9 @@ public final class ModuleManager {
             case "Onyx ClickGUI": return new xyz.daikirai.gui.onyx.OnyxClickGuiModule(key);
             case "Music Player": return new xyz.daikirai.music.MusicModule(key);
             case "Watermark": return new xyz.daikirai.module.render.WatermarkModule(key);
+            case "Low Health": return new xyz.daikirai.module.render.LowHealthModule(key);
             case "Keybinds": return new xyz.daikirai.module.render.KeybindsModule(key);
+            case "Notifications": return new xyz.daikirai.module.render.NotificationsModule(key);
             case "CustomGui": return new xyz.daikirai.module.render.CustomGuiModule(key);
             case "Freelook": return new xyz.daikirai.module.render.FreelookModule(key);
             case "Friendswine": return new xyz.daikirai.module.render.JellyModule(key);
@@ -258,6 +262,10 @@ public final class ModuleManager {
             case "Better Chat": return new xyz.daikirai.module.render.BetterChatModule(key);
             case "JumpCircles": return new xyz.daikirai.module.render.JumpCirclesModule(key);
             case "BlockOverlay": return new xyz.daikirai.module.render.BlockOverlayModule(key);
+            case "Fireball Predict": return new xyz.daikirai.module.render.FireballPredictModule(key);
+            case "Clock": return new xyz.daikirai.module.render.ClockModule(key);
+            case "Halo": return new xyz.daikirai.module.render.HaloModule(key);
+            case "Flag Detector": return new xyz.daikirai.module.player.FlagDetectorModule(key);
             case "ChinaHat": return new xyz.daikirai.module.render.ChinaHatModule(key);
             case "Fog Blur": return new xyz.daikirai.module.render.FogBlurModule(key);
             case "Trails": return new xyz.daikirai.module.render.TrailsModule(key);

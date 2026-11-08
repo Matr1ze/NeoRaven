@@ -13,6 +13,7 @@ import net.minecraft.world.WorldSettings;
 import xyz.daikirai.gui.onyx.LegacyText;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
+import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
 import xyz.daikirai.module.render.WatermarkModule;
@@ -105,21 +106,22 @@ public final class TabList {
 
     public void draw(UI ui, Scheme scheme, float progress) {
         ui.icon("\ue7ef", 18.0F, 18.0F, 15.0F, scheme.primary);
-        ui.text(Typeface.LABEL, "Players", 32.0F, 18.0F, scheme.onSurface, UI.ALIGN_LEFT);
+        ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Players"), 32.0F, 18.0F,
+                Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
         String count = String.valueOf(players.size());
         float countWidth = Math.max(24.0F, Typeface.CAPTION.width(count) + 14.0F);
         ui.rounded(width - countWidth - 12.0F, 9.0F, countWidth, 18.0F, 9.0F, scheme.primaryContainer);
         ui.text(Typeface.CAPTION, count, width - 12.0F - countWidth / 2.0F, 18.0F,
                 scheme.onPrimaryContainer, UI.ALIGN_CENTER);
 
-        drawServerText(ui, header, 39.0F, scheme.onSurfaceVariant);
+        drawServerText(ui, header, 39.0F, scheme.primary);
         if (!header.isEmpty()) {
             ui.rect(14.0F, rowsY - 5.0F, width - 28.0F, 0.5F,
                     Material.withAlpha(scheme.outlineVariant, 0.45F));
         }
         if (players.isEmpty()) {
-            ui.text(Typeface.CAPTION, "No players", width / 2.0F, rowsY + ROW / 2.0F,
-                    scheme.onSurfaceVariant, UI.ALIGN_CENTER);
+            ui.text(Typeface.CAPTION, xyz.daikirai.util.Lang.text("No players"), width / 2.0F,
+                    rowsY + ROW / 2.0F, scheme.primary, UI.ALIGN_CENTER);
         }
         for (int i = 0; i < players.size(); i++) {
             int row = i % rows;
@@ -134,7 +136,7 @@ public final class TabList {
             float separator = rowsY + rows * ROW + 5.0F;
             ui.rect(14.0F, separator, width - 28.0F, 0.5F,
                     Material.withAlpha(scheme.outlineVariant, 0.45F));
-            drawServerText(ui, footer, separator + 11.0F, scheme.onSurfaceVariant);
+            drawServerText(ui, footer, separator + 11.0F, scheme.primary);
         }
     }
 
@@ -144,16 +146,16 @@ public final class TabList {
         int surface = self ? Material.mix(scheme.surfaceContainerHigh, scheme.primaryContainer, 0.65F)
                 : Material.mix(scheme.surfaceContainerHigh, scheme.onSurface, 0.045F);
         ui.rounded(x, y, columnWidth, ROW - 2.0F, 6.0F, Material.withAlpha(surface, self ? 0.88F : 0.38F));
-        ui.image(player.getLocationSkin(), x + 4.0F, y + 3.0F, 16.0F, 16.0F,
+        ui.imageNearest(player.getLocationSkin(), x + 4.0F, y + 3.0F, 16.0F, 16.0F,
                 0.125F, 0.125F, 0.25F, 0.25F, 0xFFFFFFFF);
-        ui.image(player.getLocationSkin(), x + 4.0F, y + 3.0F, 16.0F, 16.0F,
+        ui.imageNearest(player.getLocationSkin(), x + 4.0F, y + 3.0F, 16.0F, 16.0F,
                 0.625F, 0.125F, 0.75F, 0.25F, 0xFFFFFFFF);
         if (self) ui.circle(x + 19.0F, y + 18.0F, 2.0F, scheme.primary);
         float right = x + columnWidth - 7.0F;
         if (WatermarkModule.tablistShowsPing()) {
             int ping = player.getResponseTime();
             String latency = ping < 0 ? "--" : Math.min(ping, 9999) + "ms";
-            int color = ping < 0 ? scheme.onSurfaceVariant
+            int color = ping < 0 ? Material.withAlpha(scheme.primary, 0.72F)
                     : ping < 100 ? scheme.primary : ping < 200 ? scheme.tertiary : scheme.error;
             ui.text(Typeface.MICRO, latency, right, y + 11.0F, color, UI.ALIGN_RIGHT);
             right -= 43.0F;
@@ -167,7 +169,7 @@ public final class TabList {
                 String value = hearts ? String.format(java.util.Locale.ROOT, "%.1f", points / 2.0F)
                         : String.valueOf(points);
                 value = ui.truncate(Typeface.MICRO, value, 26.0F);
-                ui.text(Typeface.MICRO, value, right, y + 11.0F, scheme.onSurfaceVariant, UI.ALIGN_RIGHT);
+                ui.text(Typeface.MICRO, value, right, y + 11.0F, Material.withAlpha(scheme.primary, 0.78F), UI.ALIGN_RIGHT);
                 if (hearts) ui.icon("\ue87d", right - Typeface.MICRO.width(value) - 6.0F,
                         y + 11.0F, 8.0F, scheme.error);
             }
@@ -175,7 +177,7 @@ public final class TabList {
         }
         String label = LegacyText.truncate(Typeface.LABEL_TIGHT, name(player), Math.max(8.0F, right - x - 29.0F));
         LegacyText.draw(ui, Typeface.LABEL_TIGHT, label, x + 27.0F, y + 11.0F, UI.ALIGN_LEFT,
-                isSpectator(player) ? scheme.onSurfaceVariant : scheme.onSurface);
+                isSpectator(player) ? Material.withAlpha(scheme.primary, 0.72F) : scheme.primary);
     }
 
     private void drawServerText(UI ui, List<String> lines, float y, int color) {

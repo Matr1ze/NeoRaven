@@ -72,7 +72,21 @@ public final class Keybinds {
     private static final float EDGE = 20.0F;
     private static final float MIN_CARD_WIDTH = 132.0F;
 
+    // Compact proportions from the original Onyx keybind card, using the shared HUD palette.
+    private static final float RETRO_PAD = 12.0F;
+    private static final float RETRO_HEADER = 28.0F;
+    private static final float RETRO_HEADER_GAP = 9.0F;
+    private static final float RETRO_ICON = 20.0F;
+    private static final float RETRO_KEY = 44.0F;
+    private static final float RETRO_ROW_GAP = 10.0F;
+    private static final float RETRO_TEXT_GAP = 12.0F;
+    private static final float RETRO_NAME_MAX = 150.0F;
+    private static final float RETRO_RADIUS = 13.0F;
+
     private static final String KEYBOARD_ICON = "\ue312";
+    private static final Typeface.Style RETRO_TITLE = Typeface.custom(24.0F, 17.0F, 21.0F, true);
+    private static final Typeface.Style RETRO_NAME = Typeface.custom(9.0F, 16.0F, 20.0F, true);
+    private static final Typeface.Style RETRO_KEY_TEXT = Typeface.custom(9.0F, 15.0F, 18.0F, true);
     private static final float ROW_STAGGER = 35.0F;
     /** How much of the surface tint covers the blurred world (the ClickGUI panels use 0.88). */
     private static final float BLUR_COVERAGE = 0.55F;
@@ -117,10 +131,11 @@ public final class Keybinds {
         Minecraft mc = Minecraft.getMinecraft();
         ScaledResolution resolution = new ScaledResolution(mc);
 
-        float keycapWidth = keycapWidth();
-        float nameWidth = nameWidth();
-        float cardWidthValue = cardWidth(module, keycapWidth, nameWidth);
-        float cardHeightValue = cardHeight();
+        boolean retro = module.retro();
+        float keycapWidth = keycapWidth(retro);
+        float nameWidth = nameWidth(retro);
+        float cardWidthValue = cardWidth(module, keycapWidth, nameWidth, retro);
+        float cardHeightValue = cardHeight(retro);
         cardWidth.to(cardWidthValue, 280.0F, Ease.EMPHASIZED_DECELERATE);
         cardHeight.to(cardHeightValue, 280.0F, Ease.EMPHASIZED_DECELERATE);
         cardWidth.update(delta);
@@ -165,7 +180,11 @@ public final class Keybinds {
             ui.scale(scale, 0.0F, 0.0F);
             ui.translate(-layoutWidth / 2.0F, -layoutHeight / 2.0F);
 
-            drawCard(module, scheme, layoutWidth, layoutHeight, cardWidth.target());
+            if (retro) {
+                drawRetroCard(module, scheme, layoutWidth, layoutHeight);
+            } else {
+                drawCard(module, scheme, layoutWidth, layoutHeight, cardWidth.target());
+            }
 
             ui.pop();
             ui.alphaPop();
@@ -199,7 +218,7 @@ public final class Keybinds {
         drawHeader(module, scheme, width);
 
         float rowsTop = PAD + HEADER + 10.0F;
-        float keycapWidth = keycapWidth();
+        float keycapWidth = keycapWidth(false);
         ui.scissorPush(0.0F, rowsTop - 4.0F, width, Math.max(0.0F, height - rowsTop - PAD + 4.0F));
         float cursor = rowsTop;
         for (int i = 0; i < entries.size(); i++) {
@@ -220,6 +239,69 @@ public final class Keybinds {
         ui.scissorPop();
     }
 
+    /** Original Onyx geometry with the same live colours and frosted backdrop as the other HUDs. */
+    private void drawRetroCard(KeybindsModule module, Scheme scheme, float width, float height) {
+        int surface = Material.withAlpha(scheme.surfaceContainerHigh, 1.0F);
+        int edge = Material.withAlpha(scheme.outlineVariant, 0.6F);
+        ui.shadow(0.0F, 0.0F, width, height, RETRO_RADIUS, 3);
+        ui.rounded(0.0F, 0.0F, width, height, RETRO_RADIUS, surface);
+        if (module.frosted() && Blur.ready()) {
+            ui.frost(0.0F, 0.0F, width, height, RETRO_RADIUS, scheme.surfaceContainerHigh, BLUR_COVERAGE);
+        }
+        ui.outline(0.5F, 0.5F, width - 1.0F, height - 1.0F, RETRO_RADIUS - 0.5F,
+                0.7F, edge);
+
+        float headerY = RETRO_PAD;
+        float iconY = headerY + (RETRO_HEADER - RETRO_ICON) / 2.0F;
+        ui.rounded(RETRO_PAD, iconY, RETRO_ICON, RETRO_ICON, 4.0F, scheme.primaryContainer);
+        ui.icon(KEYBOARD_ICON, RETRO_PAD + RETRO_ICON / 2.0F, iconY + RETRO_ICON / 2.0F,
+                12.0F, scheme.onPrimaryContainer);
+        ui.text(RETRO_TITLE, "Keybinds", RETRO_PAD + RETRO_ICON + 9.0F,
+                headerY + RETRO_HEADER / 2.0F, Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
+
+        float dividerY = RETRO_PAD + RETRO_HEADER + 1.0F;
+        ui.rect(RETRO_PAD, dividerY, width - RETRO_PAD * 2.0F, 1.0F, edge);
+
+        float cursor = dividerY + RETRO_HEADER_GAP;
+        float keyX = RETRO_PAD;
+        float nameX = keyX + RETRO_KEY + RETRO_TEXT_GAP;
+        float nameMax = Math.max(0.0F, width - RETRO_PAD - nameX);
+        for (Entry entry : entries) {
+            float show = Material.clamp(entry.show.value(), 0.0F, 1.0F);
+            if (show <= 0.002F && !entry.wanted) {
+                continue;
+            }
+            float enabledAlpha = entry.module.isEnabled() ? 1.0F : 0.52F;
+            ui.push();
+            ui.alphaPush(show * enabledAlpha);
+            ui.translate(0.0F, cursor + (1.0F - show) * 5.0F);
+
+            float press = Material.clamp(entry.press.value(), 0.0F, 1.0F);
+            float pop = Material.clamp(entry.pop.value(), 0.88F, 1.08F) * (1.0F - 0.025F * press);
+            ui.push();
+            ui.translate(keyX + RETRO_KEY / 2.0F, RETRO_KEY / 2.0F + press * 0.6F);
+            ui.scale(pop, 0.0F, 0.0F);
+            ui.translate(-RETRO_KEY / 2.0F, -RETRO_KEY / 2.0F);
+            ui.rounded(0.0F, 1.5F, RETRO_KEY, RETRO_KEY, 6.0F,
+                    Material.mix(scheme.primaryContainer, scheme.shadow, 0.30F));
+            ui.rounded(0.0F, 0.0F, RETRO_KEY, RETRO_KEY - 1.5F, 6.0F, scheme.primaryContainer);
+            ui.outline(0.5F, 0.5F, RETRO_KEY - 1.0F, RETRO_KEY - 2.5F,
+                    5.5F, 0.65F, Material.withAlpha(scheme.primary, 0.45F));
+            ui.text(RETRO_KEY_TEXT, entry.label, RETRO_KEY / 2.0F, RETRO_KEY / 2.0F,
+                    scheme.onPrimaryContainer, UI.ALIGN_CENTER);
+            ui.pop();
+
+            String name = ui.truncate(RETRO_NAME, entry.name, Math.min(RETRO_NAME_MAX, nameMax));
+            ui.text(RETRO_NAME, name, nameX, RETRO_KEY / 2.0F,
+                    Theme.hudText(scheme.primary, entry.module.isEnabled() ? scheme.onSurface : scheme.onSurfaceVariant),
+                    UI.ALIGN_LEFT);
+
+            ui.alphaPop();
+            ui.pop();
+            cursor += (RETRO_KEY + RETRO_ROW_GAP) * show;
+        }
+    }
+
     private void drawHeader(KeybindsModule module, Scheme scheme, float width) {
         float top = PAD;
         float iconY = top + (HEADER - HEADER_ICON) / 2.0F;
@@ -228,7 +310,8 @@ public final class Keybinds {
                 scheme.onPrimaryContainer);
 
         float titleX = PAD + HEADER_ICON + HEADER_TITLE_GAP;
-        ui.text(Typeface.HEADLINE, "Keybinds", titleX, top + HEADER / 2.0F, scheme.onSurface,
+        ui.text(Typeface.HEADLINE, xyz.daikirai.util.Lang.module("Keybinds"), titleX,
+                top + HEADER / 2.0F, Theme.hudText(scheme.primary, scheme.onSurface),
                 UI.ALIGN_LEFT);
 
         if (module.showCount()) {
@@ -283,7 +366,7 @@ public final class Keybinds {
     }
 
     private void drawKeycap(Scheme scheme, Entry entry, int rowFill, float t) {
-        float keycapWidth = keycapWidth();
+        float keycapWidth = keycapWidth(false);
         float keycapX = ROW_PAD;
         float keycapY = (ROW_HEIGHT - KEYCAP_HEIGHT) / 2.0F;
 
@@ -299,7 +382,7 @@ public final class Keybinds {
         int off = Material.mix(rowFill, scheme.surfaceContainerHighest, 0.92F);
         int fill = Material.mix(off, scheme.primary, t);
         int border = Material.mix(scheme.outlineVariant, scheme.primary, t);
-        int label = Material.mix(scheme.onSurfaceVariant, scheme.onPrimary, t);
+        int label = Material.mix(Theme.hudText(scheme.primary, scheme.onSurfaceVariant), scheme.onPrimary, t);
 
         ui.rounded(0.0F, 1.5F, keycapWidth, KEYCAP_HEIGHT, KEYCAP_RADIUS,
                 Material.mix(fill, scheme.shadow, 0.30F));
@@ -317,7 +400,8 @@ public final class Keybinds {
         float available = Math.max(0.0F, chipX - 6.0F - nameX) + 1.0F;
         String name = ui.truncate(Typeface.BODY_MEDIUM, entry.name, Math.min(NAME_MAX_WIDTH, available));
         ui.text(Typeface.BODY_MEDIUM, name, nameX, ROW_HEIGHT / 2.0F,
-                Material.mix(scheme.onSurfaceVariant, scheme.onSurface, t), UI.ALIGN_LEFT);
+                Material.mix(Theme.hudText(scheme.primary, scheme.onSurfaceVariant),
+                        Theme.hudText(scheme.onPrimaryContainer, scheme.onSurface), t), UI.ALIGN_LEFT);
     }
 
     private void drawStateChip(Scheme scheme, Entry entry, float width, int rowFill, float t) {
@@ -332,19 +416,19 @@ public final class Keybinds {
         int onFill = scheme.primary;
         ui.rounded(chipX, chipY, chipWidth, CHIP_HEIGHT, radius, Material.mix(offFill, onFill, t));
 
-        int offText = scheme.onSurfaceVariant;
+        int offText = Theme.hudText(scheme.primary, scheme.onSurfaceVariant);
         int onText = scheme.onPrimary;
         int textColor = Material.mix(offText, onText, t);
 
         if (t < 0.999F) {
             ui.alphaPush(1.0F - t);
-            ui.text(Typeface.MICRO, "OFF", chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
+            ui.text(Typeface.MICRO, xyz.daikirai.util.Lang.text("OFF"), chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
                     textColor, UI.ALIGN_CENTER);
             ui.alphaPop();
         }
         if (t > 0.001F) {
             ui.alphaPush(t);
-            ui.text(Typeface.MICRO, "ON", chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
+            ui.text(Typeface.MICRO, xyz.daikirai.util.Lang.text("ON"), chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
                     textColor, UI.ALIGN_CENTER);
             ui.alphaPop();
         }
@@ -369,7 +453,7 @@ public final class Keybinds {
             }
             wanted.add(candidate);
         }
-        wanted.sort(Comparator.comparing(m -> Text.strip(m.getName()).toLowerCase()));
+        wanted.sort(Comparator.comparing(m -> Text.strip(m.localizedName()).toLowerCase()));
 
         for (Entry entry : cache.values()) {
             entry.wanted = false;
@@ -425,7 +509,10 @@ public final class Keybinds {
         return key != 0 && key != -1;
     }
 
-    private float keycapWidth() {
+    private float keycapWidth(boolean retro) {
+        if (retro) {
+            return RETRO_KEY;
+        }
         float width = KEYCAP_MIN_WIDTH;
         for (Entry entry : entries) {
             if (!entry.measured()) {
@@ -437,22 +524,29 @@ public final class Keybinds {
         return width;
     }
 
-    private float nameWidth() {
+    private float nameWidth(boolean retro) {
         float width = 0.0F;
         for (Entry entry : entries) {
             if (!entry.measured()) {
                 continue;
             }
-            width = Math.max(width, Math.min(NAME_MAX_WIDTH, Typeface.BODY_MEDIUM.width(entry.name)));
+            width = Math.max(width, Math.min(retro ? RETRO_NAME_MAX : NAME_MAX_WIDTH,
+                    (retro ? RETRO_NAME : Typeface.BODY_MEDIUM).width(entry.name)));
         }
         // A pixel of slack keeps the widest name from being ellipsised by a rounding difference.
         return width + 2.0F;
     }
 
-    private float cardWidth(KeybindsModule module, float keycapWidth, float nameWidth) {
+    private float cardWidth(KeybindsModule module, float keycapWidth, float nameWidth, boolean retro) {
+        if (retro) {
+            float rows = RETRO_PAD * 2.0F + keycapWidth + RETRO_TEXT_GAP + nameWidth;
+            float header = RETRO_PAD * 2.0F + RETRO_ICON + 9.0F + RETRO_TITLE.width("Keybinds");
+            return Math.max(RETRO_PAD * 2.0F + keycapWidth + RETRO_TEXT_GAP + 36.0F,
+                    Math.max(rows, header));
+        }
         float rows = PAD * 2.0F + ROW_PAD * 2.0F + keycapWidth + KEYCAP_NAME_GAP + nameWidth
                 + 6.0F + CHIP_WIDTH + CHIP_MORPH;
-        float title = Typeface.HEADLINE.width("Keybinds");
+        float title = Typeface.HEADLINE.width(xyz.daikirai.util.Lang.module("Keybinds"));
         float header = PAD * 2.0F + HEADER_ICON + HEADER_TITLE_GAP + title;
         if (module.showCount()) {
             header += 10.0F + Typeface.MICRO.width(entries.size() + "/" + entries.size()) + 14.0F + 8.0F;
@@ -460,7 +554,25 @@ public final class Keybinds {
         return Math.max(MIN_CARD_WIDTH, Math.max(rows, header));
     }
 
-    private float cardHeight() {
+    private float cardHeight(boolean retro) {
+        if (retro) {
+            float rows = 0.0F;
+            int visibleRows = 0;
+            for (Entry entry : entries) {
+                float show = Material.clamp(entry.show.value(), 0.0F, 1.0F);
+                if (show <= 0.001F) {
+                    continue;
+                }
+                rows += (RETRO_KEY + RETRO_ROW_GAP) * show;
+                visibleRows++;
+            }
+            if (visibleRows > 0) {
+                rows -= RETRO_ROW_GAP;
+            } else {
+                rows = RETRO_KEY;
+            }
+            return RETRO_PAD * 2.0F + RETRO_HEADER + 1.0F + RETRO_HEADER_GAP + rows;
+        }
         float rows = 0.0F;
         int visibleRows = 0;
         for (Entry entry : entries) {
@@ -566,7 +678,7 @@ public final class Keybinds {
     /** One module row and every animation attached to it. */
     private static final class Entry {
         private final Module module;
-        private final String name;
+        private String name;
         private final Anim state = new Anim(0.0F);
         private final Anim show = new Anim(0.0F);
         private final Anim flash = new Anim(0.0F);
@@ -579,7 +691,7 @@ public final class Keybinds {
 
         private Entry(Module module) {
             this.module = module;
-            this.name = Text.strip(module.getName());
+            this.name = Text.strip(module.localizedName());
             this.lastEnabled = module.isEnabled();
             this.label = label(module.getKeycode());
         }
@@ -588,6 +700,10 @@ public final class Keybinds {
             String next = label(module.getKeycode());
             if (!next.equals(this.label)) {
                 this.label = next;
+            }
+            String localized = Text.strip(module.localizedName());
+            if (!localized.equals(this.name)) {
+                this.name = localized;
             }
         }
 

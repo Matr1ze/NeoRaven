@@ -23,7 +23,7 @@ import java.util.Deque;
  *
  * <p>Everything the ClickGUI draws goes through here: SDF rounded rectangles (through the shipped
  * {@code onyx_shape} shader, so anti-aliasing and stroke widths match the original exactly),
- * shadows, scissor stacks, the frosted-glass panel, Material icons and the Google Sans type
+ * shadows, scissor stacks, the frosted-glass panel, Material icons and the MiSans type
  * scale. Colors are multiplied by a stack-based alpha, which is how the original faded whole
  * groups in and out during page transitions.</p>
  */
@@ -54,6 +54,8 @@ public final class UI {
 
     private float alpha = 1.0F;
     private float pixel = 1.0F;
+    /** Extra alpha for surface fills only (translucent ClickGUI); text and icons ignore it. */
+    private float surfaceAlpha = 1.0F;
 
     public UI() {
         if (shapeShader == null && !shapeFailed) {
@@ -258,6 +260,17 @@ public final class UI {
     /** Draws a texture quad with a tint (used by the island logo). */
     public void image(ResourceLocation texture, float x, float y, float w, float h,
                       float u0, float v0, float u1, float v1, int color) {
+        image(texture, x, y, w, h, u0, v0, u1, v1, color, true);
+    }
+
+    /** Draws a skin or other pixel-art texture with nearest-neighbour filtering. */
+    public void imageNearest(ResourceLocation texture, float x, float y, float w, float h,
+                             float u0, float v0, float u1, float v1, int color) {
+        image(texture, x, y, w, h, u0, v0, u1, v1, color, false);
+    }
+
+    private void image(ResourceLocation texture, float x, float y, float w, float h,
+                       float u0, float v0, float u1, float v1, int color, boolean smooth) {
         int c = applyAlpha(color);
         if (c >>> 24 == 0) {
             return;
@@ -268,8 +281,17 @@ public final class UI {
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         GlStateManager.enableTexture2D();
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        // GUI avatars want smooth scaling, but skins are shared with the world renderer. Leaving
+        // GL_LINEAR on a 64x64 skin blurs the model and bleeds the transparent black texels of
+        // the hat layer into visible pixels, which shows up as dark seam lines around the head.
+        int textureId = Minecraft.getMinecraft().getTextureManager().getTexture(texture) == null ? 0
+                : Minecraft.getMinecraft().getTextureManager().getTexture(texture).getGlTextureId();
+        int[] previous = filters(textureId);
+        int previousMinFilter = previous[0];
+        int previousMagFilter = previous[1];
+        int filter = smooth ? GL11.GL_LINEAR : GL11.GL_NEAREST;
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, filter);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, filter);
         GL11.glColor4f((c >> 16 & 0xFF) / 255.0F, (c >> 8 & 0xFF) / 255.0F,
                 (c & 0xFF) / 255.0F, (c >>> 24) / 255.0F);
         GL11.glBegin(GL11.GL_QUADS);
@@ -282,6 +304,8 @@ public final class UI {
         GL11.glTexCoord2f(u1, v0);
         GL11.glVertex2f(x + w, y);
         GL11.glEnd();
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, previousMinFilter);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, previousMagFilter);
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.resetColor();
         GlStateManager.disableTexture2D();
@@ -318,9 +342,16 @@ public final class UI {
         // stale unit makes the shader sample whatever texture was left there (covers from the
         // previous row), which reads as flickering artwork.
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
-        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         GlStateManager.enableTexture2D();
+        // GUI avatars want smooth scaling, but skins are shared with the world renderer. Leaving
+        // GL_LINEAR on a 64x64 skin blurs the model and bleeds the transparent black texels of
+        // the hat layer into visible pixels, which shows up as dark seam lines around the head.
+        int textureId = Minecraft.getMinecraft().getTextureManager().getTexture(texture) == null ? 0
+                : Minecraft.getMinecraft().getTextureManager().getTexture(texture).getGlTextureId();
+        int[] previous = filters(textureId);
+        int previousMinFilter = previous[0];
+        int previousMagFilter = previous[1];
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 
@@ -340,7 +371,11 @@ public final class UI {
         imageVertex(x + w, y + h, centerX, centerY, 1.0F, 1.0F);
         imageVertex(x + w, y, centerX, centerY, 1.0F, 0.0F);
         GL11.glEnd();
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, previousMinFilter);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, previousMagFilter);
 
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         Shader.unbind();
         GlStateManager.disableTexture2D();
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
@@ -474,10 +509,10 @@ public final class UI {
             return;
         }
 
-        int c0 = applyAlpha(colorTopLeft);
-        int c1 = applyAlpha(colorBottomLeft);
-        int c2 = applyAlpha(colorBottomRight);
-        int c3 = applyAlpha(colorTopRight);
+        int c0 = applySurfaceAlpha(colorTopLeft);
+        int c1 = applySurfaceAlpha(colorBottomLeft);
+        int c2 = applySurfaceAlpha(colorBottomRight);
+        int c3 = applySurfaceAlpha(colorTopRight);
         if ((c0 | c1 | c2 | c3) == 0) {
             return;
         }
@@ -517,7 +552,7 @@ public final class UI {
     }
 
     private void fallbackQuad(float x, float y, float w, float h, int color) {
-        int c = applyAlpha(color);
+        int c = applySurfaceAlpha(color);
         if (c >>> 24 == 0) {
             return;
         }
@@ -721,6 +756,40 @@ public final class UI {
 
     private int applyAlpha(int color) {
         return Material.withAlpha(color, Material.alpha(color) / 255.0F * alpha);
+    }
+
+    /**
+     * Alpha for filled surfaces (rounded rects, circles, shadows). Kept apart from
+     * {@link #applyAlpha(int)} so a translucent panel fades while its labels stay readable.
+     *
+     * @param value 1 for opaque surfaces, lower for the translucent "glass" look
+     */
+    public void surfaceAlpha(float value) {
+        this.surfaceAlpha = Material.clamp(value, 0.0F, 1.0F);
+    }
+
+    /** Filters last seen per texture id; glGetTexParameteri stalls, so each texture is asked once. */
+    private static final java.util.Map<Integer, int[]> TEXTURE_FILTERS =
+            new java.util.HashMap<Integer, int[]>();
+
+    /** {@code {min, mag}} for the bound texture, remembered after the first query. */
+    private static int[] filters(int textureId) {
+        int[] cached = TEXTURE_FILTERS.get(Integer.valueOf(textureId));
+        if (cached == null) {
+            cached = new int[]{
+                    GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER),
+                    GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER)};
+            TEXTURE_FILTERS.put(Integer.valueOf(textureId), cached);
+        }
+        return cached;
+    }
+
+    private int applySurfaceAlpha(int color) {
+        int c = applyAlpha(color);
+        if (surfaceAlpha >= 0.999F) {
+            return c;
+        }
+        return Material.withAlpha(c, Material.alpha(c) / 255.0F * surfaceAlpha);
     }
 
     /** Convenience for drawing the current scheme's shadow colour. */

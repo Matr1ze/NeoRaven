@@ -160,9 +160,9 @@ final class LyricPanel {
                 Material.withAlpha(scheme.primary, 0.02F));
 
         ui.text(MusicTypeface.HEADLINE, song == null ? "未在播放" : ui.truncate(MusicTypeface.HEADLINE, song.name, w - 120.0F),
-                x + 24.0F, y + 26.0F, 0xFFF2F3F7, UI.ALIGN_LEFT);
+                x + 24.0F, y + 26.0F, scheme.onSurface, UI.ALIGN_LEFT);
         ui.text(MusicTypeface.CAPTION, song == null ? "" : ui.truncate(MusicTypeface.CAPTION, song.artist, w - 120.0F),
-                x + 24.0F, y + 42.0F, Material.withAlpha(0xFFD6D8E0, 0.72F), UI.ALIGN_LEFT);
+                x + 24.0F, y + 42.0F, Material.withAlpha(scheme.onSurfaceVariant, 0.9F), UI.ALIGN_LEFT);
 
         float closeSize = 32.0F;
         this.closeX = x + w - closeSize - 12.0F;
@@ -170,16 +170,16 @@ final class LyricPanel {
         boolean closeHovered = screen.mouseIn(closeX, closeY, closeSize, closeSize);
         if (closeHovered) {
             ui.circle(closeX + closeSize / 2.0F, closeY + closeSize / 2.0F, closeSize / 2.0F,
-                    Material.withAlpha(0xFFFFFFFF, 0.10F));
+                    Material.withAlpha(scheme.onSurface, 0.08F));
         }
         ui.icon("\ue5cd", closeX + closeSize / 2.0F, closeY + closeSize / 2.0F, 17.0F,
-                Material.withAlpha(0xFFFFFFFF, 0.82F));
+                Material.withAlpha(scheme.onSurface, 0.82F));
 
         List<LyricLine> lines = manager.lyrics();
         if (lines.isEmpty()) {
             String message = manager.lyricsLoading() ? "正在加载歌词…" : "暂无歌词";
             ui.text(MusicTypeface.BODY, message, x + w / 2.0F, y + h / 2.0F,
-                    Material.withAlpha(0xFFD6D8E0, 0.7F), UI.ALIGN_CENTER);
+                    Material.withAlpha(scheme.onSurfaceVariant, 0.9F), UI.ALIGN_CENTER);
             if (manager.lyricsLoading()) {
                 WavyProgressIndicator.drawCircularIndeterminate(ui, x + w / 2.0F, y + h / 2.0F - 30.0F, 22.0F);
             }
@@ -307,11 +307,12 @@ final class LyricPanel {
 
         // Apple Music keeps the focused line's unsung text dim and its sung part bright; other lines
         // sit at a uniform low alpha (their per-line focus is already folded into alpha).
-        int baseColor = active ? Material.withAlpha(0xFFF4F5F8, 0.42F * focusAlpha)
-                : Material.withAlpha(0xFFE8E9EF, 0.55F * focusAlpha);
+        float baseAlpha = active ? (Theme.dark() ? 0.42F : 0.72F) : (Theme.dark() ? 0.55F : 0.68F);
+        int baseColor = active ? Material.withAlpha(scheme.onSurface, baseAlpha * focusAlpha)
+                : Material.withAlpha(scheme.onSurfaceVariant, baseAlpha * focusAlpha);
         int sungColor = active
-                ? Material.withAlpha(Material.mix(scheme.primary, 0xFFFFFFFF, 0.25F), focusAlpha)
-                : Material.withAlpha(0xFFE8E9EF, 0.55F * focusAlpha);
+                ? Material.withAlpha(Material.mix(scheme.primary, scheme.onSurface, 0.25F), focusAlpha)
+                : Material.withAlpha(scheme.onSurfaceVariant, baseAlpha * focusAlpha);
 
         for (int p = 0; p < parts.size(); p++) {
             String text = parts.get(p);
@@ -329,7 +330,7 @@ final class LyricPanel {
         if (!translation.isEmpty()) {
             ui.text(translationStyle, ui.truncate(translationStyle, translation, layoutWidth),
                     left, lineY - blockHeight / 2.0F + blockHeight + 10.0F,
-                    Material.withAlpha(0xFFC9CCD8, alpha * (active ? 0.85F : 0.55F)), UI.ALIGN_LEFT);
+                    Material.withAlpha(scheme.onSurfaceVariant, alpha * (active ? 0.85F : 0.55F)), UI.ALIGN_LEFT);
         }
     }
 

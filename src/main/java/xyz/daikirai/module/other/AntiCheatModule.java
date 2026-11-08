@@ -441,7 +441,7 @@ public class AntiCheatModule extends Module {
         }
         double d = mc.thePlayer.getDistanceToEntity(p);
         String s = p.getDisplayName().getUnformattedText() + " &7detected for &d" + check.displayName + " " + ChatCommands.distance(d, true);
-        ChatComponentText text = new ChatComponentText(Chat.color(Chat.PREFIX + s));
+        ChatComponentText text = new ChatComponentText(Chat.color(Chat.prefix() + s));
         if (hypixel && sendPartyChat.isToggled()) {
             partyMessage = Chat.strip(text.getUnformattedText());
         }

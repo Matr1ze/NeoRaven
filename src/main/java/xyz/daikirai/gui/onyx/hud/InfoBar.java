@@ -62,7 +62,7 @@ public final class InfoBar {
         }
         String name = mc.getSession().getUsername();
         int fps = Minecraft.getDebugFPS();
-        String server = mc.getCurrentServerData() == null ? "Singleplayer" : mc.getCurrentServerData().serverIP;
+        String server = mc.getCurrentServerData() == null ? xyz.daikirai.util.Lang.text("Singleplayer") : mc.getCurrentServerData().serverIP;
         int ping = 0;
         if (mc.getNetHandler() != null) {
             NetworkPlayerInfo info = mc.getNetHandler().getPlayerInfo(mc.thePlayer.getUniqueID());
@@ -70,9 +70,9 @@ public final class InfoBar {
                 ping = info.getResponseTime();
             }
         }
-        String fpsText = fps + " fps";
-        String pingText = ping + " ms";
-        server = ui.truncate(Typeface.BODY_MEDIUM, server == null ? "Singleplayer" : server, MAX_SERVER);
+        String fpsText = fps + " " + xyz.daikirai.util.Lang.text("fps");
+        String pingText = ping + " " + xyz.daikirai.util.Lang.text("ms");
+        server = ui.truncate(Typeface.BODY_MEDIUM, server == null ? xyz.daikirai.util.Lang.text("Singleplayer") : server, MAX_SERVER);
 
         float width = PADDING + HEAD + 6.0F + Typeface.BODY_MEDIUM.width(name);
         if (module.infoFps()) {
@@ -112,32 +112,39 @@ public final class InfoBar {
             float cursor = lastX + PADDING;
 
             ResourceLocation skin = mc.thePlayer.getLocationSkin();
-            ui.image(skin, cursor, centerY - HEAD / 2.0F, HEAD, HEAD,
+            ui.imageNearest(skin, cursor, centerY - HEAD / 2.0F, HEAD, HEAD,
                     8.0F / 64.0F, 8.0F / 64.0F, 16.0F / 64.0F, 16.0F / 64.0F, 0xFFFFFFFF);
             cursor += HEAD + 6.0F;
 
-            ui.text(Typeface.BODY_MEDIUM, name, cursor, centerY, scheme.onSurface, UI.ALIGN_LEFT);
+            ui.text(Typeface.BODY_MEDIUM, name, cursor, centerY,
+                    Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
             cursor += Typeface.BODY_MEDIUM.width(name);
 
             if (module.infoFps()) {
                 cursor += GAP;
-                ui.icon(FPS_ICON, cursor + ICON / 2.0F, centerY, ICON, scheme.onSurfaceVariant);
+                ui.icon(FPS_ICON, cursor + ICON / 2.0F, centerY, ICON,
+                        Theme.hudText(scheme.primary, scheme.onSurfaceVariant));
                 cursor += ICON + ICON_GAP;
-                ui.text(Typeface.BODY_MEDIUM, fpsText, cursor, centerY, scheme.onSurface, UI.ALIGN_LEFT);
+                ui.text(Typeface.BODY_MEDIUM, fpsText, cursor, centerY,
+                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 cursor += Typeface.BODY_MEDIUM.width(fpsText);
             }
             if (module.infoServer()) {
                 cursor += GAP;
-                ui.icon(SERVER_ICON, cursor + ICON / 2.0F, centerY, ICON, scheme.onSurfaceVariant);
+                ui.icon(SERVER_ICON, cursor + ICON / 2.0F, centerY, ICON,
+                        Theme.hudText(scheme.primary, scheme.onSurfaceVariant));
                 cursor += ICON + ICON_GAP;
-                ui.text(Typeface.BODY_MEDIUM, server, cursor, centerY, scheme.onSurface, UI.ALIGN_LEFT);
+                ui.text(Typeface.BODY_MEDIUM, server, cursor, centerY,
+                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 cursor += Typeface.BODY_MEDIUM.width(server);
             }
             if (module.infoPing()) {
                 cursor += GAP;
-                ui.icon(PING_ICON, cursor + ICON / 2.0F, centerY, ICON, scheme.onSurfaceVariant);
+                ui.icon(PING_ICON, cursor + ICON / 2.0F, centerY, ICON,
+                        Theme.hudText(scheme.primary, scheme.onSurfaceVariant));
                 cursor += ICON + ICON_GAP;
-                ui.text(Typeface.BODY_MEDIUM, pingText, cursor, centerY, scheme.onSurface, UI.ALIGN_LEFT);
+                ui.text(Typeface.BODY_MEDIUM, pingText, cursor, centerY,
+                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
             }
             ui.alphaPop();
         } finally {

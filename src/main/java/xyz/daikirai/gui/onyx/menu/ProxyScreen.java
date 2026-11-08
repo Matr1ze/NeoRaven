@@ -33,12 +33,12 @@ public final class ProxyScreen extends MenuScreen {
 
     @Override void createFields() {
         ProxyConfig c=AccountManager.instance().proxy(); enabled=c.enabled; auth=c.useForAuth; protocol=c.protocol;
-        address=new MenuField("Address (host:port)",24,180,422,false,512); address.text(c.address);
-        user=new MenuField("Username",24,240,422,false,255); user.text(c.username);
-        password=new MenuField("Password",24,300,422,true,255); password.text(c.password);
-        token=new MenuField("FisProxy API token",24,180,422,true,512); token.text(c.apiToken);
-        service=new MenuField("Service (optional, e.g. us.hypixel)",24,240,422,false,128); service.text(c.serviceId);
-        target=new MenuField("Target (optional, e.g. mc.hypixel.net)",24,300,422,false,255); target.text(c.target);
+        address=new MenuField(xyz.daikirai.util.Lang.text("Address (host:port)"),24,180,422,false,512); address.text(c.address);
+        user=new MenuField(xyz.daikirai.util.Lang.text("Username"),24,240,422,false,255); user.text(c.username);
+        password=new MenuField(xyz.daikirai.util.Lang.text("Password"),24,300,422,true,255); password.text(c.password);
+        token=new MenuField(xyz.daikirai.util.Lang.text("FisProxy API token"),24,180,422,true,512); token.text(c.apiToken);
+        service=new MenuField(xyz.daikirai.util.Lang.text("Service (optional, e.g. us.hypixel)"),24,240,422,false,128); service.text(c.serviceId);
+        target=new MenuField(xyz.daikirai.util.Lang.text("Target (optional, e.g. mc.hypixel.net)"),24,300,422,false,255); target.text(c.target);
         FisProxySession.configure(c);
         sessionLine=FisProxySession.summary();
         balanceLine=FisProxySession.balanceLine();
@@ -62,9 +62,9 @@ public final class ProxyScreen extends MenuScreen {
 
     @Override void drawContent(Scheme s) {
         syncMode();
-        title("Proxy");
+        title(xyz.daikirai.util.Lang.text("Proxy"));
         Widgets.toggle(ui,s,24,57,enabled?1:0,mx>=24&&mx<62&&my>=57&&my<79,false);
-        ui.text(Typeface.BODY,fisproxy()?"Use FisProxy for game connections":"Use proxy",76,68,s.onSurface,UI.ALIGN_LEFT);
+        ui.text(Typeface.BODY,fisproxy()?xyz.daikirai.util.Lang.text("Use FisProxy for game connections"):xyz.daikirai.util.Lang.text("Use proxy"),76,68,s.onSurface,UI.ALIGN_LEFT);
         button(24,54,422,28,"",null,3,()->enabled=!enabled);
         if(fisproxy()) {
             // Two compact lines where the tunnel modes keep their authentication switch.
@@ -74,11 +74,11 @@ public final class ProxyScreen extends MenuScreen {
             boolean joinable=sessionAddress!=null && !sessionAddress.trim().isEmpty();
             float lineWidth=joinable?422.0F-84.0F:422.0F;
             ui.scissorPush(24,90,lineWidth,14);
-            ui.text(Typeface.LABEL,sessionLine.isEmpty()?"No session":sessionLine,24,96,
+            ui.text(Typeface.LABEL,sessionLine.isEmpty()?xyz.daikirai.util.Lang.text("No session"):sessionLine,24,96,
                     s.onSurfaceVariant,UI.ALIGN_LEFT);
             ui.scissorPop();
             if(joinable) {
-                button(362,86,84,24,"Join","\ue037",1,this::joinSession);
+                button(362,86,84,24,xyz.daikirai.util.Lang.text("Join"),"\ue037",1,this::joinSession);
             }
             if(!balanceLine.isEmpty()) {
                 ui.scissorPush(24,106,422,14);
@@ -87,7 +87,7 @@ public final class ProxyScreen extends MenuScreen {
             }
         } else {
             Widgets.toggle(ui,s,24,92,auth?1:0,mx>=24&&mx<62&&my>=92&&my<114,false);
-            ui.text(Typeface.BODY,"Use for account authentication",76,103,s.onSurface,UI.ALIGN_LEFT);
+            ui.text(Typeface.BODY,xyz.daikirai.util.Lang.text("Use for account authentication"),76,103,s.onSurface,UI.ALIGN_LEFT);
             button(24,89,422,28,"",null,3,()->auth=!auth);
         }
 
@@ -96,18 +96,18 @@ public final class ProxyScreen extends MenuScreen {
         ui.rounded(24,128,422,30,15,s.surfaceContainerHighest);
         int selected=fisproxy()?0:protocol==ProxyConfig.Protocol.SOCKS5?1:2;
         ui.rounded(24+selected*(segment+8.0F),128,selected==2?138.0F:segment,30,15,s.secondaryContainer);
-        button(24,128,segment,30,"FisProxy",null,2,()->protocol=ProxyConfig.Protocol.FISPROXY);
-        button(24+segment+8.0F,128,segment,30,"SOCKS5",null,2,()->protocol=ProxyConfig.Protocol.SOCKS5);
-        button(24+(segment+8.0F)*2,128,138,30,"HTTP/HTTPS",null,2,()->protocol=ProxyConfig.Protocol.HTTP);
+        button(24,128,segment,30,xyz.daikirai.util.Lang.text("FisProxy"),null,2,()->protocol=ProxyConfig.Protocol.FISPROXY);
+        button(24+segment+8.0F,128,segment,30,xyz.daikirai.util.Lang.text("SOCKS5"),null,2,()->protocol=ProxyConfig.Protocol.SOCKS5);
+        button(24+(segment+8.0F)*2,128,138,30,xyz.daikirai.util.Lang.text("HTTP/HTTPS"),null,2,()->protocol=ProxyConfig.Protocol.HTTP);
 
         if(fisproxy()) {
-            button(24,358,140,38,FisProxySession.running()?"Stop session":"Start session",
+            button(24,358,140,38,FisProxySession.running()?xyz.daikirai.util.Lang.text("Stop session"):xyz.daikirai.util.Lang.text("Start session"),
                     FisProxySession.running()?"\ue5cd":"\ue037",FisProxySession.running()?0:1,this::toggleSession);
-            button(174,358,120,38,"Change IP","\ue5d5",2,this::changeIp);
-            button(304,358,142,38,"Apply","\ue161",1,this::submit);
+            button(174,358,120,38,xyz.daikirai.util.Lang.text("Change IP"),"\ue5d5",2,this::changeIp);
+            button(304,358,142,38,xyz.daikirai.util.Lang.text("Apply"),"\ue161",1,this::submit);
         } else {
-            button(226,358,100,38,"Test","\ue86f",2,this::test);
-            button(338,358,108,38,"Apply","\ue161",1,this::submit);
+            button(226,358,100,38,xyz.daikirai.util.Lang.text("Test"),"\ue86f",2,this::test);
+            button(338,358,108,38,xyz.daikirai.util.Lang.text("Apply"),"\ue161",1,this::submit);
         }
     }
 
@@ -116,10 +116,10 @@ public final class ProxyScreen extends MenuScreen {
             ProxyConfig c=draft(false); AccountManager.instance().proxy(c);
             FisProxySession.configure(c);
             if(c.fisproxy()) {
-                if(!c.enabled) message("FisProxy disabled",false);
-                else if(FisProxySession.running()) message("FisProxy applied · "+FisProxySession.summary(),false);
-                else message("FisProxy saved - press Start session",false);
-            } else message(c.enabled?"Proxy settings applied":"Proxy disabled",false);
+                if(!c.enabled) message(xyz.daikirai.util.Lang.text("FisProxy disabled"),false);
+                else if(FisProxySession.running()) message(xyz.daikirai.util.Lang.text("FisProxy applied")+" · "+FisProxySession.summary(),false);
+                else message(xyz.daikirai.util.Lang.text("FisProxy saved - press Start session"),false);
+            } else message(c.enabled?xyz.daikirai.util.Lang.text("Proxy settings applied"):xyz.daikirai.util.Lang.text("Proxy disabled"),false);
             sessionLine=FisProxySession.summary(); balanceLine=FisProxySession.balanceLine();
         } catch(Exception e) { message(failure(e),true); }
     }
@@ -128,24 +128,24 @@ public final class ProxyScreen extends MenuScreen {
     private void toggleSession() {
         try {
             if(FisProxySession.running()) {
-                message("Stopping FisProxy session...",false);
+                message(xyz.daikirai.util.Lang.text("Stopping FisProxy session..."),false);
                 task(()->{ FisProxySession.stop(); return true; },ok->{
                     enabled=false;
                     try { AccountManager.instance().proxy(draft(false)); } catch(Exception e) { }
                     sessionLine=FisProxySession.summary(); balanceLine=FisProxySession.balanceLine();
-                    message("FisProxy session stopped",false);
+                    message(xyz.daikirai.util.Lang.text("FisProxy session stopped"),false);
                 });
                 return;
             }
             final ProxyConfig c=draft(false);
-            if(c.apiToken.trim().isEmpty()) { message("Enter your FisProxy API token",true); return; }
-            message("Starting FisProxy session...",false);
+            if(c.apiToken.trim().isEmpty()) { message(xyz.daikirai.util.Lang.text("Enter your FisProxy API token"),true); return; }
+            message(xyz.daikirai.util.Lang.text("Starting FisProxy session..."),false);
             task(()->{ FisProxySession.configure(c); FisProxySession.start(); return true; },ok->{
                 // A session that nobody routes through still bills, so apply it in the same step.
                 enabled=true;
                 try { AccountManager.instance().proxy(draft(false)); } catch(Exception e) { message(failure(e),true); }
                 sessionLine=FisProxySession.summary(); balanceLine=FisProxySession.balanceLine();
-                message("FisProxy running - proxy applied",false);
+                message(xyz.daikirai.util.Lang.text("FisProxy running - proxy applied"),false);
             });
         } catch(Exception e) { message(failure(e),true); }
     }
@@ -162,7 +162,7 @@ public final class ProxyScreen extends MenuScreen {
     private void joinSession() {
         String address = FisProxySession.address();
         if (address == null || address.trim().isEmpty()) {
-            message("No FisProxy session to join", true);
+            message(xyz.daikirai.util.Lang.text("No FisProxy session to join"), true);
             return;
         }
         // Cancel returns to this page, so the token/service stay in reach.
@@ -171,11 +171,11 @@ public final class ProxyScreen extends MenuScreen {
     }
 
     private void changeIp() {
-        if(!FisProxySession.running()) { message("Start a FisProxy session first",true); return; }
-        message("Changing FisProxy exit...",false);
+        if(!FisProxySession.running()) { message(xyz.daikirai.util.Lang.text("Start a FisProxy session first"),true); return; }
+        message(xyz.daikirai.util.Lang.text("Changing FisProxy exit..."),false);
         task(()->{ FisProxySession.changeIp(); return true; },ok->{
             sessionLine=FisProxySession.summary(); balanceLine=FisProxySession.balanceLine();
-            message("FisProxy exit changed",false);
+            message(xyz.daikirai.util.Lang.text("FisProxy exit changed"),false);
         });
     }
 
@@ -187,7 +187,7 @@ public final class ProxyScreen extends MenuScreen {
      */
     private void refreshSession() {
         final ProxyConfig c=draft(false);
-        message("Loading FisProxy session...",false);
+        message(xyz.daikirai.util.Lang.text("Loading FisProxy session..."),false);
         Thread worker=new Thread(()->{
             try {
                 FisProxySession.configure(c);
@@ -196,7 +196,7 @@ public final class ProxyScreen extends MenuScreen {
                 final boolean running=FisProxySession.running();
                 mc.addScheduledTask(()->{
                     sessionLine=line; balanceLine=balance;
-                    message(running?"FisProxy session is running":"FisProxy ready",false);
+                    message(running?xyz.daikirai.util.Lang.text("FisProxy session is running"):xyz.daikirai.util.Lang.text("FisProxy ready"),false);
                 });
             } catch(final Exception e) {
                 mc.addScheduledTask(()->message(failure(e),true));
@@ -208,7 +208,7 @@ public final class ProxyScreen extends MenuScreen {
 
     private void test() {
         try {
-            final ProxyConfig c=draft(true); message("Testing proxy...",false);
+            final ProxyConfig c=draft(true); message(xyz.daikirai.util.Lang.text("Testing proxy..."),false);
             task(()-> {
                 String host="sessionserver.mojang.com";
                 try(Socket tunnel=ProxyTunnel.open(c,host,443);
@@ -217,7 +217,7 @@ public final class ProxyScreen extends MenuScreen {
                     params.setEndpointIdentificationAlgorithm("HTTPS"); ssl.setSSLParameters(params); ssl.startHandshake();
                 }
                 return true;
-            },ok->message("Proxy connection verified",false));
+            },ok->message(xyz.daikirai.util.Lang.text("Proxy connection verified"),false));
         } catch(Exception e) { message(failure(e),true); }
     }
 }

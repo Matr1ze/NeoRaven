@@ -74,6 +74,14 @@ public class Module {
         return this.settings;
     }
 
+    /**
+     * Settings that are written to / read from profiles. Modules that hide rows from the GUI (for
+     * example Watermark's debug sub-toggles) override this so the hidden values still persist.
+     */
+    public ArrayList<Setting> persistedSettings() {
+        return getSettings();
+    }
+
     public void registerSetting(Setting s) {
         this.settings.add(s);
     }
@@ -179,7 +187,7 @@ public class Module {
     }
 
     public String getDisplayName() {
-        return this.displayName(this.name);
+        return this.displayName(this.localizedName());
     }
 
     public String displayName(String s) {
@@ -188,6 +196,12 @@ public class Module {
             s = s + HudModule.INFO_SEPARATOR + info;
         }
         return HudModule.lowercase.isToggled() ? s.toLowerCase() : s;
+    }
+
+    /** Localised module name for display only; {@link #name} stays the stable lookup/save key. */
+    public String localizedName() {
+        if (isScript() || isProfile()) return name;
+        return xyz.daikirai.util.Lang.module(name);
     }
 
     public boolean isCloset() {

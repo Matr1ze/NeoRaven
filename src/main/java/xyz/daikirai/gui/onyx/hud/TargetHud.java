@@ -431,7 +431,8 @@ public final class TargetHud {
         float chipWidth = module.showDistance() ? distanceChipWidth() : 0.0F;
         float nameWidth = right - contentX - (chipWidth > 0.0F ? chipWidth + 8.0F : 0.0F);
         String label = ui.truncate(Typeface.HEADLINE, name, Math.max(20.0F, nameWidth));
-        ui.text(Typeface.HEADLINE, label, contentX, NAME_Y, scheme.onSurface, UI.ALIGN_LEFT);
+        ui.text(Typeface.HEADLINE, label, contentX, NAME_Y,
+                Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
 
         if (chipWidth > 0.0F) {
             float chipX = right - chipWidth;
@@ -449,7 +450,7 @@ public final class TargetHud {
     private void drawAvatar(Scheme scheme) {
         ui.rounded(PAD, PAD, AVATAR, AVATAR, AVATAR_RADIUS, scheme.secondaryContainer);
         if (skin != null) {
-            ui.image(skin, PAD + 2.0F, PAD + 2.0F, AVATAR - 4.0F, AVATAR - 4.0F,
+            ui.imageNearest(skin, PAD + 2.0F, PAD + 2.0F, AVATAR - 4.0F, AVATAR - 4.0F,
                     8.0F / 64.0F, 8.0F / 64.0F, 16.0F / 64.0F, 16.0F / 64.0F, 0xFFFFFFFF);
         } else {
             String letter = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(Locale.ROOT);
@@ -497,13 +498,16 @@ public final class TargetHud {
     private void drawStats(TargetHudModule module, Scheme scheme, float contentX, float right) {
         if (module.showHealth()) {
             String text = String.format(Locale.ROOT, "%.1f / %d", health, Math.round(maxHealth));
-            ui.text(Typeface.CAPTION, text, contentX, STATS_Y, scheme.onSurfaceVariant, UI.ALIGN_LEFT);
+            ui.text(Typeface.CAPTION, text, contentX, STATS_Y,
+                    Material.withAlpha(Theme.hudText(scheme.primary, scheme.onSurfaceVariant), 0.82F), UI.ALIGN_LEFT);
         }
         if (module.showArmor() && armor > 0) {
             String text = String.valueOf(armor);
             float textWidth = Typeface.CAPTION.width(text);
-            ui.text(Typeface.CAPTION, text, right, STATS_Y, scheme.onSurfaceVariant, UI.ALIGN_RIGHT);
-            ui.icon("\ue9e0", right - textWidth - 8.0F, STATS_Y, 10.0F, scheme.onSurfaceVariant);
+            ui.text(Typeface.CAPTION, text, right, STATS_Y,
+                    Material.withAlpha(Theme.hudText(scheme.primary, scheme.onSurfaceVariant), 0.82F), UI.ALIGN_RIGHT);
+            ui.icon("\ue9e0", right - textWidth - 8.0F, STATS_Y, 10.0F,
+                    Material.withAlpha(Theme.hudText(scheme.primary, scheme.onSurfaceVariant), 0.82F));
         }
     }
 

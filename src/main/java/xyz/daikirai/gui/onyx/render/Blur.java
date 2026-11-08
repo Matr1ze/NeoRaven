@@ -94,6 +94,20 @@ public final class Blur {
      * capture per frame — taken before the first of them draws anything.
      */
     public static void prepare() {
+        prepare(2, 2);
+    }
+
+    /** @param rounds blur rounds @param divisor target-resolution divisor (2 = half, 4 = quarter) */
+    public static void prepare(int rounds) {
+        prepare(rounds, 2);
+    }
+
+    /**
+     * @param rounds blur rounds; each round is one horizontal + one vertical box pass at half
+     *               resolution. The frosted-glass appearance asks for more so the world behind the
+     *               pane reads as colour rather than shapes.
+     */
+    public static void prepare(int rounds, int divisor) {
         if (!available) {
             return;
         }
@@ -133,14 +147,18 @@ public final class Blur {
 
             int screenWidth = framebuffer.framebufferWidth;
             int screenHeight = framebuffer.framebufferHeight;
-            int targetWidth = Math.max(1, screenWidth / 2);
-            int targetHeight = Math.max(1, screenHeight / 2);
+            int scale = Math.max(1, divisor);
+            int targetWidth = Math.max(1, screenWidth / scale);
+            int targetHeight = Math.max(1, screenHeight / scale);
             int previousFramebuffer = GL11.glGetInteger(FRAMEBUFFER_BINDING);
             ensureTargets(targetWidth, targetHeight);
 
             pass(framebuffer.framebufferTexture, framebufferA, screenWidth, screenHeight, 1.0F, 0.0F);
-            pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
-            pass(textureB, framebufferA, targetWidth, targetHeight, 1.0F, 0.0F);
+            int total = Math.max(1, rounds);
+            for (int round = 0; round < total; round++) {
+                pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
+                pass(textureB, framebufferA, targetWidth, targetHeight, 1.0F, 0.0F);
+            }
             pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
 
             OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFramebuffer);

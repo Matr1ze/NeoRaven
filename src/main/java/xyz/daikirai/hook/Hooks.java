@@ -304,6 +304,7 @@ public final class Hooks {
         if (entity != mc.thePlayer) {
             return false;
         }
+        lastJumpTick = entity.ticksExisted;
         mc.thePlayer.motionY = 0.42f;
         if (mc.thePlayer.isPotionActive(Potion.jump)) {
             mc.thePlayer.motionY += (double) ((float) (mc.thePlayer.getActivePotionEffect(Potion.jump).getAmplifier() + 1) * 0.1f);
@@ -442,6 +443,19 @@ public final class Hooks {
     public static boolean spoofingItem;
     /** {@code ticksExisted} of the last C02 that left the client, -1 before the first attack. */
     public static int lastAttackTick = -1;
+    /** {@code ticksExisted} of the local player's last real jump, -1 before the first jump. */
+    public static int lastJumpTick = -1;
+    /** Target + distance of the local player's last melee attack (client-side prediction). */
+    public static Entity lastAttackTarget;
+    public static int lastAttackTargetTick = -1;
+    public static float lastAttackDistance;
+
+    /** Called from {@code EntityPlayer#attackTargetEntityWithCurrentItem}; used by the island debug. */
+    public static void onAttackTarget(Entity target) {
+        lastAttackTarget = target;
+        lastAttackTargetTick = mc.thePlayer == null ? -1 : mc.thePlayer.ticksExisted;
+        lastAttackDistance = target == null || mc.thePlayer == null ? 0.0F : mc.thePlayer.getDistanceToEntity(target);
+    }
 
     public static ItemStack getItemToRender(ItemStack itemStack) {
         Object object = spoofedItem();
@@ -716,6 +730,12 @@ public final class Hooks {
         }
         if (packet instanceof S08PacketPlayerPosLook && mc.thePlayer != null) {
             PacketUtils.lastPosLook = System.currentTimeMillis();
+        }
+        if (packet instanceof S08PacketPlayerPosLook && (m = on("Flag Detector")) != null) {
+            m.onReceivePacket(packet, handler);
+        }
+        if (packet instanceof S12PacketEntityVelocity && (m = on("Flag Detector")) != null) {
+            m.onReceivePacket(packet, handler);
         }
         if (packet instanceof S08PacketPlayerPosLook && (m = any("NoRotate")) != null && !m.onReceivePacketAlways(packet, handler)) {
             return;

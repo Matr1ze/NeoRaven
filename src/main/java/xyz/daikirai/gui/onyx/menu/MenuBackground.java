@@ -416,11 +416,11 @@ public final class MenuBackground {
     }
 
     public static String label(Style style) {
-        return style.label;
+        return xyz.daikirai.util.Lang.text(style.label);
     }
 
     public static String hint(Style style) {
-        return style.hint;
+        return xyz.daikirai.util.Lang.text(style.hint);
     }
 
     private static Style read() {

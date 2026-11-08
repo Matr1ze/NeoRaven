@@ -4,22 +4,73 @@ package xyz.daikirai.gui.onyx.render;
  * The Material type scale used by the Onyx ClickGUI, ported from {@code theme.Util2} and
  * {@code render.font.Util}.
  *
- * <p>Onyx bundled Google Sans Flex at five optical sizes; the ClickGUI only ever used 9pt and
- * 24pt, so those are the two families shipped with this port. Weight and pixel size map exactly
- * to the original records.</p>
+ * <p>Desktop uses Google Sans Flex (the bundled 9pt/24pt rasters, unchanged); Android uses the
+ * bundled MiSans Medium. {@code AudioRuntime.isAndroid()} decides which one loads. The 9pt and 24pt
+ * entries still select separate rasters so small text and headings keep their pixel sizes.</p>
  */
 public final class Typeface {
 
-    private static final String ROOT = "/assets/onyx/font/ttf/googlesansflex_";
-    private static final String ICONS_PATH = "/assets/onyx/font/ttf/materialicons-regular.ttf";
+    /**
+     * Desktop keeps Google Sans Flex (the client's own face, with its 9pt/24pt rasters); Android uses
+     * the bundled MiSans Medium. Both families ship in the jar, so the choice is made at start-up.
+     */
+    private static final boolean MOBILE = xyz.daikirai.music.AudioRuntime.isAndroid();
+    private static final String DESKTOP_ROOT = "/assets/onyx/font/ttf/googlesansflex_";
+    private static final String TEXT_PATH = MOBILE
+            ? "/assets/clickgui/font/misans-medium.ttf"
+            : DESKTOP_ROOT + "24pt-regular.ttf";
+    private static final String ICONS_PATH = "/assets/clickgui/font/materialicons-regular.ttf";
+
+    /** The large display face of the active family, for screens that raster their own text. */
+    public static String familyPath() {
+        return MOBILE ? TEXT_PATH : DESKTOP_ROOT + "24pt-regular.ttf";
+    }
 
     /** Material Icons glyphs (16px reference size, drawn through {@link UI#icon}). */
     public static final TtfFont ICONS = TtfFont.load(ICONS_PATH, 16.0F);
 
-    private static TtfFont regular9;
-    private static TtfFont medium9;
-    private static TtfFont regular24;
-    private static TtfFont medium24;
+    private static TtfFont text9;
+    private static TtfFont text24;
+
+    static TtfFont text9() {
+        if (text9 == null) {
+            text9 = loadText(9.0F, 2048);
+        }
+        return text9;
+    }
+
+    static TtfFont text24() {
+        if (text24 == null) {
+            text24 = loadText(24.0F, 4096);
+        }
+        return text24;
+    }
+
+    private static TtfFont loadText(float size, int atlas) {
+        // Google Sans ships per-size rasters (9pt / 24pt); MiSans is scaled from one face.
+        String path = MOBILE ? TEXT_PATH
+                : DESKTOP_ROOT + (size < 16.0F ? "9pt" : "24pt") + "-regular.ttf";
+        TtfFont font = TtfFont.load(path, size, 4.0F, atlas);
+        if (font == null) {
+            font = TtfFont.load(TEXT_PATH, size, 4.0F, atlas);
+        }
+        return font != null ? font : TtfFont.load(TEXT_PATH, size);
+    }
+
+    /** User scale for every Material style, driven by the CustomGui font settings. */
+    public static float zoom() {
+        return xyz.daikirai.module.render.CustomGuiModule.interfaceFontSize();
+    }
+
+    /** Extra advance per glyph, in the style's own pixel space. */
+    public static float spacing() {
+        return xyz.daikirai.module.render.CustomGuiModule.interfaceFontSpacing();
+    }
+
+    /** Whether Onyx's Material text draws the 1px offset shadow. */
+    public static boolean shadow() {
+        return xyz.daikirai.module.render.CustomGuiModule.interfaceFontShadow();
+    }
 
     /** Wallpaper clock: 24pt regular blown up to 42px (the atlas rasters at 96px, so it stays sharp). */
     public static final Style DISPLAY = new Style(24.0F, 42.0F, 48.0F, false);
@@ -58,36 +109,45 @@ public final class Typeface {
     /**
      * An entry of the type scale pinned to one concrete face instead of a weight/optical pair.
      *
-     * <p>Used by the music player, which draws everything in Microsoft YaHei: mixing Google Sans
-     * with the CJK fallback inside one string shifted the two runs vertically, because each face
-     * lays its glyphs out from its own em-box top.</p>
+     * <p>Used by the music player, which draws everything in MiSans Medium: mixing faces inside
+     * one string shifted the two runs vertically, because each face lays its glyphs out from its
+     * own em-box top.</p>
      */
     public static Style fromFont(TtfFont font, float size, float lineHeight) {
         return new Style(font, size, lineHeight);
     }
 
+    /** {@link #fromFont} exempt from the interface font scale. */
+    public static Style fixedFromFont(TtfFont font, float size, float lineHeight) {
+        return new Style(0.0F, size, lineHeight, false, font, null, true);
+    }
+
     /**
-     * A style that keeps Google Sans for Latin but borrows another face for everything it cannot
-     * draw, before falling back to the global CJK face.
+     * A style with a secondary face for glyphs the primary one cannot draw.
      *
-     * <p>The compact music card uses this: English stays Google Sans, while Chinese/Japanese
-     * lyrics keep the player's own MiSans Medium instead of the heavier global fallback.</p>
+     * <p>The compact music card uses this to share its own MiSans raster before falling back to
+     * the global system face.</p>
      */
     public static Style mixed(float optical, float size, float lineHeight, boolean medium, TtfFont secondary) {
         return new Style(optical, size, lineHeight, medium, null, secondary);
     }
 
+    /** A style exempt from the interface font scale (fixed-layout screens with their own size control). */
+    public static Style fixed(float optical, float size, float lineHeight, boolean medium) {
+        return new Style(optical, size, lineHeight, medium, null, null, true);
+    }
+
+    /** {@link #fixed} with a secondary face. */
+    public static Style fixedMixed(float optical, float size, float lineHeight, boolean medium, TtfFont secondary) {
+        return new Style(optical, size, lineHeight, medium, null, secondary, true);
+    }
+
     /**
-     * System CJK fallback font. Google Sans Flex has no CJK coverage, so song titles or script
-     * names in Chinese/Japanese/Korean are drawn with this face instead of rendering as blanks.
+     * System fallback for characters the bundled MiSans face does not contain.
      *
-     * <p>Everything outside the music player is "English in Google Sans, everything else in
-     * MiSans Demibold": {@link Style#draw} switches to this face per character, so Latin stays
-     * Google Sans and any other script lands here. MiSans covers Han + kana, which the previous
-     * OPPO Sans face did not (Japanese lyrics used to fall through to the symbol face).</p>
-     *
-     * <p>Only the player's MiSans Medium is bundled in the jar; this fallback face is read from
-     * disk ({@code D:\Downloads} first), then Microsoft YaHei as the last resort.</p>
+     * <p>MiSans covers Latin, Han and kana, so this face is only consulted for rare glyphs.
+     * It is read from disk ({@code D:\Downloads} first), then Microsoft YaHei as the last
+     * resort.</p>
      */
     public static synchronized TtfFont fallback() {
         if (fallbackLoaded) {
@@ -128,9 +188,8 @@ public final class Typeface {
     private static boolean symbolsLoaded;
 
     /**
-     * System symbol fallback (Segoe UI Symbol on Windows). Google Sans Flex has no coverage for
-     * dingbats used by server scoreboards (check marks / crosses), so those glyphs are borrowed
-     * from a system font that does.
+     * System symbol fallback (Segoe UI Symbol on Windows) for dingbats used by server
+     * scoreboards (check marks / crosses) that MiSans does not contain.
      */
     public static synchronized TtfFont symbols() {
         if (symbolsLoaded) {
@@ -177,29 +236,13 @@ public final class Typeface {
     private Typeface() {
     }
 
+    private static int darken(int color) {
+        int alpha = Math.round((color >>> 24) * 0.55F);
+        return alpha << 24;
+    }
+
     private static TtfFont font(boolean medium, float optical) {
-        if (optical > 16.0F) {
-            if (medium) {
-                if (medium24 == null) {
-                    medium24 = TtfFont.load(ROOT + "24pt-medium.ttf", 24.0F);
-                }
-                return medium24;
-            }
-            if (regular24 == null) {
-                regular24 = TtfFont.load(ROOT + "24pt-regular.ttf", 24.0F);
-            }
-            return regular24;
-        }
-        if (medium) {
-            if (medium9 == null) {
-                medium9 = TtfFont.load(ROOT + "9pt-medium.ttf", 9.0F);
-            }
-            return medium9;
-        }
-        if (regular9 == null) {
-            regular9 = TtfFont.load(ROOT + "9pt-regular.ttf", 9.0F);
-        }
-        return regular9;
+        return optical > 16.0F ? text24() : text9();
     }
 
     /** One entry of the type scale (Onyx's {@code OpticalWeightRecord}). */
@@ -210,27 +253,34 @@ public final class Typeface {
         private final boolean medium;
         private final TtfFont explicit;
         private final TtfFont secondary;
+        private final boolean fixed;
 
         private Style(float optical, float size, float lineHeight, boolean medium) {
-            this(optical, size, lineHeight, medium, null, null);
+            this(optical, size, lineHeight, medium, null, null, false);
         }
 
         private Style(TtfFont explicit, float size, float lineHeight) {
-            this(0.0F, size, lineHeight, false, explicit, null);
+            this(0.0F, size, lineHeight, false, explicit, null, true);
         }
 
         private Style(float optical, float size, float lineHeight, boolean medium, TtfFont explicit) {
-            this(optical, size, lineHeight, medium, explicit, null);
+            this(optical, size, lineHeight, medium, explicit, null, false);
         }
 
         private Style(float optical, float size, float lineHeight, boolean medium, TtfFont explicit,
                       TtfFont secondary) {
+            this(optical, size, lineHeight, medium, explicit, secondary, false);
+        }
+
+        private Style(float optical, float size, float lineHeight, boolean medium, TtfFont explicit,
+                      TtfFont secondary, boolean fixed) {
             this.optical = optical;
             this.size = size;
             this.lineHeight = lineHeight;
             this.medium = medium;
             this.explicit = explicit;
             this.secondary = secondary;
+            this.fixed = fixed;
         }
 
         public TtfFont font() {
@@ -250,7 +300,7 @@ public final class Typeface {
 
         /** Matrix scale from the rasterised optical size to the requested pixel size. */
         public float scale() {
-            return size / font().size();
+            return size * (fixed ? 1.0F : Typeface.zoom()) / font().size();
         }
 
         public float width(String text) {
@@ -269,7 +319,9 @@ public final class Typeface {
                 total += run.width(text.substring(i, j)) * (primary.size() / run.size());
                 i = j;
             }
-            return total * scale();
+            float gap = fixed ? 0.0F : Typeface.spacing();
+            float extra = text.length() > 1 ? gap * (text.length() - 1) : 0.0F;
+            return Math.max(0.0F, total * scale() + extra);
         }
 
         /**
@@ -278,7 +330,28 @@ public final class Typeface {
          * the requested pixel size (the ambient matrix was already scaled by {@link #scale()}).
          */
         public void draw(String text, int color) {
+            if (text == null || text.isEmpty()) {
+                return;
+            }
             TtfFont primary = font();
+            float gap = fixed ? 0.0F : Typeface.spacing();
+            boolean shadow = !fixed && Typeface.shadow();
+            if (shadow) {
+                int shadowColor = darken(color);
+                // One extra pass per run at a 1px offset: drawing it per glyph cost a matrix push,
+                // a translate and a texture bind for every character of every label.
+                net.minecraft.client.renderer.GlStateManager.pushMatrix();
+                net.minecraft.client.renderer.GlStateManager.translate(
+                        1.0F / Math.max(0.0001F, scale()), 1.0F / Math.max(0.0001F, scale()), 0.0F);
+                runDraw(primary, text, gap, shadowColor);
+                net.minecraft.client.renderer.GlStateManager.popMatrix();
+            }
+            runDraw(primary, text, gap, color);
+        }
+
+        /** Draws every fallback run of {@code text} at the current origin. */
+        private void runDraw(TtfFont primary, String text, float gap, int color) {
+            float inverse = gap == 0.0F ? 0.0F : gap / Math.max(0.0001F, scale());
             float x = 0.0F;
             int i = 0;
             while (i < text.length()) {
@@ -296,7 +369,7 @@ public final class Typeface {
                 }
                 run.draw(part, color);
                 net.minecraft.client.renderer.GlStateManager.popMatrix();
-                x += run.width(part) * relative;
+                x += run.width(part) * relative + inverse * (part.length() - (j >= text.length() ? 1 : 0));
                 i = j;
             }
         }

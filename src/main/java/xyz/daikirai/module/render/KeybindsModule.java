@@ -33,6 +33,7 @@ public final class KeybindsModule extends Module {
     public static ButtonSetting frostedGlass;
     public static SliderSetting show;
     public static ButtonSetting showCount;
+    public static SliderSetting style;
 
     public static SliderSetting scale;
     public static SliderSetting positionX;
@@ -52,6 +53,7 @@ public final class KeybindsModule extends Module {
         frostedGlass = button("Frosted glass");
         show = slider("Show");
         showCount = button("Show count");
+        style = slider("Style");
 
         registerRenderer();
     }
@@ -112,6 +114,13 @@ public final class KeybindsModule extends Module {
         return HUD;
     }
 
+    /** Draws the card once from inside a screen (see {@code HudPass}). */
+    public static void renderHud() {
+        if (instance != null) {
+            HUD.render(instance, false);
+        }
+    }
+
     public boolean frosted() {
         return frostedGlass != null && frostedGlass.isToggled();
     }
@@ -125,8 +134,13 @@ public final class KeybindsModule extends Module {
         return showCount == null || showCount.isToggled();
     }
 
+    /** 0 = the Material 3 card, 1 = the compact original Onyx card. */
+    public boolean retro() {
+        return style != null && Math.round(style.getInput()) == 1L;
+    }
+
     public float scale() {
-        return scale == null ? 1.0F : (float) scale.getInput();
+        return scale == null ? 0.75F : (float) scale.getInput();
     }
 
     public float positionX() {

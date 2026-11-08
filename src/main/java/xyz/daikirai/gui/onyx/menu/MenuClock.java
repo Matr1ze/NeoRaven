@@ -1,6 +1,6 @@
 package xyz.daikirai.gui.onyx.menu;
 
-import net.minecraft.client.renderer.GlStateManager;
+import xyz.daikirai.gui.onyx.hud.AndroidClock;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.TtfFont;
@@ -27,9 +27,9 @@ import java.util.Calendar;
  */
 public final class MenuClock {
 
-    /** The Google Sans Flex face the rest of the UI uses; loaded at 48px so the atlas rasters 192px. */
+    /** The shared MiSans face used across the client; loaded at 48px so the atlas rasters 192px. */
     private static final String DISPLAY_FACE =
-            "/assets/onyx/font/ttf/googlesansflex_24pt-regular.ttf";
+            xyz.daikirai.gui.onyx.render.Typeface.familyPath();
 
     /** Design-space centre line of the 640x360 title screen. */
     private static final float CENTER_X = 320.0F;
@@ -38,7 +38,6 @@ public final class MenuClock {
     private static final float DIGITAL_DATE_Y = 190.0F;
     private static final float ANALOG_Y = 128.0F;
     private static final float ANALOG_RADIUS = 70.0F;
-    private static final float ANALOG_DATE_Y = 238.0F;
 
     private static final String[] WEEKDAYS = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
     private static final Calendar CALENDAR = Calendar.getInstance();
@@ -58,7 +57,7 @@ public final class MenuClock {
         }
         if (display == null) {
             display = digits == null ? Typeface.DISPLAY
-                    : Typeface.fromFont(digits, DIGITAL_SIZE, DIGITAL_SIZE * 1.12F);
+                    : Typeface.fixedFromFont(digits, DIGITAL_SIZE, DIGITAL_SIZE * 1.12F);
         }
         return display;
     }
@@ -116,64 +115,17 @@ public final class MenuClock {
     }
 
     // ------------------------------------------------------------------ //
-    // Analog
+    // Analog (Material 3 expressive face, ported from pvp_utils' ClockHudRenderer)
     // ------------------------------------------------------------------ //
 
     private static void analog(UI ui) {
-        int ink = AndroidWallpaper.ink();
-        ui.circle(CENTER_X, ANALOG_Y, ANALOG_RADIUS, AndroidWallpaper.surfaceHigh());
-        ui.outline(CENTER_X - ANALOG_RADIUS, ANALOG_Y - ANALOG_RADIUS, ANALOG_RADIUS * 2.0F,
-                ANALOG_RADIUS * 2.0F, ANALOG_RADIUS, 1.0F,
-                Material.withAlpha(AndroidWallpaper.outlineVariant(), 0.7F));
-
-        // Twelve ticks; the quarter hours are longer and stronger, the way MD3 watch faces read.
-        for (int i = 0; i < 12; i++) {
-            boolean major = i % 3 == 0;
-            float length = major ? ANALOG_RADIUS * 0.13F : ANALOG_RADIUS * 0.07F;
-            float thickness = major ? Math.max(2.4F, ANALOG_RADIUS * 0.045F)
-                    : Math.max(1.6F, ANALOG_RADIUS * 0.026F);
-            bar(ui, i * 30.0F, ANALOG_RADIUS * 0.80F, ANALOG_RADIUS * 0.80F + length, thickness,
-                    Material.withAlpha(ink, major ? 0.8F : 0.32F));
-        }
-
-        int hour = CALENDAR.get(Calendar.HOUR);
-        int minute = CALENDAR.get(Calendar.MINUTE);
-        int second = CALENDAR.get(Calendar.SECOND);
-
-        // Seconds ride the rim as an accent dot instead of a third hand: MD3 faces stay calm.
-        double seconds = Math.toRadians(second * 6.0F);
-        float dotRadius = Math.max(2.4F, ANALOG_RADIUS * 0.045F);
-        ui.circle(CENTER_X + (float) Math.sin(seconds) * ANALOG_RADIUS * 0.86F,
-                ANALOG_Y - (float) Math.cos(seconds) * ANALOG_RADIUS * 0.86F,
-                dotRadius, AndroidWallpaper.primary());
-
-        bar(ui, minute * 6.0F + second * 0.1F, -ANALOG_RADIUS * 0.10F, ANALOG_RADIUS * 0.46F,
-                Math.max(3.2F, ANALOG_RADIUS * 0.075F), ink);
-        bar(ui, (hour % 12) * 30.0F + minute * 0.5F, -ANALOG_RADIUS * 0.08F, ANALOG_RADIUS * 0.30F,
-                Math.max(4.2F, ANALOG_RADIUS * 0.095F), ink);
-        ui.circle(CENTER_X, ANALOG_Y, Math.max(3.0F, ANALOG_RADIUS * 0.055F), ink);
-
-        ui.text(Typeface.BODY, date(), CENTER_X, ANALOG_DATE_Y, AndroidWallpaper.softInk(),
-                UI.ALIGN_CENTER);
-    }
-
-    /**
-     * One rounded bar pointing outwards from the face centre, from {@code start} to {@code end}
-     * (design-space pixels along twelve o'clock, positive is away from the centre).
-     *
-     * <p>The menu draws in a y-down space, so a positive GL rotation sweeps the bar clockwise from
-     * twelve o'clock — exactly the hour/minute angle the calendar reports.</p>
-     */
-    private static void bar(UI ui, float angle, float start, float end, float thickness, int color) {
-        ui.push();
-        ui.translate(CENTER_X, ANALOG_Y);
-        GlStateManager.rotate(angle, 0.0F, 0.0F, 1.0F);
-        ui.rounded(-thickness / 2.0F, -end, thickness, end - start, thickness / 2.0F, color);
-        ui.pop();
+        AndroidClock.Hands hands = AndroidClock.hands(true);
+        AndroidClock.draw(ui, CENTER_X, ANALOG_Y, ANALOG_RADIUS * 2.0F,
+                AndroidClock.Palette.wallpaper(true), hands, true, false);
     }
 
     /** Label for the clock-style button's accessibility text (English like the rest of the menu). */
     public static String styleName() {
-        return style() == MenuTheme.CLOCK_ANALOG ? "Analog clock" : "Digital clock";
+        return xyz.daikirai.util.Lang.text(style() == MenuTheme.CLOCK_ANALOG ? "Analog clock" : "Digital clock");
     }
 }
