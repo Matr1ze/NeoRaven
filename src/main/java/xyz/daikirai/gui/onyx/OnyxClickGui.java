@@ -149,7 +149,15 @@ public final class OnyxClickGui extends GuiScreen {
 
     private void drawBackdrop(Scheme scheme) {
         boolean menu = mc.theWorld == null || mc.thePlayer == null;
-        if (Theme.frost() && !backdropFrozen) {
+        // Both materials need the captured backdrop. Liquid glass uses the blurred texture for
+        // its body and the sharp copy for refraction, so it must prepare the same scene even when
+        // Frosted glass is disabled.
+        boolean glassEnabled = Theme.frost() || Theme.liquidGlass();
+        if (glassEnabled && !backdropFrozen) {
+            // The render-overlay hook consumes the frame capture only for glass HUDs. If none
+            // are enabled, it marks the frame as already handled; the ClickGUI still needs its
+            // own capture after the world pass, so explicitly reopen the capture for this screen.
+            Blur.request();
             Blur.prepare();
             if (menu) {
                 // In a world the scene changes every frame and the blur is refreshed above.
@@ -158,12 +166,12 @@ public final class OnyxClickGui extends GuiScreen {
                 backdropFrozen = Blur.ready();
             }
         }
-        if (menu && (!Theme.frost() || !Blur.ready())) {
+        if (menu && (!glassEnabled || !Blur.ready())) {
             ui.rect(0.0F, 0.0F, width, height, scheme.surface);
             ui.gradient(0.0F, 0.0F, width, height, scheme.surfaceContainerLow, scheme.surface);
             return;
         }
-        if (Theme.frost() && Blur.ready()) {
+        if (glassEnabled && Blur.ready()) {
             // Frosted glass owns the full-screen backdrop in both modes. Liquid glass only changes
             // how the surfaces composite that backdrop, so enabling it must not remove the blur.
             ui.frost(0.0F, 0.0F, width, height, 0.0F, scheme.surface, 0.0F);

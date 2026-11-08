@@ -29,6 +29,21 @@ public class MixinMinecraft {
         GuiOpenAnimation.opened(currentScreen);
     }
 
+    /**
+     * LWJGL can leave the old mouse-grab state behind when Windows recreates the display during
+     * F11 fullscreen changes. Reconcile input ownership with the active screen after Minecraft has
+     * completed its resize: gameplay owns the grabbed mouse, while an open GUI keeps it released.
+     */
+    @Inject(method = "toggleFullscreen", at = @At("RETURN"))
+    private void onyx$fullscreenInput(CallbackInfo ci) {
+        Minecraft minecraft = (Minecraft) (Object) this;
+        if (currentScreen == null && minecraft.theWorld != null && minecraft.thePlayer != null) {
+            minecraft.setIngameFocus();
+        } else {
+            minecraft.setIngameNotInFocus();
+        }
+    }
+
     @Redirect(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;handleInput()V"))
     private void onyx$screenInput(GuiScreen screen) throws IOException {
         GuiFont.begin();

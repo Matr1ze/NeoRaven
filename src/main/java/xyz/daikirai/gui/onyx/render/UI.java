@@ -12,6 +12,7 @@ import org.lwjgl.util.glu.GLU;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
+import xyz.daikirai.gui.onyx.GuiLanguage;
 import xyz.daikirai.render.HandState;
 
 import java.nio.FloatBuffer;
@@ -670,6 +671,7 @@ public final class UI {
 
     /** Draws a string with the given alignment, vertically centred on {@code y}. */
     public void text(Typeface.Style style, String text, float x, float y, int color, int align) {
+        text = GuiLanguage.translate(text);
         if (text == null || text.isEmpty()) {
             return;
         }
@@ -689,6 +691,7 @@ public final class UI {
 
     /** Draws a string with its top at {@code y} (matches Onyx's leading-anchored text). */
     public void textTop(Typeface.Style style, String text, float x, float y, int color, int align) {
+        text = GuiLanguage.translate(text);
         if (text == null || text.isEmpty()) {
             return;
         }
@@ -753,6 +756,7 @@ public final class UI {
      * positioned by its baseline instead.
      */
     public void textBaseline(Typeface.Style style, String text, float x, float baseline, int color, int align) {
+        text = GuiLanguage.translate(text);
         if (text == null || text.isEmpty()) {
             return;
         }
