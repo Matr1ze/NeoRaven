@@ -76,8 +76,8 @@ public final class Island {
     private static final long MUSIC_PAUSE_TIMEOUT_MS = 10000L;
     private static final float MARGIN = 10.0F;
     private static final float EDGE = 20.0F;
-    /** Same frosted recipe as the keybind card: the surface tint covers 58% of the blurred scene. */
-    private static final float FROST_COVERAGE = 0.58F;
+    /** Shared bright glass coverage; see UI.GLASS_COVERAGE. */
+    private static final float FROST_COVERAGE = UI.GLASS_COVERAGE;
 
     private static final int IDLE = 0;
     private static final int TOGGLE = 1;
@@ -242,7 +242,7 @@ public final class Island {
         ui.begin();
         ui.push();
         try {
-            if ((frosted || Theme.liquidGlass()) && fade > 0.01F) {
+            if ((Theme.frost() || Theme.liquidGlass()) && fade > 0.01F) {
                 Blur.prepare();
             }
             ui.alphaPush(fade);
@@ -251,14 +251,7 @@ public final class Island {
 
             float radius = pillHeight / 2.0F + (24.0F - pillHeight / 2.0F) * expansion;
             ui.shadow(0.0F, 0.0F, islandWidth, islandHeight, radius, 3);
-            if (frosted && !Theme.liquidGlass() && Blur.ready()) {
-                ui.rounded(0.0F, 0.0F, islandWidth, islandHeight, radius, scheme.surfaceContainerHigh);
-                ui.frost(0.0F, 0.0F, islandWidth, islandHeight, radius, scheme.surfaceContainerHigh,
-                        FROST_COVERAGE);
-            } else {
-                ui.glassSurface(0.0F, 0.0F, islandWidth, islandHeight, radius,
-                        scheme.surfaceContainerHigh, FROST_COVERAGE, 12.0F);
-            }
+            ui.glassSurface(0.0F, 0.0F, islandWidth, islandHeight, radius, scheme.surfaceContainer);
             // No resting border: the outline is only the state-change flash ring.
             float border = Material.clamp(flash.value(), 0.0F, 1.0F);
             if (border > 0.01F && expansion < 0.01F) {

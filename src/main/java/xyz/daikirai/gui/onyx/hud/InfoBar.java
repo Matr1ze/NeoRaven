@@ -31,8 +31,8 @@ public final class InfoBar {
     private static final float GAP = 10.0F;
     private static final float ICON_GAP = 4.0F;
     private static final float MAX_SERVER = 90.0F;
-    /** Same frosted recipe as the keybind card: the surface tint covers 58% of the blurred scene. */
-    private static final float FROST_COVERAGE = 0.58F;
+    /** Shared bright glass coverage; see UI.GLASS_COVERAGE. */
+    private static final float FROST_COVERAGE = UI.GLASS_COVERAGE;
 
     private static final String FPS_ICON = "\ue9e4";
     private static final String SERVER_ICON = "\ue875";
@@ -94,22 +94,13 @@ public final class InfoBar {
         Scheme scheme = Theme.scheme();
         ui.begin();
         try {
-            if ((module.frosted() || Theme.liquidGlass()) && fade > 0.01F) {
+            if ((Theme.frost() || Theme.liquidGlass()) && fade > 0.01F) {
                 Blur.prepare();
             }
             ui.alphaPush(fade);
             float radius = HEIGHT / 2.0F;
             ui.shadow(lastX, lastY, width, HEIGHT, radius, 2);
-            if (module.frosted() && !Theme.liquidGlass() && Blur.ready()) {
-                ui.rounded(lastX, lastY, width, HEIGHT, radius,
-                        Material.withAlpha(scheme.surfaceContainerHigh, 0.90F));
-                ui.frost(lastX, lastY, width, HEIGHT, radius, scheme.surfaceContainerHigh,
-                        FROST_COVERAGE);
-            } else {
-                ui.glassSurface(lastX, lastY, width, HEIGHT, radius,
-                        Material.withAlpha(scheme.surfaceContainerHigh, 0.97F),
-                        FROST_COVERAGE, 10.0F);
-            }
+            ui.glassSurface(lastX, lastY, width, HEIGHT, radius, scheme.surfaceContainer);
             // Borderless surface, matching the rest of the ported HUD.
 
             float centerY = lastY + HEIGHT / 2.0F;

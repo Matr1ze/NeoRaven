@@ -74,8 +74,8 @@ public final class Keybinds {
 
     private static final String KEYBOARD_ICON = "\ue312";
     private static final float ROW_STAGGER = 35.0F;
-    /** How much of the surface tint covers the blurred world (the ClickGUI panels use 0.88). */
-    private static final float BLUR_COVERAGE = 0.55F;
+    /** Shared bright glass coverage; see UI.GLASS_COVERAGE. */
+    private static final float BLUR_COVERAGE = UI.GLASS_COVERAGE;
     private static final int TUTORIAL_TOTAL = 2;
     private static final int DEFAULT_ZOOM_KEY = 47;
     private static final int DEFAULT_CLICK_GUI_KEY = 54;
@@ -165,9 +165,9 @@ public final class Keybinds {
                 GlStateManager.pushMatrix();
                 mc.entityRenderer.setupOverlayRendering();
             }
-            if ((module.frosted() || Theme.liquidGlass()) && fade > 0.01F) {
-                // Must run before anything of the card is drawn: prepare() captures the frame,
-                // and the card must not end up blurred into its own backdrop.
+            if ((Theme.frost() || Theme.liquidGlass()) && fade > 0.01F) {
+                // The global HIGHEST-priority overlay hook already captured a clean frame; this
+                // remains as a fallback for editor previews and non-standard render paths.
                 Blur.prepare();
             }
             ui.alphaPush(fade);
@@ -195,25 +195,18 @@ public final class Keybinds {
     // Card
     // ------------------------------------------------------------------ //
 
-    /** Draws a surface that turns into liquid glass whenever the ClickGUI setting is enabled. */
-    private void glass(KeybindsModule module, float x, float y, float w, float h, float radius,
-                       int tint, float coverage, float bevel) {
-        if (module.frosted() && !Theme.liquidGlass() && Blur.ready()) {
-            ui.rounded(x, y, w, h, radius, tint);
-            ui.frost(x, y, w, h, radius, tint, coverage);
-        } else {
-            ui.glassSurface(x, y, w, h, radius, tint, coverage, bevel);
-        }
+    /** Uses the shared ClickGUI glass recipe; the dark opaque HUD backing is intentionally omitted. */
+    private void glass(float x, float y, float w, float h, float radius, int tint) {
+        ui.glassSurface(x, y, w, h, radius, tint);
     }
 
     private void drawCard(KeybindsModule module, Scheme scheme, float width, float height,
                           float targetWidth) {
-        // Opaque backing first: the in-world framebuffer carries an alpha channel and the HUD is
-        // composited through it, so every surface needs an opaque layer underneath. The frosted
-        // or liquid layer is drawn on top with a full alpha mask.
-        int surface = Material.withAlpha(scheme.surfaceContainerHigh, 1.0F);
+        // The shared glass helper owns the opaque fallback; active liquid glass draws the
+        // refracted scene directly, so no dark backing is baked into the captured backdrop.
+        int surface = scheme.surfaceContainer;
         ui.shadow(0.0F, 0.0F, width, height, CARD_RADIUS, 3);
-        glass(module, 0.0F, 0.0F, width, height, CARD_RADIUS, surface, BLUR_COVERAGE, 22.0F);
+        glass(0.0F, 0.0F, width, height, CARD_RADIUS, surface);
         // Borderless card: the outline is reserved for the per-row toggle flash.
 
         drawHeader(module, scheme, width);
@@ -243,8 +236,8 @@ public final class Keybinds {
     private void drawHeader(KeybindsModule module, Scheme scheme, float width) {
         float top = PAD;
         float iconY = top + (HEADER - HEADER_ICON) / 2.0F;
-        glass(module, PAD, iconY, HEADER_ICON, HEADER_ICON, HEADER_ICON_RADIUS,
-                scheme.primaryContainer, 0.32F, 7.0F);
+        glass(PAD, iconY, HEADER_ICON, HEADER_ICON, HEADER_ICON_RADIUS,
+                scheme.primaryContainer);
         ui.icon(KEYBOARD_ICON, PAD + HEADER_ICON / 2.0F, iconY + HEADER_ICON / 2.0F, 15.0F,
                 scheme.onPrimaryContainer);
 
@@ -257,8 +250,8 @@ public final class Keybinds {
             float countWidth = Typeface.MICRO.width(count) + 14.0F;
             float countX = width - PAD - countWidth;
             float countY = top + (HEADER - HEADER_COUNT_HEIGHT) / 2.0F;
-            glass(module, countX, countY, countWidth, HEADER_COUNT_HEIGHT,
-                    HEADER_COUNT_HEIGHT / 2.0F, scheme.secondaryContainer, 0.42F, 6.0F);
+            glass(countX, countY, countWidth, HEADER_COUNT_HEIGHT,
+                    HEADER_COUNT_HEIGHT / 2.0F, scheme.secondaryContainer);
             ui.text(Typeface.MICRO, count, countX + countWidth / 2.0F,
                     countY + HEADER_COUNT_HEIGHT / 2.0F, scheme.onSecondaryContainer, UI.ALIGN_CENTER);
         }
@@ -279,7 +272,7 @@ public final class Keybinds {
         int rowOff = Material.mix(surface, scheme.surfaceContainerLow, 0.70F);
         int rowOn = Material.mix(surface, scheme.primaryContainer, 0.85F);
         int rowFill = Material.mix(rowOff, rowOn, t);
-        glass(module, 0.0F, 0.0F, width, ROW_HEIGHT, radius, rowFill, 0.30F, 10.0F);
+        glass(0.0F, 0.0F, width, ROW_HEIGHT, radius, rowFill);
 
         float flash = Material.clamp(entry.flash.value(), 0.0F, 1.0F);
         if (flash > 0.001F) {
@@ -318,8 +311,8 @@ public final class Keybinds {
 
         ui.rounded(0.0F, 1.5F, keycapWidth, KEYCAP_HEIGHT, KEYCAP_RADIUS,
                 Material.mix(fill, scheme.shadow, 0.30F));
-        glass(module, 0.0F, 0.0F, keycapWidth, KEYCAP_HEIGHT - 1.5F, KEYCAP_RADIUS,
-                fill, 0.34F, 7.0F);
+        glass(0.0F, 0.0F, keycapWidth, KEYCAP_HEIGHT - 1.5F, KEYCAP_RADIUS,
+                fill);
         ui.outline(0.0F, 0.0F, keycapWidth, KEYCAP_HEIGHT - 1.5F, KEYCAP_RADIUS, 1.0F,
                 Material.withAlpha(border, 1.0F - 0.65F * t));
         ui.text(Typeface.CAPTION, entry.label, keycapWidth / 2.0F, (KEYCAP_HEIGHT - 1.5F) / 2.0F,
@@ -347,8 +340,8 @@ public final class Keybinds {
 
         int offFill = Material.mix(rowFill, scheme.surfaceContainerHighest, 0.9F);
         int onFill = scheme.primary;
-        glass(module, chipX, chipY, chipWidth, CHIP_HEIGHT, radius,
-                Material.mix(offFill, onFill, t), 0.36F, 6.0F);
+        glass(chipX, chipY, chipWidth, CHIP_HEIGHT, radius,
+                Material.mix(offFill, onFill, t));
 
         int offText = scheme.onSurfaceVariant;
         int onText = scheme.onPrimary;

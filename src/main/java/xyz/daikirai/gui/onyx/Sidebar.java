@@ -144,7 +144,7 @@ public final class Sidebar {
                     Material.withAlpha(scheme.secondaryContainer, 0.0F));
         } else {
             ui.glassSurface(x + (w - PILL_WIDTH) / 2.0F, y + pill, PILL_WIDTH, PILL_HEIGHT,
-                    PILL_HEIGHT / 2.0F, scheme.secondaryContainer, 0.52F, 10.0F);
+                    PILL_HEIGHT / 2.0F, scheme.surfaceContainer);
         }
 
         for (int i = 0; i < categories.size(); i++) {
@@ -175,7 +175,7 @@ public final class Sidebar {
         boolean active = themeSelected;
         if (active) {
             ui.glassSurface(x + (w - PILL_WIDTH) / 2.0F, themeY + 2.0F, PILL_WIDTH, PILL_HEIGHT,
-                    PILL_HEIGHT / 2.0F, scheme.secondaryContainer, 0.52F, 10.0F);
+                    PILL_HEIGHT / 2.0F, scheme.surfaceContainer);
         } else if (themeHover.hover.value() > 0.001F) {
             ui.rounded(x + (w - PILL_WIDTH) / 2.0F, themeY + 2.0F, PILL_WIDTH, PILL_HEIGHT, PILL_HEIGHT / 2.0F,
                     Material.withAlpha(scheme.onSurface, 0.08F * themeHover.hover.value()));

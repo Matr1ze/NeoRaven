@@ -308,10 +308,7 @@ public final class ModuleList {
         void draw(UI ui, Scheme scheme, float x, float y, float w, float h, boolean selected, float mouseX, float mouseY) {
             float t = toggle.value();
             int background = Material.mix(scheme.surfaceContainerHigh, scheme.secondaryContainer, t);
-            ui.rounded(x, y, w, h, 12.0F, background);
-            if (Theme.frost() && Theme.liquidGlass()) {
-                ui.liquidGlass(x, y, w, h, 12.0F, background, 0.30F, 14.0F);
-            }
+            ui.glassSurface(x, y, w, h, 12.0F, background);
             if (hover.value() > 0.001F) {
                 ui.rounded(x, y, w, h, 12.0F,
                         Material.withAlpha(scheme.onSurface, pressed ? 0.1F : 0.08F * hover.value()));

@@ -5,12 +5,16 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.texture.TextureUtil;
 import net.minecraft.client.shader.Framebuffer;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
+import xyz.daikirai.client.Overlay;
+import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
+import xyz.daikirai.gui.onyx.material.Theme;
 
 import java.nio.ByteBuffer;
 
@@ -61,16 +65,37 @@ public final class Blur {
     private Blur() {
     }
 
-    /** Installs the per-frame ticker; called once from the module bootstrap. */
+    /**
+     * Installs the frame ticker. The capture is taken from HIGHEST-priority
+     * {@code RenderGameOverlayEvent.Pre(ALL)}, after the world is rendered but before any HUD
+     * backing is drawn. That keeps dark HUD surfaces out of the sharp/blurred backdrop that the
+     * liquid-glass shader samples at the rim; the old lazy per-HUD capture could bake them in.
+     */
     public static void install() {
         if (ticker != null) {
             return;
         }
         ticker = new Object() {
-            @SubscribeEvent(priority = EventPriority.LOWEST)
+            @SubscribeEvent(priority = EventPriority.HIGHEST)
             public void onRenderTick(TickEvent.RenderTickEvent event) {
-                if (event.phase == TickEvent.Phase.END) {
+                if (event.phase == TickEvent.Phase.START) {
+                    OnyxClickGuiModule.sync();
                     newFrame = true;
+                }
+            }
+
+            @SubscribeEvent(priority = EventPriority.HIGHEST)
+            public void onOverlayPre(RenderGameOverlayEvent.Pre event) {
+                if (event.type != RenderGameOverlayEvent.ElementType.ALL) {
+                    return;
+                }
+                if (!Theme.frost() && !Theme.liquidGlass()) {
+                    newFrame = false;
+                    return;
+                }
+                // With a GUI screen open the ClickGUI/backdrop path performs its own capture.
+                if (Overlay.canRender()) {
+                    prepare();
                 }
             }
         };

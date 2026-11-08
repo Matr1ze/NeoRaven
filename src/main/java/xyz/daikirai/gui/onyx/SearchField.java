@@ -67,7 +67,7 @@ public final class SearchField {
 
     public void draw(UI ui, Scheme scheme, float mouseX, float mouseY) {
         float centerY = y + HEIGHT / 2.0F;
-        ui.glassSurface(x, y, w, HEIGHT, HEIGHT / 2.0F, scheme.surfaceContainerHigh, 0.46F, 8.0F);
+        ui.glassSurface(x, y, w, HEIGHT, HEIGHT / 2.0F, scheme.surfaceContainer);
 
         if (hover.value() > 0.001F && !focused) {
             ui.rounded(x, y, w, HEIGHT, HEIGHT / 2.0F,

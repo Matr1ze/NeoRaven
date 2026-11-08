@@ -36,6 +36,14 @@ public final class UI {
     /** Panel tint coverage used by the ClickGUI's frosted panels (the blurred scene supplies 12%). */
     public static final float DEFAULT_TINT_COVERAGE = 0.88F;
 
+    /** ClickGUI/Panel recipe: bright refraction and a wide light-bending rim. */
+    public static final float GLASS_COVERAGE = 0.38F;
+    public static final float GLASS_BEVEL = 34.0F;
+
+    /** The earlier, darker HUD recipe; kept as the basis for a future dark liquid-glass variant. */
+    public static final float DARK_GLASS_COVERAGE = 0.58F;
+    public static final float DARK_GLASS_BEVEL = 12.0F;
+
     private static final FloatBuffer PROJECTION_BUFFER = BufferUtils.createFloatBuffer(16);
     private static final FloatBuffer MODELVIEW_BUFFER = BufferUtils.createFloatBuffer(16);
     private static final IntBuffer VIEWPORT_BUFFER = BufferUtils.createIntBuffer(16);
@@ -473,20 +481,37 @@ public final class UI {
         GlStateManager.resetColor();
     }
 
+    /** Default ClickGUI-like glass; the bevel scales down on small controls. */
+    public void glassSurface(float x, float y, float w, float h, float radius, int tint) {
+        float bevel = Math.min(GLASS_BEVEL, Math.max(8.0F, Math.min(w, h) * 0.8F));
+        glassSurface(x, y, w, h, radius, tint, GLASS_COVERAGE, bevel);
+    }
+
     /**
-     * Draws a small control surface with the same glass material as the ClickGUI. The solid tint
-     * is always painted first as a fallback; frosted/liquid modes then replace it with the current
-     * backdrop so search fields, switches and selection pills do not stay flat grey.
+     * Draws a surface with the same glass material as the ClickGUI. When liquid glass is active
+     * no opaque backing is painted: the shader writes the refracted scene itself, which prevents
+     * dark HUD tints from bleeding into the captured backdrop at the rim.
      */
     public void glassSurface(float x, float y, float w, float h, float radius,
                              int tint, float coverage, float bevel) {
-        rounded(x, y, w, h, radius, tint);
-        if (!Theme.liquidGlass() || !Blur.ready()) {
+        if (Theme.frost() && Blur.ready()) {
+            boolean liquid = Theme.liquidGlass()
+                    && liquidGlass(x, y, w, h, radius, tint, coverage, bevel);
+            if (liquid) {
+                return;
+            }
+            rounded(x, y, w, h, radius, tint);
+            frost(x, y, w, h, radius, tint, DEFAULT_TINT_COVERAGE);
             return;
         }
-        if (!liquidGlass(x, y, w, h, radius, tint, coverage, bevel)) {
-            frost(x, y, w, h, radius, tint, coverage);
-        }
+        rounded(x, y, w, h, radius, tint);
+    }
+
+    /** Preserved dark recipe; a future toggle can route HUD surfaces here. */
+    public void darkGlassSurface(float x, float y, float w, float h, float radius) {
+        float bevel = Math.min(DARK_GLASS_BEVEL, Math.max(6.0F, Math.min(w, h) * 0.55F));
+        glassSurface(x, y, w, h, radius, Theme.scheme().surfaceContainerHigh,
+                DARK_GLASS_COVERAGE, bevel);
     }
 
     /**
