@@ -395,6 +395,17 @@ public final class Scaffold2Module extends Module {
             rise.postInput();
             return;
         }
+        if (active && modeIndex() == MODE_TELLY && !eagle.isToggled() && PlayerUtils.isMoving()
+                && !mc.gameSettings.keyBindJump.isKeyDown()) {
+            mc.thePlayer.movementInput.jump = true;
+            if (mc.thePlayer.onGround) {
+                PlayerUtils.jump();
+            }
+            if (!mc.gameSettings.keyBindSneak.isKeyDown()) {
+                mc.thePlayer.movementInput.sneak = false;
+                sneakForced = false;
+            }
+        }
         if (!active || !eagle.isToggled() || modeIndex() != MODE_TELLY) {
             if (sneakForced) {
                 mc.thePlayer.movementInput.sneak = false;

@@ -368,6 +368,7 @@ public final class Scaffold2Rise {
         if (modeIndex() == MODE_TELLY && mc.thePlayer.onGround && PlayerUtils.isMoving()
                 && !mc.gameSettings.keyBindJump.isKeyDown()) {
             tellyTicks = MathUtils.randomInt(0, 1);
+            PlayerUtils.setJump(true);
             PlayerUtils.jump();
         }
     }
@@ -596,7 +597,13 @@ public final class Scaffold2Rise {
     // ------------------------------------------------------------------ //
 
     private void applySneak() {
-        if (sneak.isToggled()) {
+        boolean telly = modeIndex() == MODE_TELLY;
+        if (telly && !mc.gameSettings.keyBindSneak.isKeyDown()) {
+            // Telly needs to leave the edge at sprint speed. Safe Walk forced sneak at every
+            // bridge edge, which cancelled sprint and reduced every input to Sneaking Speed.
+            mc.thePlayer.movementInput.sneak = false;
+        }
+        if (sneak.isToggled() && !telly) {
             if (sneakTicks >= 0) {
                 if (sneakTicks >= (int) stopSneaking.getInput()) {
                     mc.thePlayer.movementInput.sneak = false;
@@ -619,7 +626,7 @@ public final class Scaffold2Rise {
                 mc.thePlayer.movementInput.moveStrafe *= (float) sneakingSpeed.getInput();
             }
         }
-        if (safeWalk.isToggled() && mc.thePlayer.onGround && PlayerUtils.nearEdge(0.25)
+        if (safeWalk.isToggled() && !telly && mc.thePlayer.onGround && PlayerUtils.nearEdge(0.25)
                 && !mc.gameSettings.keyBindSneak.isKeyDown()) {
             mc.thePlayer.movementInput.sneak = true;
         }
@@ -628,6 +635,18 @@ public final class Scaffold2Rise {
     public void postInput() {
         if (!active) {
             return;
+        }
+        if (modeIndex() == MODE_TELLY && PlayerUtils.isMoving()
+                && !mc.gameSettings.keyBindJump.isKeyDown()) {
+            // postPlayerInput runs after MovementInput.updatePlayerMoveState(); setting jump here
+            // survives into the next living update instead of being overwritten by the key state.
+            mc.thePlayer.movementInput.jump = true;
+            if (mc.thePlayer.onGround) {
+                PlayerUtils.jump();
+            }
+            if (!mc.gameSettings.keyBindSneak.isKeyDown()) {
+                mc.thePlayer.movementInput.sneak = false;
+            }
         }
         if (towerIndex() == 2 && towering() && !mc.thePlayer.isPotionActive(net.minecraft.potion.Potion.jump)) {
             mc.thePlayer.motionY = 0.42;

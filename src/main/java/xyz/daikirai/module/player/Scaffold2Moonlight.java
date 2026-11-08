@@ -981,11 +981,21 @@ public final class Scaffold2Moonlight {
         } else if (addonSafeWalkNoData.isToggled() && data == null) {
             mc.thePlayer.movementInput.sneak = true;
         }
+        if (modeIndex() == MODE_TELLY && PlayerUtils.isMoving()
+                && !mc.gameSettings.keyBindJump.isKeyDown()) {
+            mc.thePlayer.movementInput.jump = true;
+            if (mc.thePlayer.onGround) {
+                PlayerUtils.jump();
+            }
+            if (!mc.gameSettings.keyBindSneak.isKeyDown()) {
+                mc.thePlayer.movementInput.sneak = false;
+            }
+        }
         if (addonAdStrafe.isToggled() && PlayerUtils.isMoving() && !PlayerUtils.direction().diagonal
                 && mc.currentScreen == null && !mc.gameSettings.keyBindJump.isKeyDown() && mc.thePlayer.onGround) {
             adStrafe();
         }
-        if (sprintBoost.isToggled() && mc.thePlayer.onGround && modeIndex() != MODE_TELLY) {
+        if (sprintBoost.isToggled() && mc.thePlayer.onGround) {
             mc.thePlayer.motionX *= 1.14;
             mc.thePlayer.motionZ *= 1.14;
         }
