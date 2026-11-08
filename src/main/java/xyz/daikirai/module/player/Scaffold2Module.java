@@ -118,7 +118,8 @@ public final class Scaffold2Module extends Module {
     private boolean canPlace;
 
     /** Settings of the SSNG implementation; the visible list depends on the Client setting. */
-    private final SliderSetting clientSetting = new SliderSetting("Client", "", "", 0, 0, 2, 1,
+    // SSNG contains the complete predictive Telly implementation and is the default bridge.
+    private final SliderSetting clientSetting = new SliderSetting("Client", "", "", 1, 0, 2, 1,
             new String[]{"Rise", "SSNG", "Moonlight"}, null);
     private Scaffold2Moonlight moon;
     private Scaffold2Rise rise;
@@ -134,7 +135,7 @@ public final class Scaffold2Module extends Module {
         moon = new Scaffold2Moonlight(this);
         rise = new Scaffold2Rise(this);
         rebuildSettings();
-        activeClient = CLIENT_RISE;
+        activeClient = CLIENT_SSNG;
     }
 
     // ------------------------------------------------------------------ //

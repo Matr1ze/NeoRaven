@@ -29,8 +29,17 @@ public class MixinMinecraft {
 
     @Shadow public GuiScreen currentScreen;
 
+    @Inject(method = "createDisplay", at = @At("RETURN"))
+    private void neoraven$initialWindowBranding(CallbackInfo ci) {
+        neoraven$applyWindowBranding();
+    }
+
     @Inject(method = "startGame", at = @At("RETURN"))
     private void neoraven$windowBranding(CallbackInfo ci) {
+        neoraven$applyWindowBranding();
+    }
+
+    private static void neoraven$applyWindowBranding() {
         Display.setTitle("NeoRaven1.2");
         try (InputStream input = Minecraft.class.getResourceAsStream("/assets/clickgui/textures/raven.png")) {
             if (input == null) return;
@@ -74,10 +83,20 @@ public class MixinMinecraft {
     @Inject(method = "toggleFullscreen", at = @At("RETURN"))
     private void onyx$fullscreenInput(CallbackInfo ci) {
         Minecraft minecraft = (Minecraft) (Object) this;
-        if (currentScreen == null && minecraft.theWorld != null && minecraft.thePlayer != null) {
+        if (currentScreen == null && minecraft.theWorld != null && minecraft.thePlayer != null
+                && Display.isActive()) {
             minecraft.setIngameFocus();
         } else {
             minecraft.setIngameNotInFocus();
+        }
+    }
+
+    @Inject(method = "runTick", at = @At("HEAD"))
+    private void neoraven$recoverFullscreenInput(CallbackInfo ci) {
+        Minecraft minecraft = (Minecraft) (Object) this;
+        if (currentScreen == null && minecraft.theWorld != null && minecraft.thePlayer != null
+                && Display.isActive() && !minecraft.inGameHasFocus) {
+            minecraft.setIngameFocus();
         }
     }
 

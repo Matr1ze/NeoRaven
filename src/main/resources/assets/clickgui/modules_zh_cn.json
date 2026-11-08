@@ -69,7 +69,7 @@
   {"name":"NoRotate","category":"player","zh":"禁止强制转向","desc":"阻止服务器强制转动视角。"},
   {"name":"SafeWalk","category":"player","zh":"安全行走","desc":"靠近边缘时自动停下，防止掉落。"},
   {"name":"Scaffold","category":"player","zh":"自动搭桥","desc":"自动铺方块和搭桥。"},
-  {"name":"Scaffold2","category":"player","zh":"自动搭桥移植版","desc":"支持 Rise、SSNG 和 Moonlight 等风格。"},
+  {"name":"Scaffold2","category":"player","zh":"Telly","desc":"手动跳出后回头自动补方块。"},
   {"name":"Tower","category":"player","zh":"自动搭塔","desc":"自动向上搭塔。"},
   {"name":"Water Bucket","category":"player","zh":"落地水","desc":"高处下落时自动放水防摔。"},
 
