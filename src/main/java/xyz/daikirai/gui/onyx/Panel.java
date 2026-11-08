@@ -164,7 +164,7 @@ public final class Panel {
     }
 
     private float rightLabelWidth() {
-        String label = page.target() >= 0.5F ? currentCategoryLabel() : category.name();
+        String label = page.target() >= 0.5F ? currentCategoryLabel() : Icons.label(category);
         return Typeface.LABEL.width(label);
     }
 
@@ -182,7 +182,11 @@ public final class Panel {
         ui.shadow(x, y, WIDTH, HEIGHT, RADIUS, 3);
         ui.rounded(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer);
         if (Theme.frost() && Blur.ready()) {
-            ui.frost(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer);
+            boolean liquid = Theme.liquidGlass()
+                    && ui.liquidGlass(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer, 0.38F, 34.0F);
+            if (!liquid) {
+                ui.frost(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer);
+            }
         } else {
             ui.rounded(x, y, WIDTH, HEIGHT, RADIUS,
                     Material.withAlpha(scheme.surfaceContainer, Theme.frost() ? 0.92F : 0.97F));
@@ -223,7 +227,9 @@ public final class Panel {
             String label;
             if (!search.text().isEmpty()) {
                 int results = list.size();
-                label = results == 1 ? "1 result" : results + " results";
+                label = GuiLanguage.simplifiedChinese()
+                        ? (results == 1 ? "1 个结果" : results + " 个结果")
+                        : (results == 1 ? "1 result" : results + " results");
             } else {
                 label = Icons.label(category);
             }
@@ -238,7 +244,13 @@ public final class Panel {
                         Material.withAlpha(scheme.onSurface, 0.08F * backHover.value()));
             }
             ui.icon(Icons.ARROW_BACK, chipX + 13.0F, chipY + 13.0F, 15.0F, scheme.onSurface);
-            String title = themeOpen || current == null ? "Theme" : Text.strip(current.getName());
+            String title;
+            if (themeOpen || current == null) {
+                title = GuiLanguage.simplifiedChinese() ? "主题" : "Theme";
+            } else {
+                title = GuiLanguage.simplifiedChinese()
+                        ? ModuleTranslations.name(current) : Text.strip(current.getName());
+            }
             ui.text(Typeface.HEADLINE, ui.truncate(Typeface.HEADLINE, title, 340.0F),
                     chipX + 26.0F + 8.0F, y + HEADER / 2.0F, scheme.onSurface, UI.ALIGN_LEFT);
             ui.text(Typeface.LABEL, currentCategoryLabel(), x + WIDTH - PADDING - 6.0F, y + HEADER / 2.0F,

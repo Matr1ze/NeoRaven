@@ -3,6 +3,7 @@ package xyz.daikirai.gui.onyx;
 import xyz.daikirai.client.Profiles;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
+import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Anim;
 import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.Typeface;
@@ -99,7 +100,9 @@ public final class ModuleList {
             byModule.put(module, card);
         }
 
-        this.emptyText = !needle.isEmpty() ? "No modules match" : "No modules here yet";
+        this.emptyText = !needle.isEmpty()
+                ? (GuiLanguage.simplifiedChinese() ? "没有匹配的模块" : "No modules match")
+                : (GuiLanguage.simplifiedChinese() ? "这里还没有模块" : "No modules here yet");
         this.contentHeight = cards.size() * (CARD_HEIGHT + GAP) - GAP;
         this.scrollTarget = 0.0F;
         this.scroll.set(0.0F);
@@ -116,6 +119,9 @@ public final class ModuleList {
             return true;
         }
         if (module.getInfo() != null && module.getInfo().toLowerCase(Locale.ROOT).contains(needle)) {
+            return true;
+        }
+        if (ModuleTranslations.matches(module, needle)) {
             return true;
         }
         return module.moduleCategory() != null
@@ -303,6 +309,9 @@ public final class ModuleList {
             float t = toggle.value();
             int background = Material.mix(scheme.surfaceContainerHigh, scheme.secondaryContainer, t);
             ui.rounded(x, y, w, h, 12.0F, background);
+            if (Theme.frost() && Theme.liquidGlass()) {
+                ui.liquidGlass(x, y, w, h, 12.0F, background, 0.30F, 14.0F);
+            }
             if (hover.value() > 0.001F) {
                 ui.rounded(x, y, w, h, 12.0F,
                         Material.withAlpha(scheme.onSurface, pressed ? 0.1F : 0.08F * hover.value()));
@@ -322,8 +331,13 @@ public final class ModuleList {
             // Command Line, ...) get no switch at all instead of a dead control.
             boolean showSwitch = !module.noToggle;
             float textWidth = w - 12.0F - 10.0F - (showSwitch ? 38.0F + 12.0F : 0.0F);
-            String title = ui.truncate(Typeface.HEADLINE, Text.strip(module.getName()), textWidth);
-            String sub = subtitle();
+            boolean chinese = GuiLanguage.simplifiedChinese();
+            String title = ui.truncate(Typeface.HEADLINE,
+                    chinese ? ModuleTranslations.name(module) : Text.strip(module.getName()), textWidth);
+            String sub = chinese ? ModuleTranslations.description(module) : subtitle();
+            if (sub.isEmpty()) {
+                sub = subtitle();
+            }
             float titleY = !showSwitch && sub.isEmpty() ? y + h / 2.0F : y + h * 0.32F;
             ui.text(Typeface.HEADLINE, title, x + 12.0F, titleY, titleColor, UI.ALIGN_LEFT);
             if (!sub.isEmpty()) {

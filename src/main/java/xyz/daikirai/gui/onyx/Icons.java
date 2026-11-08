@@ -29,8 +29,11 @@ public final class Icons {
     private Icons() {
     }
 
-    /** Title-cased category label, as the Onyx rail showed it. */
+    /** Title-cased English label, or the Chinese label when the game is in Simplified Chinese. */
     public static String label(Category category) {
+        if (GuiLanguage.simplifiedChinese()) {
+            return ModuleTranslations.category(category);
+        }
         String name = category.name();
         return name.substring(0, 1).toUpperCase() + name.substring(1);
     }

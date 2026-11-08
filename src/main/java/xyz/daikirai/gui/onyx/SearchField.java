@@ -67,7 +67,7 @@ public final class SearchField {
 
     public void draw(UI ui, Scheme scheme, float mouseX, float mouseY) {
         float centerY = y + HEIGHT / 2.0F;
-        ui.rounded(x, y, w, HEIGHT, HEIGHT / 2.0F, scheme.surfaceContainerHigh);
+        ui.glassSurface(x, y, w, HEIGHT, HEIGHT / 2.0F, scheme.surfaceContainerHigh, 0.46F, 8.0F);
 
         if (hover.value() > 0.001F && !focused) {
             ui.rounded(x, y, w, HEIGHT, HEIGHT / 2.0F,
@@ -84,7 +84,8 @@ public final class SearchField {
         float maxText = w - 28.0F - clearSpace;
 
         if (text.isEmpty() && !focused) {
-            ui.text(Typeface.BODY_MEDIUM, "Search modules", textStart, centerY,
+            String placeholder = GuiLanguage.simplifiedChinese() ? "搜索模块" : "Search modules";
+            ui.text(Typeface.BODY_MEDIUM, placeholder, textStart, centerY,
                     Material.withAlpha(scheme.onSurfaceVariant, 0.7F), UI.ALIGN_LEFT);
         } else {
             String visible = ui.truncate(Typeface.BODY_MEDIUM, text.isEmpty() ? "" : text, maxText);

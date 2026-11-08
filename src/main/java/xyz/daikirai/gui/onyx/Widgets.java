@@ -37,7 +37,7 @@ public final class Widgets {
         int track = Material.mix(scheme.surfaceContainerHighest, scheme.primary, t);
         int knob = Material.mix(scheme.outline, scheme.onPrimary, t);
 
-        ui.rounded(x, y, width, height, radius, track);
+        ui.glassSurface(x, y, width, height, radius, track, 0.48F, 7.0F);
 
         // Material's track state layer stays inside the pill; a circular halo would bleed over the
         // 1.5px outline and read as a torn corner, which is what the old rendering did.

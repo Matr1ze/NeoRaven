@@ -148,6 +148,11 @@ public final class TtfFont {
         return ascent;
     }
 
+    /** Baseline offset used by {@link #draw(String, int)}, in nominal pixels. */
+    public float baseline() {
+        return PADDING - 1 - PADDING * scale;
+    }
+
     /** Distance from the baseline to the bottom of a line, in the requested pixel size. */
     public float descent() {
         return descent;

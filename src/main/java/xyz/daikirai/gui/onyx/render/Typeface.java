@@ -279,6 +279,8 @@ public final class Typeface {
          */
         public void draw(String text, int color) {
             TtfFont primary = font();
+            float primaryBaseline = primary.baseline();
+            boolean mixed = mixedScripts(primary, text);
             float x = 0.0F;
             int i = 0;
             while (i < text.length()) {
@@ -289,8 +291,17 @@ public final class Typeface {
                 }
                 String part = text.substring(i, j);
                 float relative = primary.size() / run.size();
+                // TtfFont positions glyphs from the top of its raster cell. A fallback face is
+                // scaled up to the primary face's nominal size, which also scales its baseline;
+                // without this correction a CJK run sits noticeably lower than the Latin run.
+                float baselineShift = primaryBaseline - run.baseline() * relative;
+                if (mixed && run != primary) {
+                    // CJK outlines sit a little lower than the Latin optical centre at the same
+                    // nominal size. Only nudge mixed lines; a pure-Chinese label stays untouched.
+                    baselineShift -= primary.size() * 0.18F;
+                }
                 net.minecraft.client.renderer.GlStateManager.pushMatrix();
-                net.minecraft.client.renderer.GlStateManager.translate(x, 0.0F, 0.0F);
+                net.minecraft.client.renderer.GlStateManager.translate(x, baselineShift, 0.0F);
                 if (relative != 1.0F) {
                     net.minecraft.client.renderer.GlStateManager.scale(relative, relative, 1.0F);
                 }
@@ -299,6 +310,26 @@ public final class Typeface {
                 x += run.width(part) * relative;
                 i = j;
             }
+        }
+
+        private boolean mixedScripts(TtfFont primary, String text) {
+            boolean latin = false;
+            boolean fallback = false;
+            for (int i = 0; i < text.length(); i++) {
+                char c = text.charAt(i);
+                if (c == ' ') {
+                    continue;
+                }
+                if (run(primary, c) == primary) {
+                    latin = true;
+                } else {
+                    fallback = true;
+                }
+                if (latin && fallback) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public float ascent() {

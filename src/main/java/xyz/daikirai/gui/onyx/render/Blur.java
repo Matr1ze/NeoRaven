@@ -52,8 +52,11 @@ public final class Blur {
     private static int framebufferB = -1;
     private static int textureA = -1;
     private static int textureB = -1;
+    private static int sharpTexture = -1;
     private static int width;
     private static int height;
+    private static int sharpWidth;
+    private static int sharpHeight;
 
     private Blur() {
     }
@@ -86,6 +89,11 @@ public final class Blur {
 
     public static int texture() {
         return textureB;
+    }
+
+    /** Unblurred copy of the current backdrop, used by the liquid-glass lens. */
+    public static int sharpTexture() {
+        return sharpTexture != -1 ? sharpTexture : textureB;
     }
 
     /**
@@ -137,6 +145,7 @@ public final class Blur {
             int targetHeight = Math.max(1, screenHeight / 2);
             int previousFramebuffer = GL11.glGetInteger(FRAMEBUFFER_BINDING);
             ensureTargets(targetWidth, targetHeight);
+            copySharp(previousFramebuffer, screenWidth, screenHeight);
 
             pass(framebuffer.framebufferTexture, framebufferA, screenWidth, screenHeight, 1.0F, 0.0F);
             pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
@@ -163,6 +172,28 @@ public final class Blur {
             prepared = false;
             System.err.println("[onyx] frosted glass unavailable: " + t);
         }
+    }
+
+    /** Copies the current scene into a standalone texture before the blur targets are bound. */
+    private static void copySharp(int readFramebuffer, int screenWidth, int screenHeight) {
+        if (sharpTexture == -1 || sharpWidth != screenWidth || sharpHeight != screenHeight) {
+            if (sharpTexture != -1) {
+                TextureUtil.deleteTexture(sharpTexture);
+            }
+            sharpTexture = TextureUtil.glGenTextures();
+            GlStateManager.bindTexture(sharpTexture);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, screenWidth, screenHeight,
+                    0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, 33071);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, 33071);
+            sharpWidth = screenWidth;
+            sharpHeight = screenHeight;
+        }
+        OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, readFramebuffer);
+        GlStateManager.bindTexture(sharpTexture);
+        GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, screenWidth, screenHeight);
     }
 
     private static void ensureTargets(int targetWidth, int targetHeight) {
@@ -253,6 +284,10 @@ public final class Blur {
         if (textureB != -1) {
             TextureUtil.deleteTexture(textureB);
             textureB = -1;
+        }
+        if (sharpTexture != -1) {
+            TextureUtil.deleteTexture(sharpTexture);
+            sharpTexture = -1;
         }
     }
 }

@@ -37,6 +37,7 @@ public final class OnyxClickGui extends GuiScreen {
     private float screenMouseX;
     private float screenMouseY;
     private float themeScale = -1.0F;
+    private boolean backdropFrozen;
 
     public OnyxClickGui() {
         instance = this;
@@ -57,6 +58,7 @@ public final class OnyxClickGui extends GuiScreen {
         OnyxClickGuiModule.sync();
         this.scale = fitScale();
         this.lastFrame = System.nanoTime();
+        this.backdropFrozen = false;
         panel.layout(this.width / scale, this.height / scale);
         open.set(0.0F);
         open.to(1.0F, 400.0F, Ease.EMPHASIZED);
@@ -146,13 +148,25 @@ public final class OnyxClickGui extends GuiScreen {
     }
 
     private void drawBackdrop(Scheme scheme) {
-        if (mc.theWorld == null || mc.thePlayer == null) {
+        boolean menu = mc.theWorld == null || mc.thePlayer == null;
+        if (Theme.frost() && !backdropFrozen) {
+            Blur.prepare();
+            if (menu) {
+                // In a world the scene changes every frame and the blur is refreshed above.
+                // On the menu there is no world pass, so repeated captures would blur the
+                // ClickGUI into itself; keep the first frame (the menu background) instead.
+                backdropFrozen = Blur.ready();
+            }
+        }
+        if (menu && (!Theme.frost() || !Blur.ready())) {
             ui.rect(0.0F, 0.0F, width, height, scheme.surface);
             ui.gradient(0.0F, 0.0F, width, height, scheme.surfaceContainerLow, scheme.surface);
             return;
         }
-        if (Theme.frost()) {
-            Blur.prepare();
+        if (Theme.frost() && Blur.ready()) {
+            // Frosted glass owns the full-screen backdrop in both modes. Liquid glass only changes
+            // how the surfaces composite that backdrop, so enabling it must not remove the blur.
+            ui.frost(0.0F, 0.0F, width, height, 0.0F, scheme.surface, 0.0F);
         }
         ui.rect(0.0F, 0.0F, width, height, Theme.scrim(scrim.value()));
     }
