@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "xyz.daikirai"
-version = "1.1"
+version = "1.2"
 
 java { toolchain.languageVersion.set(JavaLanguageVersion.of(8)) }
 
@@ -69,4 +69,4 @@ tasks.jar {
     )
 }
 
-tasks.named<org.gradle.jvm.tasks.Jar>("remapJar") { archiveFileName.set("RavenB4.jar") }
+tasks.named<org.gradle.jvm.tasks.Jar>("remapJar") { archiveFileName.set("NeoRaven-${project.version}.jar") }
