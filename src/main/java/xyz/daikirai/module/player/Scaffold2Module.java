@@ -74,13 +74,13 @@ public final class Scaffold2Module extends Module {
     private final ButtonSetting noSwing = flag("No swing", false);
     private final ButtonSetting eagle = flag("Eagle", false);
     private final ButtonSetting snap = flag("Snap", false);
-    private final ButtonSetting noUptelly = flag("No uptelly", true);
+    private final ButtonSetting noUptelly = flag("No uptelly", false);
     private final ButtonSetting smoothed = flag("Heypixel uptelly", true);
     private final ButtonSetting safeMode = flag("Safe mode", false);
     private final ButtonSetting testOnGround = flag("Test on ground", false);
     private final ButtonSetting fixRotation = flag("Fix rotation", true);
     private final ButtonSetting slowUpTelly = flag("Slow uptelly", false);
-    private final SliderSetting jumpMode = mode("Jump mode", JUMP_NORMAL, "Parkour", "Normal", "None");
+    private final SliderSetting jumpMode = mode("Jump mode", JUMP_NONE, "Parkour", "Normal", "None");
     private final SliderSetting blockSlotMode = mode("Block slot mode", SLOT_FARTHEST, "Farthest", "Most blocks");
     private final SliderSetting safeDistance = slider("Clutch safe distance", 4.5, 1, 5, 0.25, "");
     private final ButtonSetting debug = flag("Debug", false);
@@ -116,6 +116,11 @@ public final class Scaffold2Module extends Module {
     private boolean sneakForced;
     private boolean pendingForceRotation;
     private boolean canPlace;
+    private boolean tellyActive;
+    private boolean tellyPlaced;
+    private double tellyDistance;
+    private double tellyLastX;
+    private double tellyLastZ;
 
     /** Settings of the SSNG implementation; the visible list depends on the Client setting. */
     // SSNG contains the complete predictive Telly implementation and is the default bridge.
@@ -277,6 +282,11 @@ public final class Scaffold2Module extends Module {
         startHotbarCount = 1;
         count = 0;
         countText = null;
+        tellyActive = false;
+        tellyPlaced = false;
+        tellyDistance = 0.0;
+        tellyLastX = mc.thePlayer == null ? 0.0 : mc.thePlayer.posX;
+        tellyLastZ = mc.thePlayer == null ? 0.0 : mc.thePlayer.posZ;
     }
 
     @Override
@@ -353,10 +363,24 @@ public final class Scaffold2Module extends Module {
         if (mc.thePlayer.onGround) {
             ++onGroundTicks;
             offGroundTicks = 0;
+            tellyActive = false;
+            tellyPlaced = false;
+            tellyDistance = 0.0;
         } else {
             ++offGroundTicks;
             onGroundTicks = 0;
+            if (modeIndex() == MODE_TELLY && !tellyActive && offGroundTicks <= 2
+                    && PlayerUtils.isMoving()) {
+                tellyActive = true;
+            }
+            if (tellyActive) {
+                double dx = mc.thePlayer.posX - tellyLastX;
+                double dz = mc.thePlayer.posZ - tellyLastZ;
+                tellyDistance += Math.sqrt(dx * dx + dz * dz);
+            }
         }
+        tellyLastX = mc.thePlayer.posX;
+        tellyLastZ = mc.thePlayer.posZ;
 
         int slot = findBlockSlot();
         if (slot == -1) {
@@ -520,6 +544,12 @@ public final class Scaffold2Module extends Module {
             canPlace = isIgnored(new BlockPos(px, py - 1, pz));
         } else {
             canPlace = offGroundTicks >= (int) placeTick.getInput();
+            if (modeIndex() == MODE_TELLY) {
+                // Real Telly turns after travelling forward, then keeps trying during the falling
+                // window until the support block is placed. A single missed ray must not end it.
+                canPlace = tellyActive && !tellyPlaced && tellyDistance >= 3.0
+                        && offGroundTicks >= 4 && mc.thePlayer.motionY < 0.10;
+            }
             if (safeMode.isToggled() && testOnGround.isToggled() && !canPlace && PlayerUtils.jumpKeyDown()) {
                 canPlace = onGroundTicks == 1;
             }
@@ -697,7 +727,7 @@ public final class Scaffold2Module extends Module {
         boolean jumping = PlayerUtils.jumpKeyDown();
 
         if (modeIndex() == MODE_TELLY) {
-            if (jumping && noUptelly.isToggled()) {
+            if (jumping && noUptelly.isToggled() && modeIndex() != MODE_TELLY) {
                 return finishRotation(yaw, pitch);
             }
             if (jumping && slowUpTelly.isToggled() && ++ups % 2 == 0) {
@@ -867,6 +897,9 @@ public final class Scaffold2Module extends Module {
         lastPlacePitch = pendingRot[1];
         lastPlacedPos = target;
         ++placedCount;
+        if (modeIndex() == MODE_TELLY) {
+            tellyPlaced = true;
+        }
         rotateCount = 0;
         // The target was just filled: re-resolve next tick instead of patching the same face twice.
         blockData = null;
