@@ -47,6 +47,7 @@ public final class MusicScreen extends GuiScreen {
     private static final float MINI_W = W - 66.0F;
     private static final float MINI_H = 84.0F;
     private static final float ROW_PITCH = 64.0F;
+    private static final String[] HOME_LAYOUTS = {"Coverflow", "Ring", "Wall", "Floor", "Stars", "Spiral", "Sphere", "Gallery"};
 
     private static final String I_HOME = "\ue88a";
     private static final String I_SEARCH = "\ue8b6";
@@ -131,6 +132,16 @@ public final class MusicScreen extends GuiScreen {
     private boolean contentScrollable;
     private float lastMouseX;
     private float lastMouseY;
+    private float homeCoverPosition;
+    private float homeCoverTarget;
+    private float homeCoverY;
+    private boolean draggingHomeCovers;
+    private float homeCoverDragX;
+    private float homeCoverDragStart;
+    private float homeCoverPressX;
+    private float homeCoverPressY;
+    private int homeLayout;
+    private float homeLayoutTime;
 
     private String searchText = "";
     private boolean searchFocused;
@@ -640,7 +651,7 @@ public final class MusicScreen extends GuiScreen {
                     CT_X + 8.0F, y + 12.0F, current.onSurfaceVariant, UI.ALIGN_LEFT);
             y += 40.0F;
         } else {
-            y = grid(current, home, y, 5, true);
+            y = drawHomeCarousel(current, home, y);
         }
         y += 8.0F;
         List<Playlist> mine = manager.myPlaylists();
@@ -649,6 +660,225 @@ public final class MusicScreen extends GuiScreen {
             y = grid(current, mine, y, 5, true);
         }
         return y;
+    }
+
+    /** Animated album-art Coverflow for the recommended playlists. */
+    private float drawHomeCarousel(Scheme current, List<Playlist> playlists, float y) {
+        final float stageY = y + 4.0F;
+        final float stageH = 258.0F;
+        final float centerX = CT_X + CT_W * 0.5F;
+        final float centerY = stageY + 112.0F;
+        homeCoverY = stageY;
+        int maxIndex = Math.max(0, playlists.size() - 1);
+        homeCoverTarget = Material.clamp(homeCoverTarget, 0.0F, maxIndex);
+        float ease = Math.min(1.0F, Math.max(0.08F, delta / 90.0F));
+        homeCoverPosition += (homeCoverTarget - homeCoverPosition) * ease;
+        if (Math.abs(homeCoverTarget - homeCoverPosition) < 0.002F) homeCoverPosition = homeCoverTarget;
+        homeLayoutTime += delta / 1000.0F;
+        return drawPerspectiveCarousel(current, playlists, y, stageY, stageH, centerX, centerY, maxIndex);
+        /* legacy flat carousel retained below in history; perspective renderer is authoritative. */
+        /*
+        ui.rounded(CT_X + 8.0F, stageY, CT_W - 16.0F, stageH, 22.0F,
+                Material.withAlpha(current.surfaceContainer, 0.62F));
+        // Draw distant covers first so the focused album naturally sits above its neighbors.
+        int first = Math.max(0, (int) Math.floor(homeCoverPosition) - 7);
+        int last = Math.min(playlists.size() - 1, (int) Math.ceil(homeCoverPosition) + 7);
+        for (int i = first; i <= last; i++) {
+            float distance = i - homeCoverPosition;
+            float abs = Math.abs(distance);
+            float cardSize = 174.0F - Math.min(abs, 3.0F) * 18.0F;
+            float x = centerX + distance * 168.0F - cardSize * 0.5F;
+            float cardY = centerY - cardSize * 0.5F + abs * 8.0F;
+            float alpha = Math.max(0.42F, 1.0F - abs * 0.19F);
+            if (homeLayout == 1) {
+                double angle = distance * 0.72D;
+                x = centerX + (float) Math.sin(angle) * 228.0F - cardSize * 0.5F;
+                cardY = centerY - (float) Math.cos(angle) * 34.0F - cardSize * 0.5F;
+                cardSize = 132.0F + (float) Math.cos(angle) * 30.0F;
+                alpha = 0.45F + 0.45F * (float) ((Math.cos(angle) + 1.0D) * 0.5D);
+            } else if (homeLayout == 2) {
+                int col = i % 4, row = i / 4;
+                cardSize = 102.0F;
+                x = CT_X + 24.0F + col * 126.0F;
+                cardY = stageY + 28.0F + row * 116.0F;
+                alpha = 0.72F + 0.28F * (i == Math.round(homeCoverPosition) ? 1.0F : 0.0F);
+            } else if (homeLayout == 3) {
+                int local = i - first;
+                int row = local / 5, col = local % 5;
+                cardSize = 92.0F + Math.max(0.0F, 32.0F - row * 14.0F);
+                x = CT_X + 28.0F + col * 122.0F + (row % 2) * 18.0F;
+                cardY = stageY + 28.0F + row * 88.0F;
+                alpha = Math.max(0.35F, 1.0F - row * 0.16F);
+            } else if (homeLayout == 4) {
+                double angle = i * 2.399963D + homeCoverPosition * 0.12D;
+                float radius = 74.0F + (i % 3) * 32.0F;
+                cardSize = 74.0F + (i == Math.round(homeCoverPosition) ? 58.0F : 0.0F);
+                x = centerX + (float) Math.cos(angle) * radius - cardSize * 0.5F;
+                cardY = centerY + (float) Math.sin(angle) * radius * 0.55F - cardSize * 0.5F;
+                alpha = Math.max(0.35F, 1.0F - Math.abs(i - homeCoverPosition) * 0.045F);
+            } else if (homeLayout == 5) {
+                double angle = i * 0.72D + homeCoverPosition * 0.08D;
+                float radius = 24.0F + Math.abs(distance) * 25.0F;
+                cardSize = Math.max(62.0F, 142.0F - Math.abs(distance) * 12.0F);
+                x = centerX + (float) Math.cos(angle) * radius - cardSize * 0.5F;
+                cardY = centerY + (float) Math.sin(angle) * radius - cardSize * 0.5F;
+                alpha = Math.max(0.34F, 1.0F - Math.abs(distance) * 0.1F);
+            } else if (homeLayout == 6) {
+                int local = i - first;
+                int col = local % 6, row = local / 6;
+                cardSize = 92.0F + (i == Math.round(homeCoverPosition) ? 38.0F : 0.0F);
+                x = centerX + (col - 2.5F) * 105.0F - cardSize * 0.5F;
+                cardY = centerY + (row - 1.0F) * 74.0F - cardSize * 0.5F;
+                alpha = Math.max(0.35F, 1.0F - Math.abs(col - 2.5F) * 0.13F - Math.abs(row - 1.0F) * 0.12F);
+            } else if (homeLayout == 7) {
+                cardSize = i == Math.round(homeCoverPosition) ? 154.0F : 92.0F;
+                x = centerX + (i - homeCoverPosition) * 92.0F - cardSize * 0.5F;
+                cardY = centerY - cardSize * 0.5F + (i % 2) * 22.0F;
+                alpha = i == Math.round(homeCoverPosition) ? 1.0F : Math.max(0.3F, 0.75F - Math.abs(distance) * 0.08F);
+            }
+            Playlist playlist = playlists.get(i);
+            ui.shadow(x, cardY, cardSize, cardSize, 18.0F, 4);
+            ui.rounded(x - 4.0F, cardY - 4.0F, cardSize + 8.0F, cardSize + 8.0F, 20.0F,
+                    Material.withAlpha(i == Math.round(homeCoverPosition) ? current.primary : current.outlineVariant,
+                            i == Math.round(homeCoverPosition) ? 0.8F : 0.45F));
+            net.minecraft.util.ResourceLocation cover = CoverCache.get(playlist.cover(320));
+            ui.alphaPush(alpha);
+            if (cover != null) {
+                ui.imageRounded(cover, x, cardY, cardSize, cardSize, 16.0F, -1);
+            } else {
+                ui.rounded(x, cardY, cardSize, cardSize, 16.0F, current.primaryContainer);
+                ui.icon(I_MUSIC, x + cardSize * 0.5F, cardY + cardSize * 0.5F, 28.0F,
+                        current.onPrimaryContainer);
+            }
+            ui.alphaPop();
+            final int itemIndex = i;
+            final float hitX = x - 8.0F;
+            final float hitY = cardY - 8.0F;
+            final float hitSize = cardSize + 16.0F;
+            hits.add(new Hit(hitX, hitY, hitSize, hitSize, new Runnable() {
+                @Override public void run() {
+                    if (Math.abs(itemIndex - homeCoverPosition) > 0.48F) {
+                        homeCoverTarget = itemIndex;
+                    } else {
+                        Playlist selected = playlists.get(itemIndex);
+                        manager.openPlaylist(selected.id, selected.name);
+                        playlistOpen = true;
+                        lyricOpen = false;
+                        scroll.set(0.0F);
+                    }
+                }
+            }));
+        }
+        int selected = Material.clamp(Math.round(homeCoverPosition), 0, maxIndex);
+        Playlist focus = playlists.get(selected);
+        ui.text(MusicTypeface.HEADLINE, ui.truncate(MusicTypeface.HEADLINE, focus.name, CT_W - 100.0F),
+                centerX, stageY + 216.0F, current.onSurface, UI.ALIGN_CENTER);
+        ui.text(MusicTypeface.CAPTION, focus.trackCount + " 首歌  ·  滚轮或拖动切换",
+                centerX, stageY + 239.0F, current.onSurfaceVariant, UI.ALIGN_CENTER);
+        ui.rounded(CT_X + CT_W - 132.0F, stageY + 8.0F, 112.0F, 24.0F, 12.0F,
+                Material.withAlpha(current.surfaceContainerHighest, 0.82F));
+        ui.text(MusicTypeface.LABEL_TIGHT, HOME_LAYOUTS[homeLayout], CT_X + CT_W - 76.0F,
+                stageY + 20.0F, current.onSurfaceVariant, UI.ALIGN_CENTER);
+        hits.add(new Hit(CT_X + CT_W - 132.0F, stageY + 8.0F, 112.0F, 24.0F, new Runnable() {
+            @Override public void run() { homeLayout = (homeLayout + 1) % HOME_LAYOUTS.length; }
+        }));
+        return y + stageH + 6.0F;
+        */
+    }
+
+    /** Perspective album scene adapted from the reference client's AlbumSpaceModel. */
+    private float drawPerspectiveCarousel(Scheme current, List<Playlist> playlists, float y,
+                                          float stageY, float stageH, float centerX, float centerY, int maxIndex) {
+        ui.rounded(CT_X + 8.0F, stageY, CT_W - 16.0F, stageH, 22.0F,
+                Material.withAlpha(current.surfaceContainer, 0.62F));
+        final int count = playlists.size();
+        java.util.List<Integer> order = new java.util.ArrayList<Integer>();
+        for (int i = 0; i < count; i++) order.add(i);
+        java.util.Collections.sort(order, new java.util.Comparator<Integer>() {
+            @Override public int compare(Integer a, Integer b) {
+                return Float.compare(depthFor(a, count), depthFor(b, count));
+            }
+        });
+        for (Integer value : order) {
+            int i = value;
+            float[] pose = poseFor(i, count);
+            float x = pose[0], yy = pose[1], z = pose[2], yaw = pose[3], pitch = pose[4], size = pose[5];
+            float focus = Math.max(0.0F, 1.0F - Math.abs(i - homeCoverPosition));
+            drawPerspectiveAlbum(current, playlists.get(i), centerX, centerY, x, yy, z, yaw, pitch,
+                    size * (1.0F + focus * 0.06F), Math.max(0.3F, 1.0F - Math.abs(i - homeCoverPosition) * 0.07F));
+            float[] bounds = projectedBounds(centerX, centerY, x, yy, z, yaw, pitch, size);
+            final int itemIndex = i;
+            hits.add(new Hit(bounds[0] - 8.0F, bounds[1] - 8.0F, bounds[2] - bounds[0] + 16.0F,
+                    bounds[3] - bounds[1] + 16.0F, new Runnable() {
+                @Override public void run() {
+                    if (Math.abs(itemIndex - homeCoverPosition) > 0.48F) homeCoverTarget = itemIndex;
+                    else {
+                        Playlist selected = playlists.get(itemIndex);
+                        manager.openPlaylist(selected.id, selected.name); playlistOpen = true; lyricOpen = false; scroll.set(0.0F);
+                    }
+                }
+            }));
+        }
+        int selected = Material.clamp(Math.round(homeCoverPosition), 0, maxIndex);
+        Playlist focus = playlists.get(selected);
+        ui.text(MusicTypeface.HEADLINE, ui.truncate(MusicTypeface.HEADLINE, focus.name, CT_W - 100.0F),
+                centerX, stageY + 216.0F, current.onSurface, UI.ALIGN_CENTER);
+        ui.text(MusicTypeface.CAPTION, focus.trackCount + " 首歌  ·  滚轮或拖动切换", centerX, stageY + 239.0F,
+                current.onSurfaceVariant, UI.ALIGN_CENTER);
+        ui.rounded(CT_X + CT_W - 132.0F, stageY + 8.0F, 112.0F, 24.0F, 12.0F,
+                Material.withAlpha(current.surfaceContainerHighest, 0.82F));
+        ui.text(MusicTypeface.LABEL_TIGHT, HOME_LAYOUTS[homeLayout], CT_X + CT_W - 76.0F, stageY + 20.0F,
+                current.onSurfaceVariant, UI.ALIGN_CENTER);
+        hits.add(new Hit(CT_X + CT_W - 132.0F, stageY + 8.0F, 112.0F, 24.0F, new Runnable() {
+            @Override public void run() { homeLayout = (homeLayout + 1) % HOME_LAYOUTS.length; }
+        }));
+        return y + stageH + 6.0F;
+    }
+
+    private float depthFor(int index, int count) {
+        float d = index - homeCoverPosition;
+        if (homeLayout == 2) return -6.5F - (index / 4) * 0.02F;
+        if (homeLayout == 6) return -8.3F + (float) Math.cos(index * 2.399963D) * 2.6F;
+        if (homeLayout == 7) return -6.0F - (index / 2 - homeCoverPosition / 2.0F) * 3.15F;
+        if (homeLayout == 4) return -8.0F - (float) Math.sin(index * 2.399963D) * 1.3F;
+        if (homeLayout == 5) return -7.1F + 2.1F * (float) Math.cos(d * .61F + homeLayoutTime * .15F);
+        return -3.65F - Math.abs(d) * .68F;
+    }
+
+    private float[] poseFor(int i, int count) {
+        float d = i - homeCoverPosition, x, y = 0.0F, z, yaw = 0, pitch = 0, size = .68F;
+        if (homeLayout == 0) { x = d * 1.27F; z = -3.65F - Math.abs(d) * .68F; yaw = (float) -Math.tanh(d * .95F) * 0.98F; size = 1.0F; }
+        else if (homeLayout == 1) { float a = d * .61F + homeLayoutTime * .12F; x = 3.2F * (float) Math.sin(a); y = d * .39F; z = -7.1F + 2.1F * (float) Math.cos(a); yaw = -a * .16F; }
+        else if (homeLayout == 2) { int col = i % 4, row = i / 4; x = (col - 1.5F) * 1.65F; y = (1.5F - row) * 1.15F; z = -6.4F - row * .03F; size = .72F; }
+        else if (homeLayout == 3) { int row = i / 7; x = (i % 7 - 3) * 1.46F; y = -1.55F + row * .04F; z = -6.2F - (row - homeCoverPosition / 7.0F) * 1.52F; pitch = -.62F; size = .72F; }
+        else if (homeLayout == 4) { float a = i * 2.399963F + homeLayoutTime * .2F; float r = 2.0F + (i % 3) * .75F; x = (float) Math.cos(a) * r; y = (float) Math.sin(a) * r * .55F; z = -8.0F - (float) Math.sin(i * 2.399F) * 1.3F; yaw = .15F * (float) Math.sin(a); }
+        else if (homeLayout == 5) { float a = d * .61F + homeLayoutTime * .15F, r = 1.0F + Math.abs(d) * .32F; x = 3.2F * (float) Math.sin(a) * r; y = d * .39F; z = -7.1F + 2.1F * (float) Math.cos(a); yaw = -a * .16F; }
+        else if (homeLayout == 6) { int slots = Math.min(42, count), slot = Math.floorMod(i, Math.max(1, slots)); float lon = slot * 2.399963F, lat = (float) Math.asin(1.0 - 2.0 * (slot + .5F) / Math.max(1, slots)); x = 2.7F * (float) (Math.cos(lat) * Math.sin(lon)); y = 2.7F * (float) Math.sin(lat); z = -8.3F + 2.7F * (float) (Math.cos(lat) * Math.cos(lon)); yaw = lon; pitch = -lat; size = .58F; }
+        else { int row = i / 2; x = i % 2 == 0 ? -3.0F : 3.0F; y = 0; z = -6.0F - (row - homeCoverPosition / 2.0F) * 3.15F; yaw = i % 2 == 0 ? .95F : -.95F; size = .92F; }
+        float focus = Math.max(0.0F, 1.0F - Math.abs(d)); x *= 1.0F - focus * .2F; y *= 1.0F - focus * .15F; z += focus * .7F;
+        return new float[]{x, y, z, yaw, pitch, size};
+    }
+
+    private void drawPerspectiveAlbum(Scheme scheme, Playlist playlist, float cx, float cy, float x, float y,
+                                      float z, float yaw, float pitch, float size, float alpha) {
+        float[] p = projectedCorners(cx, cy, x, y, z, yaw, pitch, size);
+        net.minecraft.util.ResourceLocation cover = CoverCache.get(playlist.cover(320));
+        if (cover != null) ui.albumQuad(cover, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], alpha);
+        else ui.rounded((p[0] + p[2] + p[4] + p[6]) / 4.0F - 36.0F, (p[1] + p[3] + p[5] + p[7]) / 4.0F - 36.0F, 72, 72, 12, scheme.primaryContainer);
+    }
+
+    private float[] projectedCorners(float cx, float cy, float x, float y, float z, float yaw, float pitch, float size) {
+        float[] out = new float[8]; float focal = 225.0F;
+        float cosY = (float) Math.cos(yaw), sinY = (float) Math.sin(yaw), cosP = (float) Math.cos(pitch), sinP = (float) Math.sin(pitch);
+        float[][] q = {{-size, size}, {-size, -size}, {size, -size}, {size, size}};
+        for (int i = 0; i < 4; i++) { float lx = q[i][0], ly = q[i][1]; float rx = lx * cosY; float rz = -lx * sinY; float ry = ly * cosP - rz * sinP; float zz = ly * sinP + rz * cosP + z; float k = focal / Math.max(.5F, -zz); out[i * 2] = cx + (x + rx) * k; out[i * 2 + 1] = cy - (y + ry) * k; }
+        return out;
+    }
+
+    private float[] projectedBounds(float cx, float cy, float x, float y, float z, float yaw, float pitch, float size) {
+        float[] p = projectedCorners(cx, cy, x, y, z, yaw, pitch, size); float minX = p[0], maxX = p[0], minY = p[1], maxY = p[1];
+        for (int i = 1; i < 4; i++) { minX = Math.min(minX, p[i * 2]); maxX = Math.max(maxX, p[i * 2]); minY = Math.min(minY, p[i * 2 + 1]); maxY = Math.max(maxY, p[i * 2 + 1]); }
+        return new float[]{minX, minY, maxX, maxY};
     }
 
     private String greeting() {
@@ -1323,6 +1553,17 @@ public final class MusicScreen extends GuiScreen {
         if (button != 0) {
             return;
         }
+        if (page == Page.HOME && !playlistOpen && !manager.home().isEmpty()
+                && mouseX >= CT_X + 8.0F && mouseX <= CT_X + CT_W - 8.0F
+                && mouseY >= homeCoverY && mouseY <= homeCoverY + 258.0F
+                && !(mouseX >= CT_X + CT_W - 132.0F && mouseY <= homeCoverY + 36.0F)) {
+            draggingHomeCovers = true;
+            homeCoverDragX = mouseX;
+            homeCoverPressX = mouseX;
+            homeCoverPressY = mouseY;
+            homeCoverDragStart = homeCoverTarget;
+            return;
+        }
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit hit = hits.get(i);
             if (!hit.contains(mouseX, mouseY)) {
@@ -1355,6 +1596,18 @@ public final class MusicScreen extends GuiScreen {
     @Override
     protected void mouseReleased(int guiX, int guiY, int button) {
         updateMouse(guiX, guiY);
+        if (draggingHomeCovers) {
+            draggingHomeCovers = false;
+            if (Math.abs(mouseX - homeCoverPressX) < 6.0F && Math.abs(mouseY - homeCoverPressY) < 6.0F) {
+                for (int i = hits.size() - 1; i >= 0; i--) {
+                    Hit hit = hits.get(i);
+                    if (hit.contains(mouseX, mouseY)) {
+                        if (hit.action != null) hit.action.run();
+                        break;
+                    }
+                }
+            }
+        }
         if (draggingProgress && progressPreview >= 0.0F) {
             long duration = manager.durationMs();
             if (duration > 0L) {
@@ -1370,7 +1623,10 @@ public final class MusicScreen extends GuiScreen {
     @Override
     protected void mouseClickMove(int guiX, int guiY, int button, long timeSinceLastClick) {
         updateMouse(guiX, guiY);
-        if (draggingProgress) {
+        if (draggingHomeCovers) {
+            homeCoverTarget = Material.clamp(homeCoverDragStart + (homeCoverDragX - mouseX) / 168.0F,
+                    0.0F, Math.max(0, manager.home().size() - 1));
+        } else if (draggingProgress) {
             for (Hit hit : hits) {
                 if (hit instanceof ProgressHit) {
                     progressPreview = ((ProgressHit) hit).fraction(mouseX);
@@ -1400,6 +1656,12 @@ public final class MusicScreen extends GuiScreen {
         float guiX = Mouse.getEventX() * this.width / (float) this.mc.displayWidth;
         float guiY = this.height - Mouse.getEventY() * this.height / (float) this.mc.displayHeight - 1.0F;
         updateMouse((int) guiX, (int) guiY);
+        if (page == Page.HOME && !playlistOpen && mouseY >= homeCoverY
+                && mouseY <= homeCoverY + 258.0F && mouseX >= CT_X && mouseX <= CT_X + CT_W) {
+            homeCoverTarget = Material.clamp(homeCoverTarget - wheel / 120.0F,
+                    0.0F, Math.max(0, manager.home().size() - 1));
+            return;
+        }
         if (lyricOpen) {
             float amount = wheel / 120.0F;
             if (amount > 0.0F && mouseX > CT_X && mouseX < CT_X + CT_W) {

@@ -169,6 +169,29 @@ public final class UI {
         GlStateManager.translate(x, y, 0.0F);
     }
 
+    public void rotate(float degrees) {
+        GlStateManager.rotate(degrees, 0.0F, 0.0F, 1.0F);
+    }
+
+    /** Draws one perspective-projected album sheet in GUI coordinates. */
+    public void albumQuad(ResourceLocation texture, float x1, float y1, float x2, float y2,
+                          float x3, float y3, float x4, float y4, float alpha) {
+        if (texture == null || alpha <= 0.001F) return;
+        Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, Material.clamp(alpha, 0.0F, 1.0F));
+        GL11.glBegin(GL11.GL_QUADS);
+        GL11.glTexCoord2f(0.0F, 1.0F); GL11.glVertex2f(x1, y1);
+        GL11.glTexCoord2f(0.0F, 0.0F); GL11.glVertex2f(x2, y2);
+        GL11.glTexCoord2f(1.0F, 0.0F); GL11.glVertex2f(x3, y3);
+        GL11.glTexCoord2f(1.0F, 1.0F); GL11.glVertex2f(x4, y4);
+        GL11.glEnd();
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.disableTexture2D();
+    }
+
     /** Scales everything drawn afterwards around a point, keeping AA pixel size constant. */
     public void scale(float factor, float centerX, float centerY) {
         GlStateManager.translate(centerX, centerY, 0.0F);

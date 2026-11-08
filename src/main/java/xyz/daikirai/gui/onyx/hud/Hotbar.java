@@ -231,11 +231,13 @@ public final class Hotbar {
     private void drawExperience(Scheme scheme, EntityPlayerSP player) {
         float inset = RADIUS + 4.0F;
         float track = W - inset * 2.0F;
-        ui.rounded(inset, 1.5F, track, XP_LINE, XP_LINE / 2.0F,
+        // The experience track belongs below the item row, matching the vanilla hotbar reading order.
+        float lineY = H - XP_LINE - 1.5F;
+        ui.rounded(inset, lineY, track, XP_LINE, XP_LINE / 2.0F,
                 Material.withAlpha(scheme.surfaceContainerHighest, 0.55F));
         float fill = Material.clamp(player.experience, 0.0F, 1.0F);
         if (fill > 0.002F) {
-            ui.rounded(inset, 1.5F, track * fill, XP_LINE, XP_LINE / 2.0F, scheme.tertiary);
+            ui.rounded(inset, lineY, track * fill, XP_LINE, XP_LINE / 2.0F, scheme.tertiary);
         }
         if (player.experienceLevel > 0) {
             // Centred in the gap between the hearts and the food icons, on the same row as them.
