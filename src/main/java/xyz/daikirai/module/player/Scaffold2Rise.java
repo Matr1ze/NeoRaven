@@ -93,6 +93,9 @@ public final class Scaffold2Rise {
     private int oldSlot = -1;
     private double startY;
     private int tellyTicks;
+    private boolean tellyArmed;
+    private boolean tellyJumpWasDown;
+    private int tellyJumpTicks;
     private int offGroundTicks;
     private int onGroundTicks;
     private int blocksPlaced;
@@ -189,6 +192,9 @@ public final class Scaffold2Rise {
         oldSlot = mc.thePlayer.inventory.currentItem;
         startY = Math.floor(mc.thePlayer.posY);
         tellyTicks = 0;
+        tellyArmed = false;
+        tellyJumpWasDown = false;
+        tellyJumpTicks = 0;
         offGroundTicks = 0;
         onGroundTicks = 0;
         blocksPlaced = 0;
@@ -242,6 +248,7 @@ public final class Scaffold2Rise {
             ++offGroundTicks;
             onGroundTicks = 0;
         }
+        updateTellyInput();
 
         int slot = findBlockSlot();
         if (slot == -1) {
@@ -278,6 +285,10 @@ public final class Scaffold2Rise {
         active = true;
         oldSlot = mc.thePlayer.inventory.currentItem;
         startY = Math.floor(mc.thePlayer.posY);
+        tellyTicks = 0;
+        tellyArmed = false;
+        tellyJumpWasDown = false;
+        tellyJumpTicks = 0;
         currentYaw = targetYaw = mc.thePlayer.rotationYaw - 180.0f + yawOffsetDegrees();
         currentPitch = targetPitch = 90.0f;
         blocksPlaced = 0;
@@ -298,6 +309,9 @@ public final class Scaffold2Rise {
         data = null;
         targetBlock = null;
         canPlace = false;
+        tellyArmed = false;
+        tellyJumpWasDown = false;
+        tellyJumpTicks = 0;
         blocksPlaced = 0;
     }
 
@@ -347,14 +361,39 @@ public final class Scaffold2Rise {
         }
     }
 
-    private boolean tellyReady() {
+    /** Telly is armed by the player's jump key, never by W alone. */
+    private void updateTellyInput() {
+        if (modeIndex() != MODE_TELLY) {
+            tellyArmed = false;
+            tellyJumpWasDown = false;
+            tellyJumpTicks = 0;
+            return;
+        }
+        boolean jumpDown = mc.gameSettings.keyBindJump.isKeyDown() || mc.thePlayer.movementInput.jump;
         if (mc.thePlayer.onGround) {
+            tellyJumpTicks = 0;
+        }
+        if (jumpDown && PlayerUtils.isMoving()) {
+            if (!tellyJumpWasDown) {
+                tellyTicks = MathUtils.randomInt(0, 1);
+                tellyJumpTicks = 0;
+            }
+            tellyArmed = true;
+        } else if (mc.thePlayer.onGround) {
+            tellyArmed = false;
+        }
+        if (!mc.thePlayer.onGround && tellyArmed) {
+            ++tellyJumpTicks;
+        }
+        tellyJumpWasDown = jumpDown;
+    }
+
+    private boolean tellyReady() {
+        if (!tellyArmed || mc.thePlayer.onGround) {
             return false;
         }
-        if (modeIndex() != MODE_TELLY) {
-            return true;
-        }
-        if (offGroundTicks >= 1 + tellyTicks) {
+        // Snap-like clutch: once the manual jump has left the ground, place on the way down.
+        if (tellyJumpTicks >= 1 + tellyTicks || mc.thePlayer.motionY < -0.1) {
             return true;
         }
         return mc.thePlayer.getEntityBoundingBox().minY < startY - 0.5;
@@ -363,12 +402,6 @@ public final class Scaffold2Rise {
     private void applySameY() {
         if (sameYIndex() == SAME_Y_AUTO_JUMP && mc.thePlayer.onGround && PlayerUtils.isMoving()
                 && !mc.gameSettings.keyBindJump.isKeyDown() && !towering()) {
-            PlayerUtils.jump();
-        }
-        if (modeIndex() == MODE_TELLY && mc.thePlayer.onGround && PlayerUtils.isMoving()
-                && !mc.gameSettings.keyBindJump.isKeyDown()) {
-            tellyTicks = MathUtils.randomInt(0, 1);
-            PlayerUtils.setJump(true);
             PlayerUtils.jump();
         }
     }
@@ -461,7 +494,8 @@ public final class Scaffold2Rise {
         } else if (modeIndex() == MODE_GODBRIDGE) {
             yaw = Math.round((PlayerUtils.movementAngle() + 180.0f) / 45.0f) * 45.0f;
             pitch = (float) MathUtils.randomBetween(74.0, 82.0);
-        } else if (modeIndex() == MODE_TELLY) {
+        } else if (modeIndex() == MODE_TELLY && tellyArmed) {
+            // After the player's manual jump, turn backwards and clutch on the way down.
             yaw = PlayerUtils.movementAngle() + 180.0f + randomYawOffset;
             if (offGroundTicks <= 1) {
                 pitch = 90.0f;
@@ -636,17 +670,9 @@ public final class Scaffold2Rise {
         if (!active) {
             return;
         }
-        if (modeIndex() == MODE_TELLY && PlayerUtils.isMoving()
-                && !mc.gameSettings.keyBindJump.isKeyDown()) {
-            // postPlayerInput runs after MovementInput.updatePlayerMoveState(); setting jump here
-            // survives into the next living update instead of being overwritten by the key state.
-            mc.thePlayer.movementInput.jump = true;
-            if (mc.thePlayer.onGround) {
-                PlayerUtils.jump();
-            }
-            if (!mc.gameSettings.keyBindSneak.isKeyDown()) {
-                mc.thePlayer.movementInput.sneak = false;
-            }
+        if (modeIndex() == MODE_TELLY && !mc.gameSettings.keyBindSneak.isKeyDown()) {
+            // Telly keeps full sprint momentum. The jump itself is left entirely to the player.
+            mc.thePlayer.movementInput.sneak = false;
         }
         if (towerIndex() == 2 && towering() && !mc.thePlayer.isPotionActive(net.minecraft.potion.Potion.jump)) {
             mc.thePlayer.motionY = 0.42;
