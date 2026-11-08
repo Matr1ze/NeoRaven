@@ -113,6 +113,11 @@ public final class Scaffold2Rise {
     private boolean canPlace;
     private boolean placedThisTick;
     private int renderTicks;
+    private boolean tellyJumpActive;
+    private boolean tellyPlaced;
+    private double tellyDistance;
+    private double tellyLastX;
+    private double tellyLastZ;
 
     public Scaffold2Rise(Scaffold2Module host) {
         this.host = host;
@@ -212,6 +217,11 @@ public final class Scaffold2Rise {
         randomPitchOffset = (float) ((Math.random() - 0.5) * 3.0);
         canPlace = true;
         placedThisTick = false;
+        tellyJumpActive = false;
+        tellyPlaced = false;
+        tellyDistance = 0.0;
+        tellyLastX = mc.thePlayer.posX;
+        tellyLastZ = mc.thePlayer.posZ;
     }
 
     public void onDisable() {
@@ -245,10 +255,20 @@ public final class Scaffold2Rise {
         if (mc.thePlayer.onGround) {
             ++onGroundTicks;
             offGroundTicks = 0;
+            tellyJumpActive = mc.gameSettings.keyBindJump.isKeyDown() && PlayerUtils.isMoving();
+            tellyPlaced = false;
+            tellyDistance = 0.0;
         } else {
             ++offGroundTicks;
             onGroundTicks = 0;
+            if (tellyJumpActive) {
+                tellyDistance += Math.sqrt(
+                        Math.pow(mc.thePlayer.posX - tellyLastX, 2.0)
+                                + Math.pow(mc.thePlayer.posZ - tellyLastZ, 2.0));
+            }
         }
+        tellyLastX = mc.thePlayer.posX;
+        tellyLastZ = mc.thePlayer.posZ;
 
         int slot = findBlockSlot();
         if (slot == -1) {
@@ -306,6 +326,9 @@ public final class Scaffold2Rise {
         targetBlock = null;
         canPlace = false;
         blocksPlaced = 0;
+        tellyJumpActive = false;
+        tellyPlaced = false;
+        tellyDistance = 0.0;
     }
 
     private float yawOffsetDegrees() {
@@ -374,25 +397,17 @@ public final class Scaffold2Rise {
         if (modeIndex() != MODE_TELLY) {
             return true;
         }
-        if (offGroundTicks >= 1 + tellyTicks) {
-            return true;
-        }
-        return mc.thePlayer.getEntityBoundingBox().minY < startY - 0.5;
+        return tellyJumpActive && !tellyPlaced && tellyDistance >= 4.5
+                && mc.thePlayer.motionY < -0.02;
     }
 
     private void applySameY() {
         if (bridgeModeIndex() == BRIDGE_SAFE_MANUAL) {
             return;
         }
-        if (sameYIndex() == SAME_Y_AUTO_JUMP && mc.thePlayer.onGround && PlayerUtils.isMoving()
+        if (modeIndex() != MODE_TELLY && sameYIndex() == SAME_Y_AUTO_JUMP
+                && mc.thePlayer.onGround && PlayerUtils.isMoving()
                 && !mc.gameSettings.keyBindJump.isKeyDown() && !towering()) {
-            PlayerUtils.jump();
-        }
-        if (modeIndex() == MODE_TELLY && mc.thePlayer.onGround && PlayerUtils.isMoving()
-                && !mc.gameSettings.keyBindJump.isKeyDown()) {
-            // A fixed one-tick rhythm is considerably more reliable at sprint speed than the
-            // old random 0/1 delay, which could leave the player over an empty block.
-            tellyTicks = 0;
             PlayerUtils.jump();
         }
     }
@@ -476,6 +491,11 @@ public final class Scaffold2Rise {
         if (!data.getValid()) {
             return;
         }
+        if (modeIndex() == MODE_TELLY && !tellyReady()) {
+            // Keep the player's own view during the outward part of the jump. The Telly turn only
+            // starts after the requested travel distance, when the return placement is due.
+            return;
+        }
         float yaw;
         float pitch;
         float[] face = RotationUtils.toBlock(data.blockPos, data.facing);
@@ -512,7 +532,9 @@ public final class Scaffold2Rise {
         }
         targetYaw = yaw;
         targetPitch = pitch;
-        float speed = (float) MathUtils.randomBetween(rotationSpeedMin.getInput(), rotationSpeedMax.getInput()) * 9.0f;
+        float speed = modeIndex() == MODE_TELLY
+                ? 18.0f
+                : (float) MathUtils.randomBetween(rotationSpeedMin.getInput(), rotationSpeedMax.getInput()) * 9.0f;
         currentYaw = approach(currentYaw, targetYaw, speed);
         currentPitch = approach(currentPitch, targetPitch, speed);
         currentPitch = MathHelper.clamp_float(currentPitch, -90.0f, 90.0f);
@@ -605,6 +627,9 @@ public final class Scaffold2Rise {
             PlayerUtils.swing(false, true);
         }
         ++blocksPlaced;
+        if (modeIndex() == MODE_TELLY) {
+            tellyPlaced = true;
+        }
         placeCooldown = MathUtils.randomInt((int) placeDelayMin.getInput(), (int) placeDelayMax.getInput());
         if (towering() && mc.thePlayer.onGround) {
             PlayerUtils.jump();

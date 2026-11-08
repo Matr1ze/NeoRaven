@@ -47,7 +47,7 @@ public final class MusicScreen extends GuiScreen {
     private static final float MINI_W = W - 66.0F;
     private static final float MINI_H = 84.0F;
     private static final float ROW_PITCH = 64.0F;
-    private static final String[] HOME_LAYOUTS = {"Coverflow", "Ring", "Wall", "Floor", "Stars", "Spiral", "Sphere", "Gallery"};
+    private static final String HOME_LAYOUT_NAME = "Cover Gallery";
 
     private static final String I_HOME = "\ue88a";
     private static final String I_SEARCH = "\ue8b6";
@@ -140,7 +140,8 @@ public final class MusicScreen extends GuiScreen {
     private float homeCoverDragStart;
     private float homeCoverPressX;
     private float homeCoverPressY;
-    private int homeLayout;
+    // Keep the Cover Gallery presentation; the other experimental layouts are not exposed.
+    private int homeLayout = 7;
     private float homeLayoutTime;
 
     private String searchText = "";
@@ -777,10 +778,10 @@ public final class MusicScreen extends GuiScreen {
                 centerX, stageY + 239.0F, current.onSurfaceVariant, UI.ALIGN_CENTER);
         ui.rounded(CT_X + CT_W - 132.0F, stageY + 8.0F, 112.0F, 24.0F, 12.0F,
                 Material.withAlpha(current.surfaceContainerHighest, 0.82F));
-        ui.text(MusicTypeface.LABEL_TIGHT, HOME_LAYOUTS[homeLayout], CT_X + CT_W - 76.0F,
+        ui.text(MusicTypeface.LABEL_TIGHT, HOME_LAYOUT_NAME, CT_X + CT_W - 76.0F,
                 stageY + 20.0F, current.onSurfaceVariant, UI.ALIGN_CENTER);
         hits.add(new Hit(CT_X + CT_W - 132.0F, stageY + 8.0F, 112.0F, 24.0F, new Runnable() {
-            @Override public void run() { homeLayout = (homeLayout + 1) % HOME_LAYOUTS.length; }
+            @Override public void run() { homeLayout = 7; }
         }));
         return y + stageH + 6.0F;
         */
@@ -827,10 +828,10 @@ public final class MusicScreen extends GuiScreen {
                 current.onSurfaceVariant, UI.ALIGN_CENTER);
         ui.rounded(CT_X + CT_W - 132.0F, stageY + 8.0F, 112.0F, 24.0F, 12.0F,
                 Material.withAlpha(current.surfaceContainerHighest, 0.82F));
-        ui.text(MusicTypeface.LABEL_TIGHT, HOME_LAYOUTS[homeLayout], CT_X + CT_W - 76.0F, stageY + 20.0F,
+        ui.text(MusicTypeface.LABEL_TIGHT, HOME_LAYOUT_NAME, CT_X + CT_W - 76.0F, stageY + 20.0F,
                 current.onSurfaceVariant, UI.ALIGN_CENTER);
         hits.add(new Hit(CT_X + CT_W - 132.0F, stageY + 8.0F, 112.0F, 24.0F, new Runnable() {
-            @Override public void run() { homeLayout = (homeLayout + 1) % HOME_LAYOUTS.length; }
+            @Override public void run() { homeLayout = 7; }
         }));
         return y + stageH + 6.0F;
     }
