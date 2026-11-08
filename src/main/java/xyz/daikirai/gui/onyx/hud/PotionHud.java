@@ -316,7 +316,6 @@ public final class PotionHud {
 
     private void drawCard(PotionHudModule module, Scheme scheme, List<Row> rows, float width, float height) {
         int surface = Material.withAlpha(scheme.surfaceContainerHigh, 1.0F);
-        ui.shadow(0.0F, 0.0F, width, height, RADIUS, 3);
         ui.rounded(0.0F, 0.0F, width, height, RADIUS, surface);
         if (module.frosted() && Blur.ready()) {
             ui.frost(0.0F, 0.0F, width, height, RADIUS, scheme.surfaceContainerHigh, BLUR_COVERAGE);

@@ -1,7 +1,6 @@
 package xyz.daikirai.gui.onyx.render;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.texture.TextureUtil;
@@ -35,7 +34,6 @@ public final class Blur {
     private static final int FRAMEBUFFER_BINDING = 0x8CA6;
 
     private static Shader shader;
-    private static UI hudFrostUi;
     private static boolean available = true;
     private static boolean prepared;
     private static long preparedAt;
@@ -71,9 +69,10 @@ public final class Blur {
 
     /**
      * Installs the frame ticker. The capture runs from HIGHEST-priority
-     * {@code RenderGameOverlayEvent.Pre(ALL)}, after the world is rendered but before the HUD
-     * overlay draws anything. {@link HandState} restores the complete GL state afterwards, so the
-     * vanilla crosshair keeps its own texture and shader bindings.
+     * {@code RenderGameOverlayEvent.Pre(ALL)}, but only when at least one glass HUD is active.
+     * This avoids a full-screen framebuffer copy and four blur passes while the user cannot see
+     * any glass. {@link HandState} restores the complete GL state afterwards, so the crosshair
+     * keeps its own texture and shader bindings.
      */
     public static void install() {
         if (ticker != null) {
@@ -93,58 +92,50 @@ public final class Blur {
                 if (event.type != RenderGameOverlayEvent.ElementType.ALL) {
                     return;
                 }
-                if (!Theme.frost() && !Theme.liquidGlass()) {
+                if (!hudGlassActive()) {
                     newFrame = false;
                     return;
                 }
                 // With a GUI screen open the ClickGUI/backdrop path performs its own capture.
-                if (Overlay.canRender()) {
-                    prepare();
-                    if (Theme.frost() && !Theme.liquidGlass() && ready()) {
-                        renderHudFrost();
-                    }
-                }
+                prepare();
             }
         };
         MinecraftForge.EVENT_BUS.register(ticker);
     }
 
-    /**
-     * Frosted-glass backdrop for the in-world HUD. This mirrors
-     * {@code OnyxClickGui.drawBackdrop()} when liquid glass is off: composite the already captured
-     * blurred scene full-screen, then add a light scrim so HUD text stays readable. It runs before
-     * the crosshair and every custom HUD element.
-     */
-    private static void renderHudFrost() {
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc.theWorld == null || mc.thePlayer == null || !Display.isVisible()) {
-            return;
+    /** Whether any in-world HUD will actually draw frosted or liquid glass this frame. */
+    public static boolean hudGlassActive() {
+        if (!Overlay.canRender() || (!Theme.frost() && !Theme.liquidGlass())) {
+            return false;
         }
-        if (hudFrostUi == null) {
-            hudFrostUi = new UI();
+        if (xyz.daikirai.module.render.WatermarkModule.instance != null
+                && xyz.daikirai.module.render.WatermarkModule.instance.isEnabled()) {
+            return true;
         }
-        if (!UI.frostAvailable()) {
-            return;
+        if (xyz.daikirai.module.render.KeybindsModule.instance != null
+                && xyz.daikirai.module.render.KeybindsModule.instance.isEnabled()) {
+            return true;
         }
-        ScaledResolution resolution = new ScaledResolution(mc);
-        float width = resolution.getScaledWidth();
-        float height = resolution.getScaledHeight();
-        try (HandState ignored = new HandState()) {
-            GlStateManager.pushMatrix();
-            try {
-                mc.entityRenderer.setupOverlayRendering();
-                hudFrostUi.begin();
-                try {
-                    hudFrostUi.frost(0.0F, 0.0F, width, height, 0.0F,
-                            Theme.scheme().surface, 0.0F);
-                    hudFrostUi.rect(0.0F, 0.0F, width, height, Theme.scrim(0.25F));
-                } finally {
-                    hudFrostUi.end();
-                }
-            } finally {
-                GlStateManager.popMatrix();
-            }
+        xyz.daikirai.module.render.CustomGuiModule custom = xyz.daikirai.module.render.CustomGuiModule.instance;
+        if (custom != null && custom.isEnabled()
+                && ((custom.scoreboardEnabled() && custom.scoreboardFrosted())
+                || (custom.hotbarEnabled() && custom.hotbarFrosted()))) {
+            return true;
         }
+        xyz.daikirai.module.render.ArrayListModule list = xyz.daikirai.module.render.ArrayListModule.instance;
+        if (list != null && list.isEnabled() && list.background() && list.blur()) {
+            return true;
+        }
+        xyz.daikirai.module.render.PotionHudModule potion = xyz.daikirai.module.render.PotionHudModule.instance;
+        if (potion != null && potion.isEnabled() && potion.frosted()) {
+            return true;
+        }
+        xyz.daikirai.module.render.TargetHudModule target = xyz.daikirai.module.render.TargetHudModule.instance;
+        if (target != null && target.isEnabled() && target.frosted()) {
+            return true;
+        }
+        xyz.daikirai.module.render.NametagsModule nametags = xyz.daikirai.module.render.NametagsModule.instance;
+        return nametags != null && nametags.isEnabled() && nametags.frosted() && nametags.background();
     }
 
     /** Marks the next frame as needing a fresh blur (Onyx's {@code Util3.run4}). */

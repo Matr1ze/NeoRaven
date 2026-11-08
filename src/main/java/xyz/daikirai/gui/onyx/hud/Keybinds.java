@@ -205,9 +205,6 @@ public final class Keybinds {
         // The shared glass helper owns the opaque fallback; active liquid glass draws the
         // refracted scene directly, so no dark backing is baked into the captured backdrop.
         int surface = scheme.surfaceContainer;
-        if (!Theme.liquidGlass()) {
-            ui.shadow(0.0F, 0.0F, width, height, CARD_RADIUS, 3);
-        }
         glass(0.0F, 0.0F, width, height, CARD_RADIUS, surface);
         // Borderless card: the outline is reserved for the per-row toggle flash.
 

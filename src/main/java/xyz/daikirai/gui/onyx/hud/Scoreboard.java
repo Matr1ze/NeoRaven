@@ -172,7 +172,6 @@ public final class Scoreboard {
                           boolean hasTitle, float rowsTop, boolean scores, float rowMax) {
         // Opaque backing + a fully opaque frost layer on top, the same recipe as the keybind card.
         int surface = Material.withAlpha(scheme.surfaceContainerHigh, 1.0F);
-        ui.shadow(0.0F, 0.0F, width, height, RADIUS, 3);
         ui.rounded(0.0F, 0.0F, width, height, RADIUS, surface);
         if (module.scoreboardFrosted() && Blur.ready()) {
             ui.frost(0.0F, 0.0F, width, height, RADIUS, scheme.surfaceContainerHigh, BLUR_COVERAGE);

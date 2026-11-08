@@ -85,11 +85,6 @@ public final class UI {
         }
     }
 
-    /** Whether the frost shader compiled; used before drawing a full-screen HUD backdrop. */
-    public static boolean frostAvailable() {
-        return frostShader != null && frostShader.valid();
-    }
-
     // ------------------------------------------------------------------ //
     // Frame / state handling
     // ------------------------------------------------------------------ //
@@ -448,7 +443,8 @@ public final class UI {
     public void frostCorners(float x, float y, float w, float h,
                              float topLeft, float topRight, float bottomRight, float bottomLeft,
                              int tint, float coverage) {
-        if (frostShader == null || !frostShader.valid() || !Blur.ready()) {
+        if (frostShader == null || !frostShader.valid() || !Blur.ready()
+                || (!Theme.frost() && !Theme.liquidGlass())) {
             return;
         }
         float tl = Theme.radius(topLeft, w, h);
@@ -545,7 +541,8 @@ public final class UI {
 
     public boolean liquidGlass(float x, float y, float w, float h, float radius,
                                int tint, float coverage, float bevel, float rimStrength) {
-        if (w <= 0.0F || h <= 0.0F || liquidShader == null || !liquidShader.valid() || !Blur.ready()) {
+        if (w <= 0.0F || h <= 0.0F || liquidShader == null || !liquidShader.valid() || !Blur.ready()
+                || (!Theme.frost() && !Theme.liquidGlass())) {
             return false;
         }
         int color = applyAlpha(tint);
