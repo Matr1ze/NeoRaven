@@ -116,9 +116,6 @@ public final class Scaffold2Module extends Module {
     private boolean sneakForced;
     private boolean pendingForceRotation;
     private boolean canPlace;
-    private boolean tellyArmed;
-    private boolean tellyJumpWasDown;
-    private int tellyJumpTicks;
 
     /** Settings of the SSNG implementation; the visible list depends on the Client setting. */
     private final SliderSetting clientSetting = new SliderSetting("Client", "", "", 0, 0, 2, 1,
@@ -359,11 +356,6 @@ public final class Scaffold2Module extends Module {
             ++offGroundTicks;
             onGroundTicks = 0;
         }
-        if (modeIndex() == MODE_TELLY) {
-            updateTellyInput();
-        } else {
-            resetTelly();
-        }
 
         int slot = findBlockSlot();
         if (slot == -1) {
@@ -382,6 +374,9 @@ public final class Scaffold2Module extends Module {
         }
 
         updateCount();
+        if (modeIndex() == MODE_TELLY) {
+            jumpTick();
+        }
         gather();
         pendingRot = computeRotation(pendingForceRotation);
         if (!PacketUtils.noUseOrDig()) {
@@ -399,12 +394,6 @@ public final class Scaffold2Module extends Module {
         if (clientIndex() == CLIENT_RISE) {
             rise.postInput();
             return;
-        }
-        if (active && modeIndex() == MODE_TELLY && !eagle.isToggled()
-                && !mc.gameSettings.keyBindSneak.isKeyDown()) {
-            // Keep full momentum; the jump input itself is never synthesised here.
-            mc.thePlayer.movementInput.sneak = false;
-            sneakForced = false;
         }
         if (!active || !eagle.isToggled() || modeIndex() != MODE_TELLY) {
             if (sneakForced) {
@@ -431,14 +420,12 @@ public final class Scaffold2Module extends Module {
         posY = MathHelper.floor_double(mc.thePlayer.posY - 1.0);
         startHotbarCount = Math.max(1, countHotbarBlocks());
         sneakForced = false;
-        resetTelly();
     }
 
     private void stop() {
         if (active) {
             active = false;
             resetSneak();
-            resetTelly();
             if (mc.thePlayer != null && oldSlot != -1 && mc.thePlayer.inventory.currentItem != oldSlot) {
                 PlayerUtils.setSlot(oldSlot, true);
             }
@@ -460,7 +447,6 @@ public final class Scaffold2Module extends Module {
         pendingRot = null;
         lastRotation = null;
         resetSneak();
-        resetTelly();
     }
 
     private void resetSneak() {
@@ -470,34 +456,39 @@ public final class Scaffold2Module extends Module {
         sneakForced = false;
     }
 
-    private void resetTelly() {
-        tellyArmed = false;
-        tellyJumpWasDown = false;
-        tellyJumpTicks = 0;
-    }
-
     // ------------------------------------------------------------------ //
     // Jump / eagle
     // ------------------------------------------------------------------ //
 
-    /** SSNG Telly only arms on the player's jump key; W never jumps by itself. */
-    private void updateTellyInput() {
-        boolean jumpDown = mc.gameSettings.keyBindJump.isKeyDown() || mc.thePlayer.movementInput.jump;
-        if (mc.thePlayer.onGround) {
-            tellyJumpTicks = 0;
+    private void jumpTick() {
+        if (!mc.thePlayer.onGround || mc.gameSettings.keyBindJump.isKeyDown() || !PlayerUtils.isMoving()) {
+            return;
         }
-        if (jumpDown && PlayerUtils.isMoving()) {
-            if (!tellyJumpWasDown) {
-                tellyJumpTicks = 0;
+        int need = smoothed.isToggled() && safeMode.isToggled() && !testOnGround.isToggled() ? 2 : 1;
+        if (onGroundTicks < need) {
+            return;
+        }
+        if (jumpIndex() == JUMP_NONE) {
+            return;
+        }
+        if (jumpIndex() == JUMP_PARKOUR) {
+            double yaw = Math.toRadians(mc.thePlayer.rotationYaw);
+            double fx = -Math.sin(yaw);
+            double fz = Math.cos(yaw);
+            BlockPos first = new BlockPos(
+                    MathHelper.floor_double(mc.thePlayer.posX + fx),
+                    MathHelper.floor_double(mc.thePlayer.posY - 0.1),
+                    MathHelper.floor_double(mc.thePlayer.posZ + fz));
+            BlockPos second = new BlockPos(
+                    MathHelper.floor_double(mc.thePlayer.posX + fx * 2.0),
+                    MathHelper.floor_double(mc.thePlayer.posY - 0.1),
+                    MathHelper.floor_double(mc.thePlayer.posZ + fz * 2.0));
+            if (isIgnored(first) || isIgnored(second)) {
+                PlayerUtils.jump();
             }
-            tellyArmed = true;
-        } else if (mc.thePlayer.onGround) {
-            tellyArmed = false;
+            return;
         }
-        if (!mc.thePlayer.onGround && tellyArmed) {
-            ++tellyJumpTicks;
-        }
-        tellyJumpWasDown = jumpDown;
+        PlayerUtils.jump();
     }
 
     // ------------------------------------------------------------------ //
@@ -511,7 +502,7 @@ public final class Scaffold2Module extends Module {
         if (mc.thePlayer.onGround) {
             posY = py - 1;
         }
-        if (tellyArmed || PlayerUtils.jumpKeyDown()) {
+        if (PlayerUtils.jumpKeyDown()) {
             posY = py - 1;
         }
 
@@ -527,17 +518,13 @@ public final class Scaffold2Module extends Module {
         } else if (modeIndex() == MODE_SNAP) {
             canPlace = isIgnored(new BlockPos(px, py - 1, pz));
         } else {
-            // Snap-like clutch: only after the player's manual jump leaves the ground.
-            canPlace = tellyArmed && !mc.thePlayer.onGround
-                    && (offGroundTicks >= (int) placeTick.getInput()
-                    || tellyJumpTicks >= 1 || mc.thePlayer.motionY < -0.1);
-            if (safeMode.isToggled() && testOnGround.isToggled() && !canPlace && tellyArmed) {
+            canPlace = offGroundTicks >= (int) placeTick.getInput();
+            if (safeMode.isToggled() && testOnGround.isToggled() && !canPlace && PlayerUtils.jumpKeyDown()) {
                 canPlace = onGroundTicks == 1;
             }
         }
 
-        pendingForceRotation = safeMode.isToggled() && testOnGround.isToggled()
-                && onGroundTicks == 1 && tellyArmed;
+        pendingForceRotation = safeMode.isToggled() && testOnGround.isToggled() && onGroundTicks == 1 && PlayerUtils.jumpKeyDown();
 
         // ---- clutch: predict the next two ticks of falling and place under the path ----
         Fall fall = new Fall();
@@ -706,14 +693,13 @@ public final class Scaffold2Module extends Module {
         }
         float yaw = face[0];
         float pitch = face[1];
-        boolean rising = !mc.thePlayer.onGround && mc.thePlayer.motionY > 0.0D;
-        boolean jumping = tellyArmed && !mc.thePlayer.onGround;
+        boolean jumping = PlayerUtils.jumpKeyDown();
 
-        if (modeIndex() == MODE_TELLY && tellyArmed) {
-            if (rising && noUptelly.isToggled()) {
+        if (modeIndex() == MODE_TELLY) {
+            if (jumping && noUptelly.isToggled()) {
                 return finishRotation(yaw, pitch);
             }
-            if (rising && slowUpTelly.isToggled() && ++ups % 2 == 0) {
+            if (jumping && slowUpTelly.isToggled() && ++ups % 2 == 0) {
                 return finishRotation(yaw, pitch);
             }
             double diff = MathHelper.wrapAngleTo180_float(yaw - serverYaw);

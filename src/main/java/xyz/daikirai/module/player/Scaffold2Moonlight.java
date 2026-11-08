@@ -130,8 +130,6 @@ public final class Scaffold2Moonlight {
     private float[] smoothRotation = new float[]{0.0f, 85.0f};
     private float derpYaw;
     private int tellyTicks = 1;
-    private boolean tellyArmed;
-    private boolean tellyJumpWasDown;
     private int offGroundTicks;
     private int onGroundTicks;
     private int blocksPlaced;
@@ -235,7 +233,6 @@ public final class Scaffold2Moonlight {
         offGroundTicks = 0;
         onGroundTicks = 0;
         tellyTicks = 1;
-        resetTelly();
         derpYaw = 0.0f;
         hoverState = addonHover.isToggled() && mc.thePlayer != null && mc.thePlayer.onGround ? HOVER_JUMP : HOVER_DONE;
         onGroundY = mc.thePlayer == null ? 0.0 : mc.thePlayer.getEntityBoundingBox().minY;
@@ -302,11 +299,6 @@ public final class Scaffold2Moonlight {
         } else {
             ++offGroundTicks;
             onGroundTicks = 0;
-        }
-        if (modeIndex() == MODE_TELLY) {
-            updateTellyInput();
-        } else {
-            resetTelly();
         }
 
         int slot = findBlockSlot();
@@ -385,6 +377,10 @@ public final class Scaffold2Moonlight {
             }
         }
 
+        if (modeIndex() == MODE_TELLY && mc.thePlayer.onGround) {
+            tellyTicks = MathUtils.randomInt((int) minTellyTicks.getInput(), (int) maxTellyTicks.getInput());
+        }
+
         canPlace = true;
         if (modeIndex() == MODE_TELLY) {
             canPlace = tellyReady();
@@ -438,36 +434,15 @@ public final class Scaffold2Moonlight {
         canPlace = false;
         blocksPlaced = 0;
         rescueBlocks = 0;
-        resetTelly();
     }
 
     public void onDisableState() {
         stop();
     }
 
-    private void resetTelly() {
-        tellyArmed = false;
-        tellyJumpWasDown = false;
-    }
-
-    /** Moonlight Telly is armed by the player's jump key, not by holding W. */
-    private void updateTellyInput() {
-        boolean jumpDown = mc.gameSettings.keyBindJump.isKeyDown() || mc.thePlayer.movementInput.jump;
-        if (jumpDown && PlayerUtils.isMoving()) {
-            if (!tellyJumpWasDown) {
-                tellyTicks = MathUtils.randomInt((int) minTellyTicks.getInput(), (int) maxTellyTicks.getInput());
-            }
-            tellyArmed = true;
-        } else if (mc.thePlayer.onGround) {
-            tellyArmed = false;
-        }
-        tellyJumpWasDown = jumpDown;
-    }
-
     private void hoverTick() {
         if (hoverState == HOVER_JUMP) {
-            if (modeIndex() != MODE_TELLY && mc.thePlayer.onGround
-                    && !mc.gameSettings.keyBindJump.isKeyDown()) {
+            if (mc.thePlayer.onGround && !mc.gameSettings.keyBindJump.isKeyDown()) {
                 PlayerUtils.jump();
             }
             hoverState = HOVER_FALL;
@@ -477,18 +452,18 @@ public final class Scaffold2Moonlight {
     }
 
     private boolean tellyReady() {
-        if (!tellyArmed || mc.thePlayer.onGround) {
-            return false;
-        }
         if (tellyTimingIndex() == 0) {
             return offGroundTicks >= tellyTicks;
+        }
+        if (mc.thePlayer.onGround) {
+            return false;
         }
         if (mc.thePlayer.getEntityBoundingBox().minY < onGroundY - 0.5) {
             return true;
         }
         float f = (mc.thePlayer.rotationYaw % 360.0f + 360.0f) % 360.0f % 90.0f;
         boolean diagonal = f > 10.0f && f < 80.0f;
-        boolean jump = tellyArmed;
+        boolean jump = mc.gameSettings.keyBindJump.isKeyDown();
         int need = jump ? (diagonal ? 1 : 2) : (diagonal ? 3 : 4);
         double mx = Math.abs(mc.thePlayer.motionX);
         double mz = Math.abs(mc.thePlayer.motionZ);
@@ -988,13 +963,11 @@ public final class Scaffold2Moonlight {
         if (addonSprint.isToggled()) {
             mc.thePlayer.setSprinting(true);
         }
-        if (addonKeepY.isToggled() && modeIndex() != MODE_TELLY && mc.thePlayer.onGround
-                && PlayerUtils.isMoving() && !towering() && !towerMoving()) {
+        if (addonKeepY.isToggled() && mc.thePlayer.onGround && PlayerUtils.isMoving() && !towering() && !towerMoving()) {
             PlayerUtils.jump();
         }
-        if (addonJump.isToggled() && modeIndex() != MODE_TELLY && mc.thePlayer.onGround
-                && !mc.gameSettings.keyBindJump.isKeyDown() && PlayerUtils.isMoving()
-                && !mc.thePlayer.isSneaking()) {
+        if (addonJump.isToggled() && mc.thePlayer.onGround && !mc.gameSettings.keyBindJump.isKeyDown()
+                && PlayerUtils.isMoving() && !mc.thePlayer.isSneaking()) {
             if (blocksPlaced >= (int) blocksToJump.getInput()) {
                 PlayerUtils.jump();
                 blocksPlaced = 0;
@@ -1008,15 +981,11 @@ public final class Scaffold2Moonlight {
         } else if (addonSafeWalkNoData.isToggled() && data == null) {
             mc.thePlayer.movementInput.sneak = true;
         }
-        if (modeIndex() == MODE_TELLY && !mc.gameSettings.keyBindSneak.isKeyDown()) {
-            // No synthetic jump: Telly starts only when the player presses jump.
-            mc.thePlayer.movementInput.sneak = false;
-        }
         if (addonAdStrafe.isToggled() && PlayerUtils.isMoving() && !PlayerUtils.direction().diagonal
                 && mc.currentScreen == null && !mc.gameSettings.keyBindJump.isKeyDown() && mc.thePlayer.onGround) {
             adStrafe();
         }
-        if (sprintBoost.isToggled() && mc.thePlayer.onGround) {
+        if (sprintBoost.isToggled() && mc.thePlayer.onGround && modeIndex() != MODE_TELLY) {
             mc.thePlayer.motionX *= 1.14;
             mc.thePlayer.motionZ *= 1.14;
         }
