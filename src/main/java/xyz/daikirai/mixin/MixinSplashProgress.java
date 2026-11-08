@@ -13,6 +13,9 @@ public final class MixinSplashProgress {
                                                 CallbackInfoReturnable<Boolean> cir) {
         if ("rotate".equals(key)) {
             cir.setReturnValue(Boolean.TRUE);
+        } else if ("enabled".equals(key)) {
+            // Forge's progress page is replaced by the NeoRaven splash on the title screen.
+            cir.setReturnValue(Boolean.FALSE);
         }
     }
 
