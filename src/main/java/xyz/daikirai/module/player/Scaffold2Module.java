@@ -586,9 +586,9 @@ public final class Scaffold2Module extends Module {
             }
         }
         if (!reachable && rotateCount < 8) {
+            // Keep the player's horizontal input intact. The old clutch freeze made WASD stop
+            // responding whenever prediction entered this branch, including during Telly.
             ++rotateCount;
-            mc.thePlayer.motionX = 0.0;
-            mc.thePlayer.motionZ = 0.0;
             if (debug.isToggled() && rotateCount == 1) {
                 Chat.print("§7[Scaffold2] §fclutch");
             }
