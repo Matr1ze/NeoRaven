@@ -37,7 +37,7 @@
   {"name":"TargetStrafe","category":"movement","zh":"目标环绕","desc":"围绕 KillAura 目标走位。"},
   {"name":"Teleport","category":"movement","zh":"传送","desc":"进行短距离瞬移。"},
   {"name":"Timer","category":"movement","zh":"变速","desc":"修改客户端游戏速度。"},
-  {"name":"VClip","category":"movement","zh":"垂直穿墙","desc":"沿垂直方向穿墙或传送。"},
+  {"name":"VClip","category":"movement","zh":"垂直穿墙","desc":"沿垂直方向穿墙；发包模式可穿过头顶方块。"},
 
   {"name":"Backtrack","category":"network","zh":"回溯","desc":"攻击目标过去的位置，补偿网络延迟。"},
   {"name":"Blink","category":"network","zh":"数据包滞留","desc":"暂存发出的数据包，然后集中释放。"},

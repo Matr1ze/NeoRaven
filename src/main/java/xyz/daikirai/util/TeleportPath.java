@@ -51,6 +51,47 @@ public final class TeleportPath {
         }
     }
 
+    /**
+     * One-shot vertical clip that deliberately does not use the A* passability search. That
+     * search refuses any node whose head block is solid, which is exactly the ceiling a VClip is
+     * supposed to pass through. A small lateral C04 followed by an onGround=false vertical C04
+     * lets the server accept the Y displacement without trying to walk through the ceiling.
+     */
+    public static boolean clipVertical(double distance, boolean verbose) {
+        if (mc.thePlayer == null || mc.theWorld == null || mc.getNetHandler() == null
+                || distance == 0.0D || Double.isNaN(distance) || Double.isInfinite(distance)) {
+            return false;
+        }
+        double x = mc.thePlayer.posX;
+        double y = mc.thePlayer.posY;
+        double z = mc.thePlayer.posZ;
+        double targetY = y + distance;
+        double yaw = Math.toRadians(mc.thePlayer.rotationYaw);
+        double sideX = Math.sin(yaw) * 0.5D;
+        double sideZ = Math.cos(yaw) * 0.5D;
+
+        PacketUtils.sendNoEvent(new C03PacketPlayer.C04PacketPlayerPosition(
+                x - sideX, y, z + sideZ, true));
+        PacketUtils.sendNoEvent(new C03PacketPlayer.C04PacketPlayerPosition(
+                x, targetY, z, false));
+        PacketUtils.sendNoEvent(new C03PacketPlayer.C04PacketPlayerPosition(
+                x, targetY, z, false));
+        PacketUtils.sendNoEvent(new C03PacketPlayer(false));
+
+        mc.thePlayer.noClip = true;
+        mc.thePlayer.setPosition(x, targetY, z);
+        mc.addScheduledTask(new Runnable() {
+            @Override
+            public void run() {
+                mc.thePlayer.noClip = false;
+            }
+        });
+        if (verbose) {
+            Chat.print("&eClipped &b" + distance + " &eblocks vertically.");
+        }
+        return true;
+    }
+
     public static ArrayList<Point> path(Point from, Point to) {
         if (!isPassable(new BlockPos(from.toVec()))) {
             from = from.add(0.0, 1.0, 0.0);

@@ -32,16 +32,26 @@ public class VClipModule extends Module {
     public void onEnable() {
         Minecraft mc = Minecraft.getMinecraft();
         double d = distance.getInput();
-        if (d != 0.0) {
-            if (sendPackets.enabled) {
-                TeleportPath.teleport(new BlockPos(mc.thePlayer.posX, mc.thePlayer.posY + d, mc.thePlayer.posZ), false);
+        if (mc.thePlayer != null && mc.theWorld != null && d != 0.0) {
+            boolean ceiling = headBlocked(mc);
+            if (sendPackets.isToggled() || ceiling) {
+                if (!TeleportPath.clipVertical(d, false)) {
+                    mc.thePlayer.setPosition(mc.thePlayer.posX, mc.thePlayer.posY + d, mc.thePlayer.posZ);
+                }
             } else {
                 mc.thePlayer.setPosition(mc.thePlayer.posX, mc.thePlayer.posY + d, mc.thePlayer.posZ);
             }
-            if (sendMessage.enabled) {
+            if (sendMessage.isToggled()) {
                 Chat.print("&7Teleported you " + (d > 0.0 ? "upwards" : "downwards") + " &b" + format(d) + " &7blocks.");
             }
         }
         this.disable();
+    }
+
+    /** A solid block intersecting the player's head requires the direct packet clip. */
+    private static boolean headBlocked(Minecraft mc) {
+        BlockPos head = new BlockPos(mc.thePlayer.posX,
+                mc.thePlayer.getEntityBoundingBox().maxY - 0.01D, mc.thePlayer.posZ);
+        return !TeleportPath.isPassable(head);
     }
 }
