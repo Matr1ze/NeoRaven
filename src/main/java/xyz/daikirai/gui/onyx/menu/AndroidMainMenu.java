@@ -57,6 +57,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
     private float dt;
     private long lastFrame;
     private long shownAt;
+    private final NeoRavenSplash splash = new NeoRavenSplash();
 
     private float dockX;
     private float dockY;
@@ -95,6 +96,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
         sheet.set(0.0F);
         lastFrame = 0L;
         shownAt = System.currentTimeMillis();
+        splash.reset();
         layout();
     }
 
@@ -149,6 +151,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
         if (!sheetOpen) {
             MenuStyleSwitch.draw(ui, true, width, height, mouseX, mouseY, dt);
         }
+        splash.draw(ui, width, height);
         ui.end();
     }
 
@@ -293,6 +296,9 @@ public final class AndroidMainMenu extends GuiMainMenu {
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
+        if (splash.active()) {
+            return;
+        }
         if (button != 0) {
             return;
         }
@@ -372,6 +378,9 @@ public final class AndroidMainMenu extends GuiMainMenu {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) {
+        if (splash.active()) {
+            return;
+        }
         if (sheetOpen && keyCode == Keyboard.KEY_ESCAPE) {
             sheetOpen = false;
             return;

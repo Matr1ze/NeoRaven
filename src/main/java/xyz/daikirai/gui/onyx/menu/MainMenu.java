@@ -14,8 +14,9 @@ public final class MainMenu extends GuiMainMenu {
     private UI ui;
     private float scale=1, top;
     private long last;
+    private final NeoRavenSplash splash = new NeoRavenSplash();
     private final List<MenuButton> buttons=new ArrayList<MenuButton>();
-    @Override public void initGui() { if (ui==null) ui=new UI(); layout(); last=0; }
+    @Override public void initGui() { if (ui==null) ui=new UI(); layout(); last=0; splash.reset(); }
     private void layout() {
         OnyxClickGuiModule.sync();
         scale=Theme.screenScale(Math.min(width*0.8F/560,height*0.92F/468.4F));
@@ -48,9 +49,11 @@ public final class MainMenu extends GuiMainMenu {
         ui.text(Typeface.CAPTION,"Minecraft 1.8.9",200,height/scale-29,Material.withAlpha(s.onSurface,0.7F),UI.ALIGN_LEFT);
         ui.pop();
         MenuStyleSwitch.draw(ui,false,width,height,mx,my,dt);
+        splash.draw(ui, width, height);
         ui.end();
     }
     @Override protected void mouseClicked(int x,int y,int button) {
+        if (splash.active()) return;
         if(button!=0) return;
         if(MenuStyleSwitch.click(x,y,width,height)) return;
         for(MenuButton b:buttons) if(b.hit(x/scale,y/scale)) {
@@ -60,6 +63,7 @@ public final class MainMenu extends GuiMainMenu {
     }
     @Override protected void mouseReleased(int x,int y,int b) { }
     @Override protected void keyTyped(char c,int key) {
+        if (splash.active()) return;
         if(MenuStyleSwitch.keyTyped(key)) return;
         if(OnyxClickGuiModule.instance!=null && key!=0 && key==OnyxClickGuiModule.instance.getKeycode())
             mc.displayGuiScreen(new OnyxClickGui());
