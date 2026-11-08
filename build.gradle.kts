@@ -9,6 +9,12 @@ version = "1.2"
 
 java { toolchain.languageVersion.set(JavaLanguageVersion.of(8)) }
 
+// In development runs FML looks for mcmod.info beside the classes. Put processed resources
+// in the same output directory so the mod list shows metadata instead of "No mod information found".
+sourceSets.named("main") {
+    output.resourcesDir = layout.buildDirectory.dir("classes/java/main").get().asFile
+}
+
 loom {
     forge {
         pack200Provider.set(dev.architectury.pack200.java.Pack200Adapter())
