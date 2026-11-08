@@ -1,8 +1,11 @@
 package xyz.daikirai.module.render;
 
+import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.InputEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+import org.lwjgl.input.Keyboard;
 import xyz.daikirai.client.Overlay;
 import xyz.daikirai.gui.KeybindsPositionEditor;
 import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
@@ -85,6 +88,16 @@ public final class KeybindsModule extends Module {
                 }
                 OnyxClickGuiModule.sync();
                 HUD.render(instance, false);
+            }
+
+            @SubscribeEvent
+            public void onKey(InputEvent.KeyInputEvent event) {
+                HUD.onKey(Keyboard.getEventKey(), Keyboard.getEventKeyState());
+            }
+
+            @SubscribeEvent
+            public void onGuiKey(GuiScreenEvent.KeyboardInputEvent.Post event) {
+                HUD.onKey(Keyboard.getEventKey(), Keyboard.getEventKeyState());
             }
         };
         MinecraftForge.EVENT_BUS.register(listener);

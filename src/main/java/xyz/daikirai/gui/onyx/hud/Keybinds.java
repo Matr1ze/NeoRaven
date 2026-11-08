@@ -76,6 +76,9 @@ public final class Keybinds {
     private static final float ROW_STAGGER = 35.0F;
     /** How much of the surface tint covers the blurred world (the ClickGUI panels use 0.88). */
     private static final float BLUR_COVERAGE = 0.55F;
+    private static final int TUTORIAL_TOTAL = 2;
+    private static final int DEFAULT_ZOOM_KEY = 47;
+    private static final int DEFAULT_CLICK_GUI_KEY = 54;
 
     private final UI ui = new UI();
     private final Anim visible = new Anim(0.0F);
@@ -85,6 +88,12 @@ public final class Keybinds {
     private final List<Entry> entries = new ArrayList<Entry>();
 
     private long lastFrame;
+    private Object tutorialWorld;
+    private boolean tutorialZoom;
+    private boolean tutorialGui;
+    private boolean tutorialZoomWasDown;
+    private boolean tutorialGuiWasDown;
+    private boolean dismissed;
     private float x;
     private float y;
     private float w;
@@ -100,10 +109,15 @@ public final class Keybinds {
             return;
         }
         float delta = tick();
+        Minecraft mc = Minecraft.getMinecraft();
+        if (!preview) {
+            syncWorld(mc.theWorld);
+        }
         updateEntries(module, delta);
 
-        boolean active = (preview || module.isEnabled()) && !entries.isEmpty();
-        visible.to(active ? 1.0F : 0.0F, active ? 300.0F : 200.0F, active ? Ease.EMPHASIZED : Ease.DECELERATE);
+        boolean active = (preview || module.isEnabled()) && !dismissed && !entries.isEmpty();
+        visible.to(active ? 1.0F : 0.0F, active ? 300.0F : 260.0F,
+                active ? Ease.EMPHASIZED : Ease.DECELERATE);
         visible.update(delta);
         float fade = visible.value();
         if (fade <= 0.002F) {
@@ -114,7 +128,6 @@ public final class Keybinds {
         }
 
         Scheme scheme = Theme.scheme();
-        Minecraft mc = Minecraft.getMinecraft();
         ScaledResolution resolution = new ScaledResolution(mc);
 
         float keycapWidth = keycapWidth();
@@ -152,7 +165,7 @@ public final class Keybinds {
                 GlStateManager.pushMatrix();
                 mc.entityRenderer.setupOverlayRendering();
             }
-            if (module.frosted() && fade > 0.01F) {
+            if ((module.frosted() || Theme.liquidGlass()) && fade > 0.01F) {
                 // Must run before anything of the card is drawn: prepare() captures the frame,
                 // and the card must not end up blurred into its own backdrop.
                 Blur.prepare();
@@ -182,18 +195,25 @@ public final class Keybinds {
     // Card
     // ------------------------------------------------------------------ //
 
+    /** Draws a surface that turns into liquid glass whenever the ClickGUI setting is enabled. */
+    private void glass(KeybindsModule module, float x, float y, float w, float h, float radius,
+                       int tint, float coverage, float bevel) {
+        if (module.frosted() && !Theme.liquidGlass() && Blur.ready()) {
+            ui.rounded(x, y, w, h, radius, tint);
+            ui.frost(x, y, w, h, radius, tint, coverage);
+        } else {
+            ui.glassSurface(x, y, w, h, radius, tint, coverage, bevel);
+        }
+    }
+
     private void drawCard(KeybindsModule module, Scheme scheme, float width, float height,
                           float targetWidth) {
         // Opaque backing first: the in-world framebuffer carries an alpha channel and the HUD is
         // composited through it, so every surface needs an opaque layer underneath. The frosted
-        // layer is drawn on top of it with a full alpha mask, so it shows the blurred world
-        // without ever writing a partial alpha into the world buffer.
+        // or liquid layer is drawn on top with a full alpha mask.
         int surface = Material.withAlpha(scheme.surfaceContainerHigh, 1.0F);
         ui.shadow(0.0F, 0.0F, width, height, CARD_RADIUS, 3);
-        ui.rounded(0.0F, 0.0F, width, height, CARD_RADIUS, surface);
-        if (module.frosted() && Blur.ready()) {
-            ui.frost(0.0F, 0.0F, width, height, CARD_RADIUS, scheme.surfaceContainerHigh, BLUR_COVERAGE);
-        }
+        glass(module, 0.0F, 0.0F, width, height, CARD_RADIUS, surface, BLUR_COVERAGE, 22.0F);
         // Borderless card: the outline is reserved for the per-row toggle flash.
 
         drawHeader(module, scheme, width);
@@ -211,7 +231,7 @@ public final class Keybinds {
             ui.push();
             ui.alphaPush(show);
             ui.translate(PAD, cursor + (1.0F - show) * 6.0F);
-            drawRow(scheme, entry, width - PAD * 2.0F, keycapWidth, surface,
+            drawRow(module, scheme, entry, width - PAD * 2.0F, keycapWidth, surface,
                     targetWidth - PAD * 2.0F);
             ui.alphaPop();
             ui.pop();
@@ -223,7 +243,8 @@ public final class Keybinds {
     private void drawHeader(KeybindsModule module, Scheme scheme, float width) {
         float top = PAD;
         float iconY = top + (HEADER - HEADER_ICON) / 2.0F;
-        ui.rounded(PAD, iconY, HEADER_ICON, HEADER_ICON, HEADER_ICON_RADIUS, scheme.primaryContainer);
+        glass(module, PAD, iconY, HEADER_ICON, HEADER_ICON, HEADER_ICON_RADIUS,
+                scheme.primaryContainer, 0.32F, 7.0F);
         ui.icon(KEYBOARD_ICON, PAD + HEADER_ICON / 2.0F, iconY + HEADER_ICON / 2.0F, 15.0F,
                 scheme.onPrimaryContainer);
 
@@ -232,18 +253,12 @@ public final class Keybinds {
                 UI.ALIGN_LEFT);
 
         if (module.showCount()) {
-            int enabled = 0;
-            for (Entry entry : entries) {
-                if (entry.wanted && entry.module.isEnabled()) {
-                    enabled++;
-                }
-            }
-            String count = enabled + "/" + entries.size();
+            String count = Math.min(tutorialPressedCount(), TUTORIAL_TOTAL) + "/" + TUTORIAL_TOTAL;
             float countWidth = Typeface.MICRO.width(count) + 14.0F;
             float countX = width - PAD - countWidth;
             float countY = top + (HEADER - HEADER_COUNT_HEIGHT) / 2.0F;
-            ui.rounded(countX, countY, countWidth, HEADER_COUNT_HEIGHT, HEADER_COUNT_HEIGHT / 2.0F,
-                    scheme.secondaryContainer);
+            glass(module, countX, countY, countWidth, HEADER_COUNT_HEIGHT,
+                    HEADER_COUNT_HEIGHT / 2.0F, scheme.secondaryContainer, 0.42F, 6.0F);
             ui.text(Typeface.MICRO, count, countX + countWidth / 2.0F,
                     countY + HEADER_COUNT_HEIGHT / 2.0F, scheme.onSecondaryContainer, UI.ALIGN_CENTER);
         }
@@ -256,15 +271,15 @@ public final class Keybinds {
     // Rows
     // ------------------------------------------------------------------ //
 
-    private void drawRow(Scheme scheme, Entry entry, float width, float keycapWidth, int surface,
-                         float targetWidth) {
-        float t = Material.clamp(entry.state.value(), 0.0F, 1.0F);
+    private void drawRow(KeybindsModule module, Scheme scheme, Entry entry, float width,
+                         float keycapWidth, int surface, float targetWidth) {
+        float t = Material.clamp(Math.max(entry.state.value(), entry.tutorial.value()), 0.0F, 1.0F);
         float radius = ROW_HEIGHT / 2.0F;
 
         int rowOff = Material.mix(surface, scheme.surfaceContainerLow, 0.70F);
         int rowOn = Material.mix(surface, scheme.primaryContainer, 0.85F);
         int rowFill = Material.mix(rowOff, rowOn, t);
-        ui.rounded(0.0F, 0.0F, width, ROW_HEIGHT, radius, rowFill);
+        glass(module, 0.0F, 0.0F, width, ROW_HEIGHT, radius, rowFill, 0.30F, 10.0F);
 
         float flash = Material.clamp(entry.flash.value(), 0.0F, 1.0F);
         if (flash > 0.001F) {
@@ -274,15 +289,15 @@ public final class Keybinds {
                     Material.withAlpha(scheme.primary, 0.55F * flash));
         }
 
-        drawKeycap(scheme, entry, rowFill, t);
+        drawKeycap(module, scheme, entry, rowFill, t);
         // Lay the name out for the wider of the animated and target widths: while the card
         // shrinks (a row was removed) the text keeps its full size instead of flashing an
         // ellipsis, and while it grows the state chip covers the part that is still unused.
         drawName(scheme, entry, Math.max(width, targetWidth), keycapWidth, t);
-        drawStateChip(scheme, entry, width, rowFill, t);
+        drawStateChip(module, scheme, entry, width, rowFill, t);
     }
 
-    private void drawKeycap(Scheme scheme, Entry entry, int rowFill, float t) {
+    private void drawKeycap(KeybindsModule module, Scheme scheme, Entry entry, int rowFill, float t) {
         float keycapWidth = keycapWidth();
         float keycapX = ROW_PAD;
         float keycapY = (ROW_HEIGHT - KEYCAP_HEIGHT) / 2.0F;
@@ -303,7 +318,8 @@ public final class Keybinds {
 
         ui.rounded(0.0F, 1.5F, keycapWidth, KEYCAP_HEIGHT, KEYCAP_RADIUS,
                 Material.mix(fill, scheme.shadow, 0.30F));
-        ui.rounded(0.0F, 0.0F, keycapWidth, KEYCAP_HEIGHT - 1.5F, KEYCAP_RADIUS, fill);
+        glass(module, 0.0F, 0.0F, keycapWidth, KEYCAP_HEIGHT - 1.5F, KEYCAP_RADIUS,
+                fill, 0.34F, 7.0F);
         ui.outline(0.0F, 0.0F, keycapWidth, KEYCAP_HEIGHT - 1.5F, KEYCAP_RADIUS, 1.0F,
                 Material.withAlpha(border, 1.0F - 0.65F * t));
         ui.text(Typeface.CAPTION, entry.label, keycapWidth / 2.0F, (KEYCAP_HEIGHT - 1.5F) / 2.0F,
@@ -320,7 +336,8 @@ public final class Keybinds {
                 Material.mix(scheme.onSurfaceVariant, scheme.onSurface, t), UI.ALIGN_LEFT);
     }
 
-    private void drawStateChip(Scheme scheme, Entry entry, float width, int rowFill, float t) {
+    private void drawStateChip(KeybindsModule module, Scheme scheme, Entry entry, float width,
+                               int rowFill, float t) {
         // Expressive shape morph: the chip grows a few pixels as it fills in, the same gesture
         // Material 3 uses for a selected filter chip.
         float chipWidth = CHIP_WIDTH + CHIP_MORPH * t;
@@ -330,7 +347,8 @@ public final class Keybinds {
 
         int offFill = Material.mix(rowFill, scheme.surfaceContainerHighest, 0.9F);
         int onFill = scheme.primary;
-        ui.rounded(chipX, chipY, chipWidth, CHIP_HEIGHT, radius, Material.mix(offFill, onFill, t));
+        glass(module, chipX, chipY, chipWidth, CHIP_HEIGHT, radius,
+                Material.mix(offFill, onFill, t), 0.36F, 6.0F);
 
         int offText = scheme.onSurfaceVariant;
         int onText = scheme.onPrimary;
@@ -389,6 +407,7 @@ public final class Keybinds {
             entry.refreshLabel();
             entry.show.to(1.0F, 240.0F, Ease.EMPHASIZED_DECELERATE);
             entry.animateToggle(candidate.isEnabled());
+            entry.animateTutorial(tutorialPressed(candidate));
             entry.animatePress(candidate, chatOpen, delta);
             entry.update(delta);
         }
@@ -455,7 +474,8 @@ public final class Keybinds {
         float title = Typeface.HEADLINE.width("Keybinds");
         float header = PAD * 2.0F + HEADER_ICON + HEADER_TITLE_GAP + title;
         if (module.showCount()) {
-            header += 10.0F + Typeface.MICRO.width(entries.size() + "/" + entries.size()) + 14.0F + 8.0F;
+            header += 10.0F + Typeface.MICRO.width(
+                    String.valueOf(TUTORIAL_TOTAL) + "/" + TUTORIAL_TOTAL) + 14.0F + 8.0F;
         }
         return Math.max(MIN_CARD_WIDTH, Math.max(rows, header));
     }
@@ -546,6 +566,7 @@ public final class Keybinds {
         cardHeight.set(PAD * 2.0F + HEADER + 10.0F + ROW_HEIGHT);
         dragging = false;
         lastFrame = 0L;
+        resetOnboarding();
     }
 
     private float tick() {
@@ -553,6 +574,69 @@ public final class Keybinds {
         float delta = lastFrame == 0L ? 16.0F : Math.min((now - lastFrame) / 1000000.0F, 100.0F);
         lastFrame = now;
         return delta;
+    }
+
+    /** Re-show the two-key tutorial whenever the player joins a different world. */
+    private void syncWorld(Object world) {
+        if (world == tutorialWorld) {
+            return;
+        }
+        tutorialWorld = world;
+        reset();
+    }
+
+    /** Counts one V press and one RSHIFT press, then fades the card out. */
+    public void onKey(int key, boolean down) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.theWorld == null || mc.thePlayer == null || mc.currentScreen instanceof GuiChat) {
+            return;
+        }
+        syncWorld(mc.theWorld);
+        int zoomKey = tutorialKey("Zoom", DEFAULT_ZOOM_KEY);
+        int guiKey = tutorialKey("Onyx ClickGUI", DEFAULT_CLICK_GUI_KEY);
+        if (key == zoomKey) {
+            if (down && !tutorialZoomWasDown) {
+                tutorialZoom = true;
+            }
+            tutorialZoomWasDown = down;
+        }
+        if (key == guiKey) {
+            if (down && !tutorialGuiWasDown) {
+                tutorialGui = true;
+            }
+            tutorialGuiWasDown = down;
+        }
+        if (tutorialZoom && tutorialGui) {
+            dismissed = true;
+        }
+    }
+
+    private static int tutorialKey(String name, int fallback) {
+        Module module = ModuleManager.get(name);
+        int key = module == null ? 0 : module.getKeycode();
+        return key > 0 ? key : fallback;
+    }
+
+    private boolean tutorialPressed(Module module) {
+        if (module == null) {
+            return false;
+        }
+        Module zoom = ModuleManager.get("Zoom");
+        Module gui = ModuleManager.get("Onyx ClickGUI");
+        return zoom != null && module == zoom && tutorialZoom
+                || gui != null && module == gui && tutorialGui;
+    }
+
+    private int tutorialPressedCount() {
+        return (tutorialZoom ? 1 : 0) + (tutorialGui ? 1 : 0);
+    }
+
+    private void resetOnboarding() {
+        tutorialZoom = false;
+        tutorialGui = false;
+        tutorialZoomWasDown = false;
+        tutorialGuiWasDown = false;
+        dismissed = false;
     }
 
     private static void restoreHudState() {
@@ -570,6 +654,7 @@ public final class Keybinds {
         private final Anim state = new Anim(0.0F);
         private final Anim show = new Anim(0.0F);
         private final Anim flash = new Anim(0.0F);
+        private final Anim tutorial = new Anim(0.0F);
         private final Spring pop = new Spring(1.0F);
         private final Spring press = new Spring(0.0F);
         private String label;
@@ -607,9 +692,13 @@ public final class Keybinds {
         }
 
         private void animatePress(Module candidate, boolean chatOpen, float delta) {
-            boolean down = !chatOpen && candidate.isEnabled() && isDown(candidate.getKeycode());
+            boolean down = !chatOpen && isDown(candidate.getKeycode());
             this.press.target(down ? 1.0F : 0.0F);
             this.press.update(delta);
+        }
+
+        private void animateTutorial(boolean pressed) {
+            this.tutorial.to(pressed ? 1.0F : 0.0F, 260.0F, Ease.EMPHASIZED_DECELERATE);
         }
 
         private void update(float delta) {
@@ -619,6 +708,7 @@ public final class Keybinds {
                 this.show.update(delta);
             }
             this.state.update(delta);
+            this.tutorial.update(delta);
             this.flash.update(delta);
             this.pop.update(delta);
         }

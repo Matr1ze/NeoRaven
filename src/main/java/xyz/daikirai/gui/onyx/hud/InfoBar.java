@@ -94,17 +94,21 @@ public final class InfoBar {
         Scheme scheme = Theme.scheme();
         ui.begin();
         try {
-            if (module.frosted() && fade > 0.01F) {
+            if ((module.frosted() || Theme.liquidGlass()) && fade > 0.01F) {
                 Blur.prepare();
             }
             ui.alphaPush(fade);
             float radius = HEIGHT / 2.0F;
             ui.shadow(lastX, lastY, width, HEIGHT, radius, 2);
-            ui.rounded(lastX, lastY, width, HEIGHT, radius,
-                    Material.withAlpha(scheme.surfaceContainerHigh, module.frosted() ? 0.90F : 0.97F));
-            if (module.frosted() && Blur.ready()) {
+            if (module.frosted() && !Theme.liquidGlass() && Blur.ready()) {
+                ui.rounded(lastX, lastY, width, HEIGHT, radius,
+                        Material.withAlpha(scheme.surfaceContainerHigh, 0.90F));
                 ui.frost(lastX, lastY, width, HEIGHT, radius, scheme.surfaceContainerHigh,
                         FROST_COVERAGE);
+            } else {
+                ui.glassSurface(lastX, lastY, width, HEIGHT, radius,
+                        Material.withAlpha(scheme.surfaceContainerHigh, 0.97F),
+                        FROST_COVERAGE, 10.0F);
             }
             // Borderless surface, matching the rest of the ported HUD.
 

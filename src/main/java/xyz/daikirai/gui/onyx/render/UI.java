@@ -481,7 +481,7 @@ public final class UI {
     public void glassSurface(float x, float y, float w, float h, float radius,
                              int tint, float coverage, float bevel) {
         rounded(x, y, w, h, radius, tint);
-        if (!Theme.frost() || !Theme.liquidGlass() || !Blur.ready()) {
+        if (!Theme.liquidGlass() || !Blur.ready()) {
             return;
         }
         if (!liquidGlass(x, y, w, h, radius, tint, coverage, bevel)) {
