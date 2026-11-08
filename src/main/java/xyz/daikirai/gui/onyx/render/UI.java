@@ -183,10 +183,10 @@ public final class UI {
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
         GL11.glColor4f(1.0F, 1.0F, 1.0F, Material.clamp(alpha, 0.0F, 1.0F));
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glTexCoord2f(0.0F, 1.0F); GL11.glVertex2f(x1, y1);
-        GL11.glTexCoord2f(0.0F, 0.0F); GL11.glVertex2f(x2, y2);
-        GL11.glTexCoord2f(1.0F, 0.0F); GL11.glVertex2f(x3, y3);
-        GL11.glTexCoord2f(1.0F, 1.0F); GL11.glVertex2f(x4, y4);
+        GL11.glTexCoord2f(1.0F, 0.0F); GL11.glVertex2f(x1, y1);
+        GL11.glTexCoord2f(1.0F, 1.0F); GL11.glVertex2f(x2, y2);
+        GL11.glTexCoord2f(0.0F, 1.0F); GL11.glVertex2f(x3, y3);
+        GL11.glTexCoord2f(0.0F, 0.0F); GL11.glVertex2f(x4, y4);
         GL11.glEnd();
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.disableTexture2D();

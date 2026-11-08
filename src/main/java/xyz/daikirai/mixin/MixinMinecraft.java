@@ -40,7 +40,7 @@ public class MixinMinecraft {
     }
 
     private static void neoraven$applyWindowBranding() {
-        Display.setTitle("NeoRaven1.2");
+        Display.setTitle("NeoRaven 1.2");
         try (InputStream input = Minecraft.class.getResourceAsStream("/assets/clickgui/textures/raven.png")) {
             if (input == null) return;
             BufferedImage source = ImageIO.read(input);
@@ -59,7 +59,8 @@ public class MixinMinecraft {
         ByteBuffer pixels = ByteBuffer.allocateDirect(size * size * 4);
         for (int y = size - 1; y >= 0; --y) {
             for (int x = 0; x < size; ++x) {
-                int argb = scaled.getRGB(x, y);
+                // Rotate the source artwork 180 degrees, then apply LWJGL's bottom-up row order.
+                int argb = scaled.getRGB(size - 1 - x, size - 1 - y);
                 pixels.put((byte) (argb >> 16));
                 pixels.put((byte) (argb >> 8));
                 pixels.put((byte) argb);
