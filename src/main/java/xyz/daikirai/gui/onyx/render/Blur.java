@@ -1,6 +1,7 @@
 package xyz.daikirai.gui.onyx.render;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.texture.TextureUtil;
@@ -34,6 +35,7 @@ public final class Blur {
     private static final int FRAMEBUFFER_BINDING = 0x8CA6;
 
     private static Shader shader;
+    private static UI hudFrostUi;
     private static boolean available = true;
     private static boolean prepared;
     private static long preparedAt;
@@ -98,10 +100,51 @@ public final class Blur {
                 // With a GUI screen open the ClickGUI/backdrop path performs its own capture.
                 if (Overlay.canRender()) {
                     prepare();
+                    if (Theme.frost() && !Theme.liquidGlass() && ready()) {
+                        renderHudFrost();
+                    }
                 }
             }
         };
         MinecraftForge.EVENT_BUS.register(ticker);
+    }
+
+    /**
+     * Frosted-glass backdrop for the in-world HUD. This mirrors
+     * {@code OnyxClickGui.drawBackdrop()} when liquid glass is off: composite the already captured
+     * blurred scene full-screen, then add a light scrim so HUD text stays readable. It runs before
+     * the crosshair and every custom HUD element.
+     */
+    private static void renderHudFrost() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.theWorld == null || mc.thePlayer == null || !Display.isVisible()) {
+            return;
+        }
+        if (hudFrostUi == null) {
+            hudFrostUi = new UI();
+        }
+        if (!UI.frostAvailable()) {
+            return;
+        }
+        ScaledResolution resolution = new ScaledResolution(mc);
+        float width = resolution.getScaledWidth();
+        float height = resolution.getScaledHeight();
+        try (HandState ignored = new HandState()) {
+            GlStateManager.pushMatrix();
+            try {
+                mc.entityRenderer.setupOverlayRendering();
+                hudFrostUi.begin();
+                try {
+                    hudFrostUi.frost(0.0F, 0.0F, width, height, 0.0F,
+                            Theme.scheme().surface, 0.0F);
+                    hudFrostUi.rect(0.0F, 0.0F, width, height, Theme.scrim(0.25F));
+                } finally {
+                    hudFrostUi.end();
+                }
+            } finally {
+                GlStateManager.popMatrix();
+            }
+        }
     }
 
     /** Marks the next frame as needing a fresh blur (Onyx's {@code Util3.run4}). */

@@ -85,6 +85,11 @@ public final class UI {
         }
     }
 
+    /** Whether the frost shader compiled; used before drawing a full-screen HUD backdrop. */
+    public static boolean frostAvailable() {
+        return frostShader != null && frostShader.valid();
+    }
+
     // ------------------------------------------------------------------ //
     // Frame / state handling
     // ------------------------------------------------------------------ //
@@ -511,7 +516,10 @@ public final class UI {
             }
             rounded(x, y, w, h, radius, tint);
             if (Theme.frost()) {
-                frost(x, y, w, h, radius, tint, DEFAULT_TINT_COVERAGE);
+                // HUD surfaces pass rimStrength == 0. Keep their lower coverage so the blurred
+                // backdrop actually shows through; ClickGUI controls keep the 0.88 panel tint.
+                float frostCoverage = rimStrength <= 0.001F ? coverage : DEFAULT_TINT_COVERAGE;
+                frost(x, y, w, h, radius, tint, frostCoverage);
             }
             return;
         }
