@@ -59,6 +59,8 @@ public final class Scaffold2Rise {
     private static final int RAY_OFF = 0;
     private static final int RAY_NORMAL = 1;
     private static final int RAY_STRICT = 2;
+    private static final int BRIDGE_AUTO = 0;
+    private static final int BRIDGE_SAFE_MANUAL = 1;
 
     private final Scaffold2Module host;
     private final List<Setting> settings = new ArrayList<Setting>();
@@ -87,6 +89,7 @@ public final class Scaffold2Rise {
     private final ButtonSetting upSideDown = flag("Up Side Down", false);
     private final ButtonSetting bypassRaycastWhenFalling = flag("Bypass Raycast When Falling", false);
     private final ButtonSetting advanced = flag("Advanced", false);
+    private final SliderSetting bridgeMode = mode("Bridge Mode", BRIDGE_AUTO, "Auto", "Safe Manual");
 
     private boolean active;
     private int blockSlot = -1;
@@ -174,6 +177,10 @@ public final class Scaffold2Rise {
 
     private int yawOffsetIndex() {
         return (int) yawOffset.getInput();
+    }
+
+    private int bridgeModeIndex() {
+        return (int) bridgeMode.getInput();
     }
 
     // ------------------------------------------------------------------ //
@@ -329,9 +336,22 @@ public final class Scaffold2Rise {
             canPlace = false;
             return;
         }
+        if (bridgeModeIndex() == BRIDGE_SAFE_MANUAL) {
+            // Safe Manual never takes over movement or jumps. Placement is armed only while the
+            // player is actively aiming at the support face, which prevents blind edge drops.
+            MovingObjectPosition aimed = mc.objectMouseOver;
+            canPlace = aimed != null
+                    && aimed.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK
+                    && aimed.getBlockPos() != null
+                    && aimed.getBlockPos().equals(data.blockPos);
+        }
         switch (modeIndex()) {
             case MODE_TELLY:
-                canPlace = tellyReady();
+                // Safe Manual is deliberately independent of the Telly jump rhythm: the user
+                // controls movement and aiming, while the module only handles the placement.
+                if (bridgeModeIndex() != BRIDGE_SAFE_MANUAL) {
+                    canPlace = canPlace && tellyReady();
+                }
                 break;
             case MODE_SNAP:
                 canPlace = !mc.thePlayer.onGround || mc.thePlayer.motionY < -0.1;
@@ -361,13 +381,18 @@ public final class Scaffold2Rise {
     }
 
     private void applySameY() {
+        if (bridgeModeIndex() == BRIDGE_SAFE_MANUAL) {
+            return;
+        }
         if (sameYIndex() == SAME_Y_AUTO_JUMP && mc.thePlayer.onGround && PlayerUtils.isMoving()
                 && !mc.gameSettings.keyBindJump.isKeyDown() && !towering()) {
             PlayerUtils.jump();
         }
         if (modeIndex() == MODE_TELLY && mc.thePlayer.onGround && PlayerUtils.isMoving()
                 && !mc.gameSettings.keyBindJump.isKeyDown()) {
-            tellyTicks = MathUtils.randomInt(0, 1);
+            // A fixed one-tick rhythm is considerably more reliable at sprint speed than the
+            // old random 0/1 delay, which could leave the player over an empty block.
+            tellyTicks = 0;
             PlayerUtils.jump();
         }
     }
@@ -548,11 +573,17 @@ public final class Scaffold2Rise {
                 // already verified to hit this face, so a strict raycast cannot stall placement.
                 hit = PlayerUtils.rayTraceBlock(data.blockPos, data.facing, reach, targetYaw, targetPitch);
             }
-            if (hit == null) {
+            if (hit == null && modeIndex() != MODE_TELLY) {
                 return;
             }
         }
         Vec3 facePoint = facePoint(data);
+        if (hit == null) {
+            // The exact face rotation is already validated by updateRotation. Use it as a final
+            // placement path when smoothing lags behind the target by one client tick.
+            hit = new MovingObjectPosition(MovingObjectPosition.MovingObjectType.BLOCK,
+                    facePoint, data.facing, data.blockPos);
+        }
         MovingObjectPosition placement = hit != null ? hit
                 : new MovingObjectPosition(MovingObjectPosition.MovingObjectType.BLOCK, facePoint, data.facing, data.blockPos);
         ItemStack stack = mc.thePlayer.inventory.getStackInSlot(blockSlot);
@@ -619,7 +650,8 @@ public final class Scaffold2Rise {
                 mc.thePlayer.movementInput.moveStrafe *= (float) sneakingSpeed.getInput();
             }
         }
-        if (safeWalk.isToggled() && mc.thePlayer.onGround && PlayerUtils.nearEdge(0.25)
+        if ((safeWalk.isToggled() || bridgeModeIndex() == BRIDGE_SAFE_MANUAL)
+                && mc.thePlayer.onGround && PlayerUtils.nearEdge(0.25)
                 && !mc.gameSettings.keyBindSneak.isKeyDown()) {
             mc.thePlayer.movementInput.sneak = true;
         }
