@@ -118,6 +118,8 @@ public final class Scaffold2Rise {
     private double tellyDistance;
     private double tellyLastX;
     private double tellyLastZ;
+    private float tellyYaw;
+    private boolean wasOnGround;
 
     public Scaffold2Rise(Scaffold2Module host) {
         this.host = host;
@@ -222,6 +224,8 @@ public final class Scaffold2Rise {
         tellyDistance = 0.0;
         tellyLastX = mc.thePlayer.posX;
         tellyLastZ = mc.thePlayer.posZ;
+        tellyYaw = mc.thePlayer.rotationYaw;
+        wasOnGround = mc.thePlayer.onGround;
     }
 
     public void onDisable() {
@@ -252,15 +256,28 @@ public final class Scaffold2Rise {
             stop();
             return;
         }
+        boolean landed = mc.thePlayer.onGround && !wasOnGround;
         if (mc.thePlayer.onGround) {
             ++onGroundTicks;
             offGroundTicks = 0;
-            tellyJumpActive = mc.gameSettings.keyBindJump.isKeyDown() && PlayerUtils.isMoving();
-            tellyPlaced = false;
-            tellyDistance = 0.0;
+            if (landed || (!tellyJumpActive && !tellyPlaced)) {
+                tellyPlaced = false;
+                tellyDistance = 0.0;
+            }
+            if (mc.gameSettings.keyBindJump.isKeyDown() && PlayerUtils.isMoving()) {
+                tellyJumpActive = true;
+                tellyYaw = PlayerUtils.movementAngle();
+            } else if (landed) {
+                tellyJumpActive = false;
+            }
         } else {
             ++offGroundTicks;
             onGroundTicks = 0;
+            if (!tellyJumpActive && !tellyPlaced && offGroundTicks <= 2
+                    && mc.gameSettings.keyBindJump.isKeyDown() && PlayerUtils.isMoving()) {
+                tellyJumpActive = true;
+                tellyYaw = PlayerUtils.movementAngle();
+            }
             if (tellyJumpActive) {
                 tellyDistance += Math.sqrt(
                         Math.pow(mc.thePlayer.posX - tellyLastX, 2.0)
@@ -269,6 +286,7 @@ public final class Scaffold2Rise {
         }
         tellyLastX = mc.thePlayer.posX;
         tellyLastZ = mc.thePlayer.posZ;
+        wasOnGround = mc.thePlayer.onGround;
 
         int slot = findBlockSlot();
         if (slot == -1) {
@@ -281,7 +299,9 @@ public final class Scaffold2Rise {
             begin();
         }
         blockSlot = slot;
-        if (mc.thePlayer.inventory.currentItem != blockSlot) {
+        // Telly is a manual jump: never pin the selected hotbar slot while the player travels.
+        // The block is selected silently only for the actual return placement below.
+        if (modeIndex() != MODE_TELLY && mc.thePlayer.inventory.currentItem != blockSlot) {
             PlayerUtils.setSlot(blockSlot, true);
         }
         if (mc.thePlayer.onGround) {
@@ -397,8 +417,10 @@ public final class Scaffold2Rise {
         if (modeIndex() != MODE_TELLY) {
             return true;
         }
-        return tellyJumpActive && !tellyPlaced && tellyDistance >= 4.5
-                && mc.thePlayer.motionY < -0.02;
+        // Four and a half blocks is beyond the useful airborne window for most normal jumps.
+        // Keep a short falling window so rotation/placement can recover from a one-tick ray miss.
+        return tellyJumpActive && !tellyPlaced && tellyDistance >= 2.8
+                && offGroundTicks >= 4 && mc.thePlayer.motionY < 0.08;
     }
 
     private void applySameY() {
@@ -506,7 +528,7 @@ public final class Scaffold2Rise {
             yaw = Math.round((PlayerUtils.movementAngle() + 180.0f) / 45.0f) * 45.0f;
             pitch = (float) MathUtils.randomBetween(74.0, 82.0);
         } else if (modeIndex() == MODE_TELLY) {
-            yaw = PlayerUtils.movementAngle() + 180.0f + randomYawOffset;
+            yaw = tellyYaw + 180.0f + randomYawOffset;
             if (offGroundTicks <= 1) {
                 pitch = 90.0f;
             } else if (mc.thePlayer.motionY > 0.0) {
@@ -608,8 +630,14 @@ public final class Scaffold2Rise {
         }
         MovingObjectPosition placement = hit != null ? hit
                 : new MovingObjectPosition(MovingObjectPosition.MovingObjectType.BLOCK, facePoint, data.facing, data.blockPos);
+        int selectedSlot = mc.thePlayer.inventory.currentItem;
+        boolean temporaryTellySlot = modeIndex() == MODE_TELLY && selectedSlot != blockSlot;
+        if (temporaryTellySlot) {
+            PlayerUtils.setSlot(blockSlot, true);
+        }
         ItemStack stack = mc.thePlayer.inventory.getStackInSlot(blockSlot);
         if (stack == null || stack.stackSize <= 0) {
+            if (temporaryTellySlot) PlayerUtils.setSlot(selectedSlot, true);
             return;
         }
         if (rotationModeIndex() == 1) {
@@ -625,6 +653,9 @@ public final class Scaffold2Rise {
         } else {
             PlayerUtils.place(placement, stack);
             PlayerUtils.swing(false, true);
+        }
+        if (temporaryTellySlot) {
+            PlayerUtils.setSlot(selectedSlot, true);
         }
         ++blocksPlaced;
         if (modeIndex() == MODE_TELLY) {

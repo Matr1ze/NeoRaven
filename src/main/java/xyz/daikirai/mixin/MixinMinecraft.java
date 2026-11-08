@@ -16,6 +16,11 @@ import xyz.daikirai.gui.onyx.render.GuiFont;
 import xyz.daikirai.gui.onyx.render.GuiOpenAnimation;
 
 import java.io.IOException;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import javax.imageio.ImageIO;
 
 @Mixin(Minecraft.class)
 public class MixinMinecraft {
@@ -23,6 +28,38 @@ public class MixinMinecraft {
     private static final int HIDDEN_FPS = 20;
 
     @Shadow public GuiScreen currentScreen;
+
+    @Inject(method = "startGame", at = @At("RETURN"))
+    private void neoraven$windowBranding(CallbackInfo ci) {
+        Display.setTitle("NeoRaven1.2");
+        try (InputStream input = Minecraft.class.getResourceAsStream("/assets/clickgui/textures/raven.png")) {
+            if (input == null) return;
+            BufferedImage source = ImageIO.read(input);
+            if (source == null) return;
+            Display.setIcon(new ByteBuffer[]{iconPixels(source, 16), iconPixels(source, 32)});
+        } catch (Exception ignored) {
+            // A missing/invalid custom icon must not prevent the client from starting.
+        }
+    }
+
+    private static ByteBuffer iconPixels(BufferedImage source, int size) {
+        BufferedImage scaled = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = scaled.createGraphics();
+        graphics.drawImage(source, 0, 0, size, size, null);
+        graphics.dispose();
+        ByteBuffer pixels = ByteBuffer.allocateDirect(size * size * 4);
+        for (int y = size - 1; y >= 0; --y) {
+            for (int x = 0; x < size; ++x) {
+                int argb = scaled.getRGB(x, y);
+                pixels.put((byte) (argb >> 16));
+                pixels.put((byte) (argb >> 8));
+                pixels.put((byte) argb);
+                pixels.put((byte) (argb >> 24));
+            }
+        }
+        pixels.flip();
+        return pixels;
+    }
 
     @Inject(method = "displayGuiScreen", at = @At("RETURN"))
     private void onyx$screenOpened(GuiScreen requested, CallbackInfo ci) {
