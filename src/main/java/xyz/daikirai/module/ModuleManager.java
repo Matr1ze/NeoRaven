@@ -248,6 +248,7 @@ public final class ModuleManager {
             case "AntiCheat": return new xyz.daikirai.module.other.AntiCheatModule(key);
             case "Onyx ClickGUI": return new xyz.daikirai.gui.onyx.OnyxClickGuiModule(key);
             case "Music Player": return new xyz.daikirai.music.MusicModule(key);
+            case "Lyrics": return new xyz.daikirai.music.LyricsModule(key);
             case "Watermark": return new xyz.daikirai.module.render.WatermarkModule(key);
             case "Keybinds": return new xyz.daikirai.module.render.KeybindsModule(key);
             case "CustomGui": return new xyz.daikirai.module.render.CustomGuiModule(key);

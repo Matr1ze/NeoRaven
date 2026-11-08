@@ -141,6 +141,7 @@
   {"name":"Hit Particles","category":"other","zh":"攻击粒子","desc":"自定义攻击命中时的粒子效果。"},
   {"name":"Latency Alerts","category":"other","zh":"延迟提醒","desc":"检测丢包和延迟并发出提醒。"},
   {"name":"Music Player","category":"other","zh":"音乐播放器","desc":"网易云音乐播放器和同步歌词。"},
+  {"name":"Lyrics","category":"render","zh":"歌词显示","desc":"在玩家周围的世界空间显示固定位置的同步歌词。"},
   {"name":"Name Hider","category":"other","zh":"名称隐藏","desc":"隐藏或替换其他玩家的名称。"},
   {"name":"Test","category":"other","zh":"测试模块","desc":"用于测试和调试的模块。"},
   {"name":"View Packets","category":"other","zh":"数据包查看","desc":"显示客户端收发的网络数据包。"},

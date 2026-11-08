@@ -9892,6 +9892,72 @@
     ]
   },
   {
+    "cls": "R1001",
+    "name": "Lyrics",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": true,
+    "failed": null,
+    "settings": [
+      {
+        "t": "slider",
+        "name": "Distance",
+        "prefix": "",
+        "suffix": "m",
+        "value": 10.0,
+        "min": 5.0,
+        "max": 120.0,
+        "step": 1.0,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Side offset",
+        "prefix": "",
+        "suffix": "m",
+        "value": 4.0,
+        "min": -20.0,
+        "max": 20.0,
+        "step": 0.5,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Height",
+        "prefix": "",
+        "suffix": "m",
+        "value": 1.5,
+        "min": -2.0,
+        "max": 10.0,
+        "step": 0.1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Scale",
+        "prefix": "",
+        "suffix": "x",
+        "value": 1.0,
+        "min": 0.5,
+        "max": 3.0,
+        "step": 0.05,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Show translation",
+        "value": true
+      }
+    ]
+  },
+  {
     "cls": "R777",
     "name": "Disabler",
     "category": "other",
