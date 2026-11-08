@@ -2,11 +2,16 @@ package xyz.daikirai.music;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.Entity;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL14;
 import xyz.daikirai.gui.onyx.render.Typeface;
 
+import java.nio.FloatBuffer;
 import java.util.List;
 
 /**
@@ -106,36 +111,24 @@ final class LyricsWorld {
         float scale = BASE_SCALE * clamp(module.scale(), 0.5F, 3.0F)
                 * (1.0F + distance / 90.0F);
 
-        GlStateManager.pushMatrix();
-        try {
-            GlStateManager.translate(anchorX - renderManager.viewerPosX,
-                    anchorY - renderManager.viewerPosY, anchorZ - renderManager.viewerPosZ);
-            GlStateManager.rotate(-renderManager.playerViewY, 0.0F, 1.0F, 0.0F);
-            GlStateManager.rotate(renderManager.playerViewX, 1.0F, 0.0F, 0.0F);
-            GlStateManager.scale(-scale, -scale, scale);
+        try (State state = new State()) {
+            state.prepare();
+            GlStateManager.pushMatrix();
+            try {
+                GlStateManager.translate(anchorX - renderManager.viewerPosX,
+                        anchorY - renderManager.viewerPosY, anchorZ - renderManager.viewerPosZ);
+                GlStateManager.rotate(-renderManager.playerViewY, 0.0F, 1.0F, 0.0F);
+                GlStateManager.rotate(renderManager.playerViewX, 1.0F, 0.0F, 0.0F);
+                GlStateManager.scale(-scale, -scale, scale);
 
-            GlStateManager.disableDepth();
-            GlStateManager.depthMask(false);
-            GlStateManager.disableFog();
-            GlStateManager.enableBlend();
-            GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
-            GlStateManager.disableLighting();
-            GlStateManager.disableAlpha();
-
-            drawShadowed(lineStyle, lineText, textLeft, 0.0F, lineColor, shadowColor);
-            if (!lineTranslation.isEmpty()) {
-                drawShadowed(translationStyle, lineTranslation, textLeft, translationY,
-                        translationColor, shadowColor);
+                drawShadowed(lineStyle, lineText, textLeft, 0.0F, lineColor, shadowColor);
+                if (!lineTranslation.isEmpty()) {
+                    drawShadowed(translationStyle, lineTranslation, textLeft, translationY,
+                            translationColor, shadowColor);
+                }
+            } finally {
+                GlStateManager.popMatrix();
             }
-        } finally {
-            GlStateManager.enableAlpha();
-            GlStateManager.enableLighting();
-            GlStateManager.enableFog();
-            GlStateManager.disableBlend();
-            GlStateManager.depthMask(true);
-            GlStateManager.enableDepth();
-            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-            GlStateManager.popMatrix();
         }
     }
 
@@ -176,5 +169,150 @@ final class LyricsWorld {
 
     private static float clamp(float value, float min, float max) {
         return value < min ? min : value > max ? max : value;
+    }
+
+    /**
+     * Preserves every global render switch the lyric text touches. The previous implementation
+     * unconditionally re-enabled fog, lighting, alpha and depth afterwards, which tinted the whole
+     * world whenever the module was active. Both the raw GL state and GlStateManager's cached
+     * switches are restored here.
+     */
+    private static final class State implements AutoCloseable {
+        private final int activeUnit;
+        private final int activeTexture;
+        private final boolean activeTextured;
+        private final int program;
+        private final int[] units = {OpenGlHelper.defaultTexUnit, OpenGlHelper.lightmapTexUnit};
+        private final int[] textures = new int[2];
+        private final boolean[] textured = new boolean[2];
+        private final boolean blend;
+        private final boolean alphaTest;
+        private final boolean depthTest;
+        private final boolean lighting;
+        private final boolean fog;
+        private final boolean cull;
+        private final boolean colorMaterial;
+        private final boolean depthMask;
+        private final int depthFunc;
+        private final int alphaFunc;
+        private final float alphaRef;
+        private final int blendSrc;
+        private final int blendDst;
+        private final int blendSrcAlpha;
+        private final int blendDstAlpha;
+        private final int shade;
+        private final float[] color;
+
+        State() {
+            activeUnit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+            activeTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            activeTextured = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+            program = GL11.glGetInteger(0x8B8D);
+            blend = GL11.glIsEnabled(GL11.GL_BLEND);
+            alphaTest = GL11.glIsEnabled(GL11.GL_ALPHA_TEST);
+            depthTest = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+            lighting = GL11.glIsEnabled(GL11.GL_LIGHTING);
+            fog = GL11.glIsEnabled(GL11.GL_FOG);
+            cull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+            colorMaterial = GL11.glIsEnabled(GL11.GL_COLOR_MATERIAL);
+            depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+            depthFunc = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
+            alphaFunc = GL11.glGetInteger(GL11.GL_ALPHA_TEST_FUNC);
+            alphaRef = GL11.glGetFloat(GL11.GL_ALPHA_TEST_REF);
+            blendSrc = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
+            blendDst = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
+            blendSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
+            blendDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+            shade = GL11.glGetInteger(GL11.GL_SHADE_MODEL);
+            FloatBuffer buffer = BufferUtils.createFloatBuffer(16);
+            GL11.glGetFloat(GL11.GL_CURRENT_COLOR, buffer);
+            color = new float[]{buffer.get(0), buffer.get(1), buffer.get(2), buffer.get(3)};
+            for (int i = 0; i < units.length; i++) {
+                GlStateManager.setActiveTexture(units[i]);
+                textures[i] = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+                textured[i] = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+            }
+            GlStateManager.setActiveTexture(activeUnit);
+        }
+
+        void prepare() {
+            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+            GlStateManager.enableTexture2D();
+            GlStateManager.disableDepth();
+            GlStateManager.depthMask(false);
+            GlStateManager.disableFog();
+            GlStateManager.disableLighting();
+            GlStateManager.disableCull();
+            GlStateManager.disableColorMaterial();
+            GlStateManager.disableAlpha();
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA,
+                    GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        }
+
+        @Override
+        public void close() {
+            if (blend) {
+                GlStateManager.enableBlend();
+            } else {
+                GlStateManager.disableBlend();
+            }
+            if (alphaTest) {
+                GlStateManager.enableAlpha();
+            } else {
+                GlStateManager.disableAlpha();
+            }
+            if (depthTest) {
+                GlStateManager.enableDepth();
+            } else {
+                GlStateManager.disableDepth();
+            }
+            if (lighting) {
+                GlStateManager.enableLighting();
+            } else {
+                GlStateManager.disableLighting();
+            }
+            if (fog) {
+                GlStateManager.enableFog();
+            } else {
+                GlStateManager.disableFog();
+            }
+            if (cull) {
+                GlStateManager.enableCull();
+            } else {
+                GlStateManager.disableCull();
+            }
+            if (colorMaterial) {
+                GlStateManager.enableColorMaterial();
+            } else {
+                GlStateManager.disableColorMaterial();
+            }
+            GlStateManager.depthMask(depthMask);
+            GlStateManager.depthFunc(depthFunc);
+            GlStateManager.alphaFunc(alphaFunc, alphaRef);
+            GlStateManager.tryBlendFuncSeparate(blendSrc, blendDst, blendSrcAlpha, blendDstAlpha);
+            GlStateManager.shadeModel(shade);
+            GlStateManager.resetColor();
+            GlStateManager.color(color[0], color[1], color[2], color[3]);
+            GL11.glColor4f(color[0], color[1], color[2], color[3]);
+
+            for (int i = 0; i < units.length; i++) {
+                GlStateManager.setActiveTexture(units[i]);
+                GlStateManager.bindTexture(textures[i]);
+                if (textured[i]) {
+                    GlStateManager.enableTexture2D();
+                } else {
+                    GlStateManager.disableTexture2D();
+                }
+            }
+            GlStateManager.setActiveTexture(activeUnit);
+            GlStateManager.bindTexture(activeTexture);
+            if (activeTextured) {
+                GlStateManager.enableTexture2D();
+            } else {
+                GlStateManager.disableTexture2D();
+            }
+            OpenGlHelper.glUseProgram(program);
+        }
     }
 }
