@@ -154,10 +154,14 @@ public final class HandOutlineRenderer {
             GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
             GL11.glEnable(GL11.GL_BLEND);
             if (trail) {
-                // The feedback buffer is premultiplied, so it composites additively as-is.
-                OpenGlHelper.glBlendFunc(GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ONE);
+                // The feedback buffer is premultiplied. Blend it over the scene with the matching
+                // premultiplied formula instead of adding it; additive blending left a white,
+                // decaying smear everywhere the hand had been.
+                OpenGlHelper.glBlendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                        GL11.GL_ZERO, GL11.GL_ONE);
             } else {
-                OpenGlHelper.glBlendFunc(770, 771, 1, 771);
+                OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                        GL11.GL_ZERO, GL11.GL_ONE);
             }
             blit.use(); blit.uniform1i("Sampler0", 0);
             draw(source);

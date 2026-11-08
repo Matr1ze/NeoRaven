@@ -26,7 +26,7 @@ public final class HandOutlineModule extends VisualModule {
     public final SliderSetting padding = slider("Padding", 16, 0, 20, 1, " px");
     public final SliderSetting smoothing = slider("Smoothing", 30, 0, 32, .5, " px");
     public final SliderSetting speed = slider("Speed", 1, .1, 5, .05, "x");
-    public final ButtonSetting trail = toggle("Trail", true);
+    public final ButtonSetting trail = toggle("Trail", false);
     public final SliderSetting trailFade = slider("Trail fade", 91, 55, 98, 1, "%");
     public final SliderSetting trailIntensity = slider("Trail intensity", 85, 10, 150, 1, "%");
     private final HandOutlineRenderer renderer = new HandOutlineRenderer();
