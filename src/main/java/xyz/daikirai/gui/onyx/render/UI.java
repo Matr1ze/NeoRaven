@@ -12,6 +12,7 @@ import org.lwjgl.util.glu.GLU;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
+import xyz.daikirai.render.HandState;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -452,39 +453,48 @@ public final class UI {
         Minecraft mc = Minecraft.getMinecraft();
         int color = applyAlpha(tint);
 
-        GlStateManager.disableTexture2D();
-        GlStateManager.bindTexture(Blur.texture());
-        GlStateManager.enableTexture2D();
-        frostShader.use();
-        frostShader.uniform1i("Sampler0", 0);
-        frostShader.uniform2f("uHalfExtents", w / 2.0F, h / 2.0F);
-        frostShader.uniform4f("uCornerRadii", tl, tr, br, bl);
-        frostShader.uniform1f("uPixel", pixel);
-        frostShader.uniform2f("uResolution", mc.displayWidth, mc.displayHeight);
-        frostShader.uniform1f("uTint",
-                Material.alpha(color) / 255.0F * Material.clamp(coverage, 0.0F, 1.0F));
+        try (HandState ignored = new HandState()) {
+            GlStateManager.disableTexture2D();
+            GlStateManager.bindTexture(Blur.texture());
+            GlStateManager.enableTexture2D();
+            frostShader.use();
+            frostShader.uniform1i("Sampler0", 0);
+            frostShader.uniform2f("uHalfExtents", w / 2.0F, h / 2.0F);
+            frostShader.uniform4f("uCornerRadii", tl, tr, br, bl);
+            frostShader.uniform1f("uPixel", pixel);
+            frostShader.uniform2f("uResolution", mc.displayWidth, mc.displayHeight);
+            frostShader.uniform1f("uTint",
+                    Material.alpha(color) / 255.0F * Material.clamp(coverage, 0.0F, 1.0F));
 
-        GL11.glColor4f((color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F,
-                (color & 0xFF) / 255.0F, (color >>> 24) / 255.0F);
-        float centerX = x + w / 2.0F;
-        float centerY = y + h / 2.0F;
-        GL11.glBegin(GL11.GL_QUADS);
-        localVertex(x, y, centerX, centerY);
-        localVertex(x, y + h, centerX, centerY);
-        localVertex(x + w, y + h, centerX, centerY);
-        localVertex(x + w, y, centerX, centerY);
-        GL11.glEnd();
-
-        Shader.unbind();
-        GlStateManager.disableTexture2D();
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        GlStateManager.resetColor();
+            GL11.glColor4f((color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F,
+                    (color & 0xFF) / 255.0F, (color >>> 24) / 255.0F);
+            float centerX = x + w / 2.0F;
+            float centerY = y + h / 2.0F;
+            GL11.glBegin(GL11.GL_QUADS);
+            localVertex(x, y, centerX, centerY);
+            localVertex(x, y + h, centerX, centerY);
+            localVertex(x + w, y + h, centerX, centerY);
+            localVertex(x + w, y, centerX, centerY);
+            GL11.glEnd();
+            Shader.unbind();
+        }
     }
 
     /** Default ClickGUI-like glass; the bevel scales down on small controls. */
     public void glassSurface(float x, float y, float w, float h, float radius, int tint) {
+        glassSurface(x, y, w, h, radius, tint, 1.0F);
+    }
+
+    /** HUD surfaces pass 0 for rimStrength to remove the extra bright outline. */
+    public void glassSurface(float x, float y, float w, float h, float radius,
+                             int tint, float rimStrength) {
         float bevel = Math.min(GLASS_BEVEL, Math.max(8.0F, Math.min(w, h) * 0.8F));
-        glassSurface(x, y, w, h, radius, tint, GLASS_COVERAGE, bevel);
+        glassSurface(x, y, w, h, radius, tint, GLASS_COVERAGE, bevel, rimStrength);
+    }
+
+    public void glassSurface(float x, float y, float w, float h, float radius,
+                             int tint, float coverage, float bevel) {
+        glassSurface(x, y, w, h, radius, tint, coverage, bevel, 1.0F);
     }
 
     /**
@@ -493,15 +503,16 @@ public final class UI {
      * dark HUD tints from bleeding into the captured backdrop at the rim.
      */
     public void glassSurface(float x, float y, float w, float h, float radius,
-                             int tint, float coverage, float bevel) {
-        if (Theme.frost() && Blur.ready()) {
-            boolean liquid = Theme.liquidGlass()
-                    && liquidGlass(x, y, w, h, radius, tint, coverage, bevel);
-            if (liquid) {
+                             int tint, float coverage, float bevel, float rimStrength) {
+        if (Blur.ready() && (Theme.frost() || Theme.liquidGlass())) {
+            if (Theme.liquidGlass()
+                    && liquidGlass(x, y, w, h, radius, tint, coverage, bevel, rimStrength)) {
                 return;
             }
             rounded(x, y, w, h, radius, tint);
-            frost(x, y, w, h, radius, tint, DEFAULT_TINT_COVERAGE);
+            if (Theme.frost()) {
+                frost(x, y, w, h, radius, tint, DEFAULT_TINT_COVERAGE);
+            }
             return;
         }
         rounded(x, y, w, h, radius, tint);
@@ -511,7 +522,7 @@ public final class UI {
     public void darkGlassSurface(float x, float y, float w, float h, float radius) {
         float bevel = Math.min(DARK_GLASS_BEVEL, Math.max(6.0F, Math.min(w, h) * 0.55F));
         glassSurface(x, y, w, h, radius, Theme.scheme().surfaceContainerHigh,
-                DARK_GLASS_COVERAGE, bevel);
+                DARK_GLASS_COVERAGE, bevel, 0.0F);
     }
 
     /**
@@ -521,6 +532,11 @@ public final class UI {
      */
     public boolean liquidGlass(float x, float y, float w, float h, float radius,
                                int tint, float coverage, float bevel) {
+        return liquidGlass(x, y, w, h, radius, tint, coverage, bevel, 1.0F);
+    }
+
+    public boolean liquidGlass(float x, float y, float w, float h, float radius,
+                               int tint, float coverage, float bevel, float rimStrength) {
         if (w <= 0.0F || h <= 0.0F || liquidShader == null || !liquidShader.valid() || !Blur.ready()) {
             return false;
         }
@@ -531,42 +547,38 @@ public final class UI {
         float r = Theme.radius(radius, w, h);
         Minecraft mc = Minecraft.getMinecraft();
 
-        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
-        GlStateManager.bindTexture(Blur.texture());
-        GlStateManager.enableTexture2D();
-        GlStateManager.setActiveTexture(GL13.GL_TEXTURE1);
-        GlStateManager.bindTexture(Blur.sharpTexture());
-        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
-        liquidShader.use();
-        liquidShader.uniform1i("Sampler0", 0);
-        liquidShader.uniform1i("Sampler1", 1);
-        liquidShader.uniform2f("uHalfExtents", w / 2.0F, h / 2.0F);
-        liquidShader.uniform1f("uRadius", r);
-        liquidShader.uniform1f("uPixel", pixel);
-        liquidShader.uniform2f("uScreenSize", mc.displayWidth, mc.displayHeight);
-        liquidShader.uniform1f("uTint",
-                Material.alpha(color) / 255.0F * Material.clamp(coverage, 0.0F, 1.0F));
-        liquidShader.uniform1f("uTime", (System.currentTimeMillis() % 100000L) / 1000.0F);
-        liquidShader.uniform1f("uBevel", bevel);
+        try (HandState ignored = new HandState()) {
+            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+            GlStateManager.bindTexture(Blur.texture());
+            GlStateManager.enableTexture2D();
+            GlStateManager.setActiveTexture(GL13.GL_TEXTURE1);
+            GlStateManager.bindTexture(Blur.sharpTexture());
+            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+            liquidShader.use();
+            liquidShader.uniform1i("Sampler0", 0);
+            liquidShader.uniform1i("Sampler1", 1);
+            liquidShader.uniform2f("uHalfExtents", w / 2.0F, h / 2.0F);
+            liquidShader.uniform1f("uRadius", r);
+            liquidShader.uniform1f("uPixel", pixel);
+            liquidShader.uniform2f("uScreenSize", mc.displayWidth, mc.displayHeight);
+            liquidShader.uniform1f("uTint",
+                    Material.alpha(color) / 255.0F * Material.clamp(coverage, 0.0F, 1.0F));
+            liquidShader.uniform1f("uTime", (System.currentTimeMillis() % 100000L) / 1000.0F);
+            liquidShader.uniform1f("uBevel", bevel);
+            liquidShader.uniform1f("uRimStrength", Material.clamp(rimStrength, 0.0F, 1.0F));
 
-        GL11.glColor4f((color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F,
-                (color & 0xFF) / 255.0F, (color >>> 24) / 255.0F);
-        float centerX = x + w / 2.0F;
-        float centerY = y + h / 2.0F;
-        GL11.glBegin(GL11.GL_QUADS);
-        localVertex(x, y, centerX, centerY);
-        localVertex(x, y + h, centerX, centerY);
-        localVertex(x + w, y + h, centerX, centerY);
-        localVertex(x + w, y, centerX, centerY);
-        GL11.glEnd();
-
-        Shader.unbind();
-        GlStateManager.setActiveTexture(GL13.GL_TEXTURE1);
-        GlStateManager.bindTexture(0);
-        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
-        GlStateManager.disableTexture2D();
-        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        GlStateManager.resetColor();
+            GL11.glColor4f((color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F,
+                    (color & 0xFF) / 255.0F, (color >>> 24) / 255.0F);
+            float centerX = x + w / 2.0F;
+            float centerY = y + h / 2.0F;
+            GL11.glBegin(GL11.GL_QUADS);
+            localVertex(x, y, centerX, centerY);
+            localVertex(x, y + h, centerX, centerY);
+            localVertex(x + w, y + h, centerX, centerY);
+            localVertex(x + w, y, centerX, centerY);
+            GL11.glEnd();
+            Shader.unbind();
+        }
         return true;
     }
 

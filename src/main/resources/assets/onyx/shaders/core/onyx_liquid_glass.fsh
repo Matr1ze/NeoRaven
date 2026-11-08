@@ -12,6 +12,7 @@ uniform vec2 uScreenSize;
 uniform float uTint;
 uniform float uTime;
 uniform float uBevel;
+uniform float uRimStrength;
 
 float roundedBoxDistance(vec2 p, vec2 halfSize, float radius) {
     vec2 q = abs(p) - halfSize + radius;
@@ -71,7 +72,8 @@ void main() {
     float rim = smoothstep(0.60, 1.0, edge);
     float facing = max(dot(normal, normalize(vec2(-0.55, 0.83))), 0.0);
     float pulse = 0.82 + 0.18 * sin(uTime * 1.6 + screenUv.x * 8.0);
-    colour += vec3(0.14, 0.16, 0.19) * rim * (0.30 + 0.70 * facing) * pulse;
+    colour += vec3(0.14, 0.16, 0.19) * rim * (0.30 + 0.70 * facing) * pulse
+            * max(uRimStrength, 0.0);
 
     gl_FragColor = vec4(min(colour, vec3(1.0)), mask * vertexColor.a);
 }

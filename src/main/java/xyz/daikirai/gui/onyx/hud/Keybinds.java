@@ -195,9 +195,9 @@ public final class Keybinds {
     // Card
     // ------------------------------------------------------------------ //
 
-    /** Uses the shared ClickGUI glass recipe; the dark opaque HUD backing is intentionally omitted. */
+    /** Uses the shared ClickGUI glass recipe; HUD surfaces omit the rim and dark backing. */
     private void glass(float x, float y, float w, float h, float radius, int tint) {
-        ui.glassSurface(x, y, w, h, radius, tint);
+        ui.glassSurface(x, y, w, h, radius, tint, 0.0F);
     }
 
     private void drawCard(KeybindsModule module, Scheme scheme, float width, float height,
@@ -205,7 +205,9 @@ public final class Keybinds {
         // The shared glass helper owns the opaque fallback; active liquid glass draws the
         // refracted scene directly, so no dark backing is baked into the captured backdrop.
         int surface = scheme.surfaceContainer;
-        ui.shadow(0.0F, 0.0F, width, height, CARD_RADIUS, 3);
+        if (!Theme.liquidGlass()) {
+            ui.shadow(0.0F, 0.0F, width, height, CARD_RADIUS, 3);
+        }
         glass(0.0F, 0.0F, width, height, CARD_RADIUS, surface);
         // Borderless card: the outline is reserved for the per-row toggle flash.
 

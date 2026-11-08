@@ -250,8 +250,11 @@ public final class Island {
             ui.scale(scale, 0.0F, 0.0F);
 
             float radius = pillHeight / 2.0F + (24.0F - pillHeight / 2.0F) * expansion;
-            ui.shadow(0.0F, 0.0F, islandWidth, islandHeight, radius, 3);
-            ui.glassSurface(0.0F, 0.0F, islandWidth, islandHeight, radius, scheme.surfaceContainer);
+            if (!Theme.liquidGlass()) {
+                ui.shadow(0.0F, 0.0F, islandWidth, islandHeight, radius, 3);
+            }
+            ui.glassSurface(0.0F, 0.0F, islandWidth, islandHeight, radius,
+                    scheme.surfaceContainer, 0.0F);
             // No resting border: the outline is only the state-change flash ring.
             float border = Material.clamp(flash.value(), 0.0F, 1.0F);
             if (border > 0.01F && expansion < 0.01F) {

@@ -9,7 +9,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 
 /** Restores both driver state and MC's cached switches after the extra vanilla hand draw. */
-final class HandState implements AutoCloseable {
+public final class HandState implements AutoCloseable {
     final int framebuffer = GL11.glGetInteger(0x8CA6);
     final int[] viewport = new int[4];
     private final int active = GL11.glGetInteger(0x84E0);
@@ -33,7 +33,7 @@ final class HandState implements AutoCloseable {
     private final float[] clear = floats(GL11.GL_COLOR_CLEAR_VALUE);
     private final double clearDepth = GL11.glGetDouble(GL11.GL_DEPTH_CLEAR_VALUE);
 
-    HandState() {
+    public HandState() {
         IntBuffer buffer = BufferUtils.createIntBuffer(16);
         GL11.glGetInteger(GL11.GL_VIEWPORT, buffer);
         for (int i = 0; i < 4; i++) viewport[i] = buffer.get(i);

@@ -99,8 +99,10 @@ public final class InfoBar {
             }
             ui.alphaPush(fade);
             float radius = HEIGHT / 2.0F;
-            ui.shadow(lastX, lastY, width, HEIGHT, radius, 2);
-            ui.glassSurface(lastX, lastY, width, HEIGHT, radius, scheme.surfaceContainer);
+            if (!Theme.liquidGlass()) {
+                ui.shadow(lastX, lastY, width, HEIGHT, radius, 2);
+            }
+            ui.glassSurface(lastX, lastY, width, HEIGHT, radius, scheme.surfaceContainer, 0.0F);
             // Borderless surface, matching the rest of the ported HUD.
 
             float centerY = lastY + HEIGHT / 2.0F;

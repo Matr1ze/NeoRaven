@@ -15,6 +15,7 @@ import org.lwjgl.opengl.GL11;
 import xyz.daikirai.client.Overlay;
 import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
 import xyz.daikirai.gui.onyx.material.Theme;
+import xyz.daikirai.render.HandState;
 
 import java.nio.ByteBuffer;
 
@@ -44,8 +45,9 @@ public final class Blur {
      * rates (the backdrop then lags behind the camera and shimmers), and re-capturing mid-frame
      * would bake the already drawn elements into the next one's backdrop.
      *
-     * <p>The ticker below flips {@link #newFrame} at the end of every frame; the first caller in
-     * the next frame captures and everybody else reuses the texture.</p>
+     * <p>{@link #install()} resets this at render START and consumes it once from the HIGHEST
+     * {@code RenderGameOverlayEvent.Pre(ALL)} hook, after the world pass but before any HUD
+     * backing is drawn.</p>
      */
     private static boolean newFrame = true;
     private static Object ticker;
@@ -66,10 +68,10 @@ public final class Blur {
     }
 
     /**
-     * Installs the frame ticker. The capture is taken from HIGHEST-priority
-     * {@code RenderGameOverlayEvent.Pre(ALL)}, after the world is rendered but before any HUD
-     * backing is drawn. That keeps dark HUD surfaces out of the sharp/blurred backdrop that the
-     * liquid-glass shader samples at the rim; the old lazy per-HUD capture could bake them in.
+     * Installs the frame ticker. The capture runs from HIGHEST-priority
+     * {@code RenderGameOverlayEvent.Pre(ALL)}, after the world is rendered but before the HUD
+     * overlay draws anything. {@link HandState} restores the complete GL state afterwards, so the
+     * vanilla crosshair keeps its own texture and shader bindings.
      */
     public static void install() {
         if (ticker != null) {
@@ -122,9 +124,9 @@ public final class Blur {
     }
 
     /**
-     * Captures the scene and runs the box blur. The first caller in a frame does the work and
-     * every later caller reuses that texture, so all frosted HUD elements share exactly one
-     * capture per frame — taken before the first of them draws anything.
+     * Captures the scene and runs the box blur. GL state is saved and restored around the whole
+     * capture, including the projection/modelview matrices, so later GUI passes such as the
+     * crosshair keep their own texture and shader bindings.
      */
     public static void prepare() {
         if (!available) {
@@ -149,14 +151,14 @@ public final class Blur {
         } else if (prepared && now - preparedAt < FRAME_WINDOW_NANOS) {
             return;
         }
-        if (shader == null) {
-            shader = Shader.load("box_blur");
-        }
-        if (!shader.valid()) {
-            available = false;
-            return;
-        }
-        try {
+        try (HandState ignored = new HandState()) {
+            if (shader == null) {
+                shader = Shader.load("box_blur");
+            }
+            if (!shader.valid()) {
+                available = false;
+                return;
+            }
             Minecraft mc = Minecraft.getMinecraft();
             Framebuffer framebuffer = mc.getFramebuffer();
             if (framebuffer == null || framebuffer.framebufferTexture <= 0) {
@@ -169,27 +171,27 @@ public final class Blur {
             int targetWidth = Math.max(1, screenWidth / 2);
             int targetHeight = Math.max(1, screenHeight / 2);
             int previousFramebuffer = GL11.glGetInteger(FRAMEBUFFER_BINDING);
-            ensureTargets(targetWidth, targetHeight);
-            copySharp(previousFramebuffer, screenWidth, screenHeight);
+            int matrixMode = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
 
-            pass(framebuffer.framebufferTexture, framebufferA, screenWidth, screenHeight, 1.0F, 0.0F);
-            pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
-            pass(textureB, framebufferA, targetWidth, targetHeight, 1.0F, 0.0F);
-            pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
+            GlStateManager.matrixMode(GL11.GL_PROJECTION);
+            GlStateManager.pushMatrix();
+            GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+            GlStateManager.pushMatrix();
+            GlStateManager.matrixMode(matrixMode);
+            try {
+                ensureTargets(targetWidth, targetHeight);
+                copySharp(previousFramebuffer, screenWidth, screenHeight);
 
-            OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFramebuffer);
-            GlStateManager.viewport(0, 0, mc.displayWidth, mc.displayHeight);
-            mc.entityRenderer.setupOverlayRendering();
-            GlStateManager.enableDepth();
-            GlStateManager.enableAlpha();
-            GlStateManager.enableBlend();
-            GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
-            GlStateManager.disableAlpha();
-            GlStateManager.disableDepth();
-            GlStateManager.shadeModel(7425);
-            GlStateManager.disableTexture2D();
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            GlStateManager.resetColor();
+                pass(framebuffer.framebufferTexture, framebufferA, screenWidth, screenHeight, 1.0F, 0.0F);
+                pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
+                pass(textureB, framebufferA, targetWidth, targetHeight, 1.0F, 0.0F);
+                pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
+            } finally {
+                GlStateManager.matrixMode(GL11.GL_PROJECTION);
+                GlStateManager.popMatrix();
+                GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+                GlStateManager.popMatrix();
+            }
             prepared = true;
             preparedAt = now;
         } catch (Throwable t) {
