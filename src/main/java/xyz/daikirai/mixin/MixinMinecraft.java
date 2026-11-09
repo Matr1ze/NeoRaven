@@ -17,6 +17,7 @@ import xyz.daikirai.gui.onyx.render.GuiOpenAnimation;
 
 import java.io.IOException;
 import java.awt.Graphics2D;
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -46,14 +47,51 @@ public class MixinMinecraft {
             BufferedImage source = ImageIO.read(input);
             if (source == null) return;
             Display.setIcon(new ByteBuffer[]{iconPixels(source, 16), iconPixels(source, 32)});
+            neoraven$applyDarkTitleBar();
         } catch (Exception ignored) {
             // A missing/invalid custom icon must not prevent the client from starting.
+        }
+    }
+
+    /** Requests Windows' dark title-bar treatment without changing the user's global taskbar theme. */
+    private static void neoraven$applyDarkTitleBar() {
+        try {
+            java.lang.reflect.Field implementationField = Display.class.getDeclaredField("display_impl");
+            implementationField.setAccessible(true);
+            Object implementation = implementationField.get(null);
+            java.lang.reflect.Field hwndField = implementation.getClass().getDeclaredField("hwnd");
+            hwndField.setAccessible(true);
+            long hwndValue = hwndField.getLong(implementation);
+            if (hwndValue == 0L) return;
+
+            Class<?> pointerClass = Class.forName("com.sun.jna.Pointer");
+            Object hwnd = pointerClass.getConstructor(long.class).newInstance(hwndValue);
+            Class<?> memoryClass = Class.forName("com.sun.jna.Memory");
+            Object value = memoryClass.getConstructor(long.class).newInstance(4L);
+            memoryClass.getMethod("setInt", long.class, int.class).invoke(value, 0L, 1);
+            Class<?> libraryClass = Class.forName("com.sun.jna.NativeLibrary");
+            Object library = libraryClass.getMethod("getInstance", String.class).invoke(null, "dwmapi");
+            Object function = libraryClass.getMethod("getFunction", String.class)
+                    .invoke(library, "DwmSetWindowAttribute");
+            Class<?> functionClass = Class.forName("com.sun.jna.Function");
+            java.lang.reflect.Method invokeInt = functionClass.getMethod("invokeInt", Object[].class);
+            int[][] attributes = {{20, 1}, {19, 1}, {35, 0x000000}, {36, 0xFFFFFF}, {34, 0x000000}};
+            for (int[] attribute : attributes) {
+                memoryClass.getMethod("setInt", long.class, int.class)
+                        .invoke(value, 0L, Integer.valueOf(attribute[1]));
+                Object[] args = {hwnd, Integer.valueOf(attribute[0]), value, Integer.valueOf(4)};
+                invokeInt.invoke(function, new Object[]{args});
+            }
+        } catch (Throwable ignored) {
+            // Dark title bars are a Windows cosmetic enhancement; keep startup portable.
         }
     }
 
     private static ByteBuffer iconPixels(BufferedImage source, int size) {
         BufferedImage scaled = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = scaled.createGraphics();
+        graphics.setColor(Color.BLACK);
+        graphics.fillRect(0, 0, size, size);
         graphics.drawImage(source, 0, 0, size, size, null);
         graphics.dispose();
         ByteBuffer pixels = ByteBuffer.allocateDirect(size * size * 4);
@@ -83,6 +121,7 @@ public class MixinMinecraft {
      */
     @Inject(method = "toggleFullscreen", at = @At("RETURN"))
     private void onyx$fullscreenInput(CallbackInfo ci) {
+        neoraven$applyDarkTitleBar();
         Minecraft minecraft = (Minecraft) (Object) this;
         if (currentScreen == null && minecraft.theWorld != null && minecraft.thePlayer != null
                 && Display.isActive()) {

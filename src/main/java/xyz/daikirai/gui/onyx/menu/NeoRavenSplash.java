@@ -12,10 +12,13 @@ public final class NeoRavenSplash {
     private static final long ICON_FADE_MS = 1000L;
     private static final long COVER_FADE_MS = 1000L;
     private static final long TOTAL_MS = ICON_FADE_MS + COVER_FADE_MS;
-    private long startedAt;
+    private static long startedAt;
 
     public void reset() {
-        startedAt = System.currentTimeMillis();
+        // Returning from a child screen calls initGui again; the client splash is one-shot.
+        if (startedAt == 0L) {
+            startedAt = System.currentTimeMillis();
+        }
     }
 
     public boolean active() {

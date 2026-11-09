@@ -4,10 +4,16 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Brands Forge's early splash without replacing its loading thread or progress renderer. */
+/** Replaces Forge's early splash so its logo and progress page are never shown. */
 @Mixin(net.minecraftforge.fml.client.SplashProgress.class)
 public final class MixinSplashProgress {
+    @Inject(method = "start()V", at = @At("HEAD"), cancellable = true, remap = false)
+    private static void neoraven$replaceForgeSplash(CallbackInfo ci) {
+        ci.cancel();
+    }
+
     @Inject(method = "getBool", at = @At("HEAD"), cancellable = true, remap = false)
     private static void neoraven$animateSplash(String key, boolean fallback,
                                                 CallbackInfoReturnable<Boolean> cir) {
