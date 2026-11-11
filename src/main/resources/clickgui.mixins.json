@@ -19,6 +19,7 @@
     "MixinEntityPlayer",
     "MixinMinecraft",
     "MixinSplashProgress",
+    "MixinSplashRenderer",
     "MixinItemRenderer",
     "MixinRenderGlobal",
     "MixinRenderPlayer",

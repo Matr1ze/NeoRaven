@@ -238,10 +238,11 @@ public final class Hooks {
             ScriptEvents.preMotion(e);
         }
         if ((m = on("Sprint")) != null) m.onPreMotion(e);
+        if ((m = on("Scaffold2")) != null) m.onPreMotion(e);
     }
 
     private static void postMotion() {
-        String[] order = {"Displace", "KillAura", "NoSlow", "InvMove", "AutoBlock", "AutoBlock2"};
+        String[] order = {"Displace", "KillAura", "NoSlow", "InvMove", "AutoBlock", "AutoBlock2", "Scaffold2"};
         Module m;
         for (String name : order) {
             if ((m = on(name)) != null) m.onPostMotion();
@@ -572,6 +573,9 @@ public final class Hooks {
             }
         }
         Module m;
+        if ((m = on("Scaffold2")) != null && !m.onSendPacket(packet)) {
+            return false;
+        }
         if ((m = on("Freecam")) != null && !m.onSendPacket(packet)) {
             return false;
         }
@@ -701,6 +705,9 @@ public final class Hooks {
         }
         PacketUtils.trackReceived(packet);
         Module m;
+        if ((m = on("Scaffold2")) != null) {
+            m.onReceivePacket(packet, handler);
+        }
         if ((m = any("Latency Alerts")) != null) m.onPacketReceivedAlways();
         if (ScriptManager.events != null && !ScriptEvents.packetReceived(packet)) {
             return;

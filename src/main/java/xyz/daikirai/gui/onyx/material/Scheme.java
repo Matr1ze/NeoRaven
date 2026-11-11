@@ -129,6 +129,30 @@ public final class Scheme {
                 neutral.tone(0.0), neutral.tone(0.0));
     }
 
+    /** Surface and text colours from Soar's seven theme previews; accent roles remain live. */
+    public Scheme withSurfaceTheme(int index) {
+        int[][] palettes = {
+                {0x131314, 0x222327, 0xFFFFFF, 0xEBEBEB},
+                {0xFEFEFE, 0xEEEEEE, 0x363636, 0x6B7581},
+                {0x161C29, 0x1B2434, 0x9DAFD3, 0x7483A4},
+                {0x2F363D, 0x24292E, 0xFFFFFF, 0xEBEBEB},
+                {0x2C0E48, 0x35185A, 0xEAE2FC, 0xC2BAD4},
+                {0xCBE0FF, 0xBED8EE, 0x24354C, 0x405570},
+                {0xFFBFB2, 0xFFDFE2, 0x542F37, 0x73525C}
+        };
+        int[] p = palettes[Material.clamp(index - 1, 0, 6)];
+        int base = p[0] | 0xFF000000, high = p[1] | 0xFF000000;
+        int ink = p[2] | 0xFF000000, soft = p[3] | 0xFF000000;
+        return new Scheme(primary, onPrimary, primaryContainer, onPrimaryContainer,
+                secondary, onSecondary, secondaryContainer, onSecondaryContainer,
+                tertiary, onTertiary, tertiaryContainer, onTertiaryContainer,
+                error, onError, errorContainer, onErrorContainer,
+                base, ink, high, soft, base, high, base, Material.mix(base, high, 0.5F),
+                high, Material.mix(high, ink, 0.04F), Material.mix(high, ink, 0.08F),
+                Material.mix(base, ink, 0.5F), Material.mix(base, ink, 0.18F),
+                ink, base, inversePrimary, scrim, shadow);
+    }
+
     /** Port of {@code theme.Util5.getIntForInt}: Material elevation levels 0..5. */
     public int surfaceLevel(int level) {
         switch (Material.clamp(level, 0, 5)) {

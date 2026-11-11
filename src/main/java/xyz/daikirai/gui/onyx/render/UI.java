@@ -476,7 +476,7 @@ public final class UI {
         float br = Theme.radius(bottomRight, w, h);
         float bl = Theme.radius(bottomLeft, w, h);
         Minecraft mc = Minecraft.getMinecraft();
-        int color = applyAlpha(tint);
+        int color = applyAlpha(Theme.glassTint(tint));
 
         try (HandState ignored = new HandState()) {
             GlStateManager.disableTexture2D();
@@ -489,7 +489,7 @@ public final class UI {
             frostShader.uniform1f("uPixel", pixel);
             frostShader.uniform2f("uResolution", mc.displayWidth, mc.displayHeight);
             frostShader.uniform1f("uTint",
-                    Material.alpha(color) / 255.0F * Material.clamp(coverage, 0.0F, 1.0F));
+                    Material.alpha(color) / 255.0F * Material.clamp(coverage * Theme.frostOpacity / DEFAULT_TINT_COVERAGE, 0.0F, 1.0F));
 
             GL11.glColor4f((color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F,
                     (color & 0xFF) / 255.0F, (color >>> 24) / 255.0F);
@@ -538,7 +538,7 @@ public final class UI {
             if (Theme.frost()) {
                 // HUD surfaces pass rimStrength == 0. Keep their lower coverage so the blurred
                 // backdrop actually shows through; ClickGUI controls keep the 0.88 panel tint.
-                float frostCoverage = rimStrength <= 0.001F ? coverage : DEFAULT_TINT_COVERAGE;
+                float frostCoverage = rimStrength <= 0.001F ? coverage : Theme.frostOpacity;
                 frost(x, y, w, h, radius, tint, frostCoverage);
             }
             return;
@@ -569,7 +569,8 @@ public final class UI {
                 || (!Theme.frost() && !Theme.liquidGlass())) {
             return false;
         }
-        int color = applyAlpha(tint);
+        coverage = Material.clamp(coverage * Theme.liquidOpacity / GLASS_COVERAGE, 0, 1);
+        int color = applyAlpha(Theme.glassTint(tint));
         if (color >>> 24 == 0) {
             return false;
         }
@@ -592,6 +593,7 @@ public final class UI {
             liquidShader.uniform2f("uScreenSize", mc.displayWidth, mc.displayHeight);
             liquidShader.uniform1f("uTint",
                     Material.alpha(color) / 255.0F * Material.clamp(coverage, 0.0F, 1.0F));
+            liquidShader.uniform1f("uFrost", Theme.matteLiquid ? Theme.liquidFrost : 0.0F);
             liquidShader.uniform1f("uTime", (System.currentTimeMillis() % 100000L) / 1000.0F);
             liquidShader.uniform1f("uBevel", bevel);
             liquidShader.uniform1f("uRimStrength", Material.clamp(rimStrength, 0.0F, 1.0F));

@@ -13,6 +13,7 @@ uniform float uTint;
 uniform float uTime;
 uniform float uBevel;
 uniform float uRimStrength;
+uniform float uFrost;
 
 float roundedBoxDistance(vec2 p, vec2 halfSize, float radius) {
     vec2 q = abs(p) - halfSize + radius;
@@ -22,7 +23,7 @@ float roundedBoxDistance(vec2 p, vec2 halfSize, float radius) {
 vec3 backdrop(vec2 uv, float clarity) {
     vec3 blurred = texture2D(Sampler0, uv).rgb;
     vec3 sharp = texture2D(Sampler1, uv).rgb;
-    return mix(blurred, sharp, clarity);
+    return mix(blurred, sharp, clarity * (1.0 - uFrost));
 }
 
 void main() {

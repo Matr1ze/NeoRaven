@@ -76,3 +76,16 @@ tasks.jar {
 }
 
 tasks.named<org.gradle.jvm.tasks.Jar>("remapJar") { archiveFileName.set("NeoRaven-${project.version}.jar") }
+
+tasks.register<JavaExec>("startupPreview") {
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("xyz.daikirai.gui.onyx.menu.StartupAnimationPreview")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(8)) })
+    doFirst {
+        val config = file(".gradle/loom-cache/launch.cfg")
+        val natives = config.readLines().first { it.trim().startsWith("java.library.path=") }.substringAfter('=')
+        systemProperty("org.lwjgl.librarypath", natives)
+        systemProperty("java.library.path", natives)
+    }
+}

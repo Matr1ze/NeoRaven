@@ -1,6 +1,9 @@
 package xyz.daikirai.music;
 
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiTextField;
+import org.lwjgl.input.Keyboard;
+import xyz.daikirai.client.Profiles;
 import xyz.daikirai.module.render.WatermarkModule;
 import xyz.daikirai.gui.onyx.hud.Island;
 import org.lwjgl.input.Mouse;
@@ -126,6 +129,7 @@ public final class MusicScreen extends GuiScreen {
     private float[] islandBounds;
     private float[] closingBounds;
     private float drawX, drawY, drawScale;
+    private float imeGuiX, imeGuiY;
     private float shellX, shellY, shellW, shellH;
     private float contentHeight;
     private float contentTop;
@@ -143,6 +147,9 @@ public final class MusicScreen extends GuiScreen {
     // Keep the Cover Gallery presentation; the other experimental layouts are not exposed.
 
     private String searchText = "";
+    private GuiTextField searchInput;
+    private MusicSearchInput chineseInput;
+    private float searchScroll;
     private boolean searchFocused;
     private long searchTypedAt;
     private long caretAt;
@@ -150,6 +157,10 @@ public final class MusicScreen extends GuiScreen {
     private boolean draggingProgress;
     private float progressPreview = -1.0F;
     private boolean draggingVolume;
+    private float volumeBeforeMute = 0.8F;
+    private float volumeAreaX;
+    private float volumeAreaY;
+    private float volumeAreaW;
     private SliderHit draggingSlider;
     private float searchRectX;
     private float searchRectY;
@@ -205,6 +216,12 @@ public final class MusicScreen extends GuiScreen {
     @Override
     public void initGui() {
         super.initGui();
+        Keyboard.enableRepeatEvents(true);
+        if (searchInput == null) {
+            searchInput = new GuiTextField(0, mc.fontRendererObj, 0, 0, 1, 1);
+            searchInput.setMaxStringLength(128);
+            searchInput.setText(searchText);
+        }
         this.scale = fitScale();
         this.lastFrame = System.nanoTime();
         if (!initialized) {
@@ -246,6 +263,7 @@ public final class MusicScreen extends GuiScreen {
         hover.update(delta);
         MusicIsland.tick(delta);
         lyricPanel.tick(delta);
+        tickIme();
         tickSearch();
         tickScheme();
         scroll.update(delta);
@@ -262,7 +280,37 @@ public final class MusicScreen extends GuiScreen {
         }
     }
 
+    /**
+     * Direct IME typing: while the search box has focus, text committed by the system IME is
+     * inserted into it. If the hook cannot be installed, the separate input window stays the
+     * fallback (the button next to the search box).
+     */
+    private void tickIme() {
+        MusicIme.setActive(searchFocused && chineseInput == null && interactive() && !closing);
+        if (!MusicIme.available()) {
+            return;
+        }
+        String text;
+        while ((text = MusicIme.poll()) != null) {
+            if (!searchFocused) {
+                continue;
+            }
+            searchInput.setFocused(true);
+            searchInput.writeText(text.replace('\r', ' ').replace('\n', ' '));
+            if (!searchText.equals(searchInput.getText())) {
+                searchText = searchInput.getText();
+                searchTypedAt = System.currentTimeMillis();
+                page = Page.SEARCH;
+            }
+        }
+        int factor = new net.minecraft.client.gui.ScaledResolution(mc).getScaleFactor();
+        MusicIme.placeAt(Math.round(imeGuiX * factor), Math.round(imeGuiY * factor));
+    }
+
     private void tickSearch() {
+        if (chineseInput != null) {
+            return;
+        }
         if (!searchFocused || searchText.isEmpty()) {
             return;
         }
@@ -312,6 +360,7 @@ public final class MusicScreen extends GuiScreen {
         }
         updateMouse(rawMouseX, rawMouseY);
         hits.clear();
+        volumeAreaW = 0.0F;
         contentHeight = 0.0F;
 
         ui.begin();
@@ -572,19 +621,49 @@ public final class MusicScreen extends GuiScreen {
             String displayed = searchText.isEmpty() ? "搜索歌曲、歌手" : searchText;
             int textColor = searchText.isEmpty()
                     ? Material.withAlpha(current.onSurfaceVariant, 0.75F) : current.onSurface;
-            ui.text(SEARCH, ui.truncate(SEARCH, displayed, searchW - 52.0F), searchX + 38.0F,
-                    searchY + 20.0F, textColor, UI.ALIGN_LEFT);
+            float textX = searchX + 38.0F;
+            float textW = searchW - 128.0F;
+            float cursorX = SEARCH.width(searchText.substring(0, searchInput.getCursorPosition()));
+            searchScroll = Material.clamp(searchScroll, 0.0F, Math.max(0.0F, SEARCH.width(searchText) - textW + 2.0F));
+            if (focused) {
+                if (cursorX < searchScroll) searchScroll = cursorX;
+                if (cursorX > searchScroll + textW - 2.0F) searchScroll = cursorX - textW + 2.0F;
+            }
+            ui.scissorPush(textX, searchY + 4.0F, textW, 32.0F);
+            int selection = searchInput.getSelectionEnd();
+            if (focused && selection != searchInput.getCursorPosition()) {
+                float selectionX = SEARCH.width(searchText.substring(0, selection));
+                ui.rect(textX + Math.min(cursorX, selectionX) - searchScroll, searchY + 9.0F,
+                        Math.abs(selectionX - cursorX), 22.0F, Material.withAlpha(current.primary, 0.25F));
+            }
+            ui.text(SEARCH, displayed, textX - searchScroll, searchY + 20.0F, textColor, UI.ALIGN_LEFT);
+            // GUI-space point just under the caret, where the IME places its pop-ups.
+            imeGuiX = drawX + (textX + cursorX - searchScroll) * drawScale;
+            imeGuiY = drawY + (searchY + 36.0F) * drawScale;
             if (focused && (System.currentTimeMillis() / 530L) % 2L == 0L) {
-                float caretX = searchX + 38.0F + SEARCH.width(searchText) + 1.0F;
+                float caretX = textX + cursorX - searchScroll;
                 ui.rect(caretX, searchY + 12.0F, 1.6F, 16.0F, current.primary);
             }
+            ui.scissorPop();
             hits.add(new Hit(searchX, searchY, searchW, 40.0F, new Runnable() {
                 @Override
                 public void run() {
                     searchFocused = true;
+                    float target = Math.max(0.0F, mouseX - textX + searchScroll);
+                    int cursor = 0;
+                    while (cursor < searchText.length()) {
+                        float left = SEARCH.width(searchText.substring(0, cursor));
+                        float right = SEARCH.width(searchText.substring(0, cursor + 1));
+                        if (target < (left + right) / 2.0F) break;
+                        cursor++;
+                    }
+                    if (GuiScreen.isShiftKeyDown()) searchInput.setSelectionPos(cursor);
+                    else searchInput.setCursorPosition(cursor);
                     caretAt = System.currentTimeMillis();
                 }
             }));
+            button(current, "中文输入", searchX + searchW - 86.0F, searchY + 5.0F,
+                    80.0F, 30.0F, false, this::openChineseInput);
         }
 
         Profile profile = manager.profile();
@@ -926,6 +1005,14 @@ public final class MusicScreen extends GuiScreen {
                     }
                 });
         y = settingRowHeader(current, "外观", y);
+        LyricsModule lyrics = LyricsModule.instance;
+        if (lyrics != null) {
+            y = switchRow(current, "游戏内歌词", "在游戏世界中显示歌词；与渲染分类中的歌词开关同步", y,
+                    lyrics.isEnabled(), value -> {
+                        if (value) lyrics.enable(); else lyrics.disable();
+                        Profiles.markModified();
+                    });
+        }
         y = switchRow(current, "封面取色", "整个界面按专辑封面重新配色", y, m.coverTint(),
                 new BooleanSetter() {
                     @Override
@@ -1197,9 +1284,44 @@ public final class MusicScreen extends GuiScreen {
             }
         }));
         rightX -= 44.0F;
-        ui.icon(manager.volume() <= 0.001F ? I_VOLUME_OFF : I_VOLUME, rightX, buttonY, 19.0F,
+        // Volume: the icon mutes / restores, the slider to its left sets the level.
+        float volume = manager.volume();
+        boolean muted = volume <= 0.001F;
+        boolean iconHovered = inside(rightX - 16.0F, buttonY - 16.0F, 32.0F, 32.0F);
+        if (iconHovered) {
+            ui.circle(rightX, buttonY, 17.0F, Material.withAlpha(current.onSurface, 0.08F));
+        }
+        ui.icon(muted ? I_VOLUME_OFF : I_VOLUME, rightX, buttonY, 19.0F,
                 Material.withAlpha(current.onSurfaceVariant, 0.9F));
-        hits.add(new VolumeHit(rightX - 16.0F, buttonY - 16.0F, 32.0F, 32.0F, px + pw - 150.0F));
+        hits.add(new Hit(rightX - 16.0F, buttonY - 16.0F, 32.0F, 32.0F, new Runnable() {
+            @Override
+            public void run() {
+                float now = manager.volume();
+                if (now > 0.001F) {
+                    volumeBeforeMute = now;
+                    manager.setVolume(0.0F);
+                } else {
+                    manager.setVolume(volumeBeforeMute > 0.001F ? volumeBeforeMute : 0.8F);
+                }
+            }
+        }));
+        float volTrackW = 72.0F;
+        float volTrackX = rightX - 22.0F - volTrackW;
+        boolean volHovered = draggingVolume || inside(volTrackX - 6.0F, buttonY - 12.0F, volTrackW + 12.0F, 24.0F);
+        ui.rounded(volTrackX, buttonY - 2.0F, volTrackW, 4.0F, 2.0F,
+                Material.withAlpha(current.secondaryContainer, 0.9F));
+        if (volume > 0.001F) {
+            ui.rounded(volTrackX, buttonY - 2.0F, Math.max(4.0F, volTrackW * volume), 4.0F, 2.0F, current.primary);
+        }
+        ui.circle(volTrackX + volTrackW * volume, buttonY, volHovered ? 6.0F : 4.5F, current.primary);
+        if (volHovered) {
+            ui.text(MusicTypeface.CAPTION, Math.round(volume * 100.0F) + "%", volTrackX + volTrackW / 2.0F,
+                    buttonY - 20.0F, Material.withAlpha(current.onSurfaceVariant, 0.95F), UI.ALIGN_CENTER);
+        }
+        hits.add(new VolumeHit(volTrackX - 6.0F, buttonY - 12.0F, volTrackW + 12.0F, 24.0F, volTrackX, volTrackW));
+        volumeAreaX = volTrackX - 6.0F;
+        volumeAreaW = rightX + 16.0F - volumeAreaX;
+        volumeAreaY = buttonY - 16.0F;
 
         if (manager.isLoadingTrack() || manager.engine().isBuffering()) {
             ui.text(MusicTypeface.CAPTION, manager.isLoadingTrack() ? "缓冲中…" : "解码中…",
@@ -1537,6 +1659,12 @@ public final class MusicScreen extends GuiScreen {
         float guiX = Mouse.getEventX() * this.width / (float) this.mc.displayWidth;
         float guiY = this.height - Mouse.getEventY() * this.height / (float) this.mc.displayHeight - 1.0F;
         updateMouse((int) guiX, (int) guiY);
+        if (volumeAreaW > 0.0F && mouseX >= volumeAreaX && mouseX <= volumeAreaX + volumeAreaW
+                && mouseY >= volumeAreaY && mouseY <= volumeAreaY + 32.0F) {
+            float step = wheel > 0 ? 0.05F : -0.05F;
+            manager.setVolume(Material.clamp(manager.volume() + step, 0.0F, 1.0F));
+            return;
+        }
         if (page == Page.HOME && !playlistOpen && mouseY >= homeCoverY
                 && mouseY <= homeCoverY + 258.0F && mouseX >= CT_X && mouseX <= CT_X + CT_W) {
             homeCoverTarget = Material.clamp(homeCoverTarget - wheel / 120.0F,
@@ -1590,34 +1718,20 @@ public final class MusicScreen extends GuiScreen {
         }
         if (!interactive()) return;
         if (searchFocused) {
-            if (key == 14) {
-                if (!searchText.isEmpty()) {
-                    searchText = searchText.substring(0, searchText.length() - 1);
-                    searchTypedAt = System.currentTimeMillis();
-                }
-                return;
-            }
-            if (key == 28) {
+            if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
                 manager.search(searchText);
                 page = Page.SEARCH;
                 return;
             }
-            if (key == 47 && GuiScreen.isCtrlKeyDown()) {
-                String clipboard = GuiScreen.getClipboardString();
-                if (clipboard != null) {
-                    searchText += clipboard.replace('\n', ' ');
-                    searchTypedAt = System.currentTimeMillis();
-                }
-                return;
+            searchInput.setFocused(true);
+            searchInput.textboxKeyTyped(typed, key);
+            if (!searchText.equals(searchInput.getText())) {
+                searchText = searchInput.getText();
+                searchTypedAt = System.currentTimeMillis();
+                page = Page.SEARCH;
             }
-            if (typed >= 32 && typed != 127) {
-                if (searchText.length() < 48) {
-                    searchText += typed;
-                    searchTypedAt = System.currentTimeMillis();
-                    page = Page.SEARCH;
-                }
-                return;
-            }
+            // Editing keys must not also change playback or volume.
+            return;
         }
         if (key == 57) {
             manager.togglePlay();
@@ -1651,8 +1765,37 @@ public final class MusicScreen extends GuiScreen {
 
     @Override
     public void onGuiClosed() {
+        MusicIme.setActive(false);
+        Keyboard.enableRepeatEvents(false);
+        if (chineseInput != null) {
+            chineseInput.close();
+            chineseInput = null;
+        }
         Blur.request();
         manager.saveSettings();
+    }
+
+    private void openChineseInput() {
+        if (chineseInput != null) return;
+        searchFocused = true;
+        // Exclusive fullscreen hides normal desktop windows. Leave it only for this input
+        // session, then restore it when the player submits or cancels in the music screen.
+        boolean restoreFullscreen = mc.isFullScreen();
+        if (restoreFullscreen) mc.toggleFullscreen();
+        // LWJGL 2's native window cannot host a Swing IME context. Open a visible, user-requested
+        // text window instead of installing a global hook or polling Windows keyboard state.
+        chineseInput = new MusicSearchInput(searchText, result -> mc.addScheduledTask(() -> {
+            chineseInput = null;
+            if (mc.currentScreen != this || closing) return;
+            if (restoreFullscreen && !mc.isFullScreen()) mc.toggleFullscreen();
+            if (result == null) return;
+            searchInput.setText(result.replace('\r', ' ').replace('\n', ' '));
+            searchText = searchInput.getText();
+            searchTypedAt = System.currentTimeMillis();
+            page = Page.SEARCH;
+            manager.search(searchText);
+        }));
+        chineseInput.open();
     }
 
     // ------------------------------------------------------------------ //
@@ -1687,15 +1830,17 @@ public final class MusicScreen extends GuiScreen {
     }
 
     private static final class VolumeHit extends Hit {
-        private final float startX;
+        private final float trackX;
+        private final float trackW;
 
-        VolumeHit(float x, float y, float w, float h, float startX) {
+        VolumeHit(float x, float y, float w, float h, float trackX, float trackW) {
             super(x, y, w, h, null);
-            this.startX = startX;
+            this.trackX = trackX;
+            this.trackW = trackW;
         }
 
         float fraction(float mouseX) {
-            return Material.clamp((mouseX - startX) / 120.0F, 0.0F, 1.0F);
+            return Material.clamp((mouseX - trackX) / trackW, 0.0F, 1.0F);
         }
     }
 

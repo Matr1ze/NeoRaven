@@ -17,6 +17,7 @@ import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.Spring;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
+import xyz.daikirai.gui.onyx.render.Blur;
 
 /**
  * AOSP / Pixel style title screen: a Material You wallpaper, an app dock with four MD3 themed
@@ -141,6 +142,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
         ui.begin();
         MenuBackground.mouse(mouseX, mouseY, width, height);
         MenuBackground.draw(ui, width, height, true);
+        if (Theme.frost() || Theme.liquidGlass()) Blur.prepare();
         ui.push();
         ui.scale(scale, 0.0F, 0.0F);
         ui.translate(ox, oy);

@@ -33,10 +33,77 @@ public final class Theme {
     private static boolean frost = true;
     private static boolean liquidGlass = true;
     private static boolean followGuiScale = true;
+    public static float frostOpacity = 0.88F;
+    public static float liquidOpacity = 0.38F;
+    public static float liquidFrost = 0.65F;
+    public static boolean colouredFrost;
+    public static boolean matteLiquid;
+    private static int surfaceTheme;
+    private static int builtSurfaceTheme = -1;
+    private static String savedPreferences;
+
+    public static void surfaceTheme(int value) {
+        surfaceTheme = Material.clamp(value, 0, 7);
+    }
+
+    public static int surfaceTheme() { return surfaceTheme; }
+
+    public static int glassTint(int tint) {
+        return colouredFrost ? Material.mix(tint, scheme().primary, 0.32F) : tint;
+    }
 
     private static Scheme scheme;
     private static int builtAccent = 0;
     private static float builtTint = -1.0F;
+
+    public static void savePreferences() {
+        try {
+            savedPreferences = preferenceKey();
+            java.io.File file = new java.io.File(xyz.daikirai.client.ClientConfig.DIR, "glass-theme.properties");
+            java.io.File parent = file.getParentFile();
+            if (parent != null) parent.mkdirs();
+            java.util.Properties p = new java.util.Properties();
+            p.setProperty("theme", Integer.toString(surfaceTheme));
+            p.setProperty("frost", Float.toString(frostOpacity));
+            p.setProperty("liquid", Float.toString(liquidOpacity));
+            p.setProperty("matte", Float.toString(liquidFrost));
+            p.setProperty("colour", Boolean.toString(colouredFrost));
+            p.setProperty("matteEnabled", Boolean.toString(matteLiquid));
+            p.setProperty("frostEnabled", Boolean.toString(frost));
+            p.setProperty("liquidEnabled", Boolean.toString(liquidGlass));
+            p.setProperty("accent", Integer.toString(accent));
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream(file)) { p.store(out, "NeoRaven surface preferences"); }
+        } catch (Exception e) { System.err.println("[NeoRaven] Cannot save theme preferences: " + e); }
+    }
+
+    public static void savePreferencesIfChanged() {
+        String key = preferenceKey();
+        if (!key.equals(savedPreferences)) savePreferences();
+    }
+
+    private static String preferenceKey() {
+        return surfaceTheme + ":" + frostOpacity + ":" + liquidOpacity + ":" + liquidFrost
+                + ":" + colouredFrost + ":" + matteLiquid + ":" + frost + ":" + liquidGlass + ":" + accent;
+    }
+
+    public static void loadPreferences() {
+        try {
+            java.util.Properties p = new java.util.Properties();
+            java.io.File file = new java.io.File(xyz.daikirai.client.ClientConfig.DIR, "glass-theme.properties");
+            if (!file.isFile()) return;
+            try (java.io.FileInputStream in = new java.io.FileInputStream(file)) { p.load(in); }
+            surfaceTheme(Integer.parseInt(p.getProperty("theme", "0")));
+            frostOpacity = Material.clamp(Float.parseFloat(p.getProperty("frost", "0.88")), 0, 1);
+            liquidOpacity = Material.clamp(Float.parseFloat(p.getProperty("liquid", "0.38")), 0, 1);
+            liquidFrost = Material.clamp(Float.parseFloat(p.getProperty("matte", "0.65")), 0, 1);
+            colouredFrost = Boolean.parseBoolean(p.getProperty("colour", "false"));
+            matteLiquid = Boolean.parseBoolean(p.getProperty("matteEnabled", "false"));
+            frost = Boolean.parseBoolean(p.getProperty("frostEnabled", "true"));
+            liquidGlass = Boolean.parseBoolean(p.getProperty("liquidEnabled", "true"));
+            accent(Integer.parseInt(p.getProperty("accent", Integer.toString(DEFAULT_ACCENT))));
+            savedPreferences = preferenceKey();
+        } catch (Exception e) { System.err.println("[NeoRaven] Cannot load theme preferences: " + e); }
+    }
 
     private Theme() {
     }
@@ -108,8 +175,10 @@ public final class Theme {
 
     /** Current colour roles (rebuilt lazily when the seed changes). */
     public static Scheme scheme() {
-        if (scheme == null || builtAccent != accent || builtTint != tint) {
+        if (scheme == null || builtAccent != accent || builtTint != tint || builtSurfaceTheme != surfaceTheme) {
             scheme = Scheme.of(accent, tint);
+            if (surfaceTheme > 0) scheme = scheme.withSurfaceTheme(surfaceTheme);
+            builtSurfaceTheme = surfaceTheme;
             builtAccent = accent;
             builtTint = tint;
         }

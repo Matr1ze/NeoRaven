@@ -4948,7 +4948,7 @@
     "settings": [
       {
         "t": "desc",
-        "name": "Rise / SSNG / Moonlight Scaffold; pick the client above."
+        "name": "Myau Telly：蹲在边缘，对准辅助框；变绿后按住右键并松开蹲键启动。"
       }
     ]
   },
@@ -8944,25 +8944,9 @@
     "failed": null,
     "settings": [
       {
-        "t": "mode",
+        "t": "color",
         "name": "Accent",
-        "prefix": "",
-        "suffix": "",
-        "value": 0.0,
-        "min": 0.0,
-        "max": 7.0,
-        "step": 1.0,
-        "options": [
-          "Purple",
-          "Blue",
-          "Teal",
-          "Green",
-          "Amber",
-          "Orange",
-          "Pink",
-          "Mocha"
-        ],
-        "labels": null
+        "value": -10070716
       },
       {
         "t": "slider",
@@ -9002,6 +8986,73 @@
         "t": "toggle",
         "name": "Liquid glass",
         "value": true
+      },
+      {
+        "t": "slider",
+        "name": "Frost opacity",
+        "prefix": "",
+        "suffix": "%",
+        "value": 88,
+        "min": 0,
+        "max": 100,
+        "step": 1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Liquid opacity",
+        "prefix": "",
+        "suffix": "%",
+        "value": 38,
+        "min": 0,
+        "max": 100,
+        "step": 1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Liquid frost amount",
+        "prefix": "",
+        "suffix": "%",
+        "value": 65,
+        "min": 0,
+        "max": 100,
+        "step": 1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "mode",
+        "name": "Surface theme",
+        "prefix": "",
+        "suffix": "",
+        "value": 0,
+        "min": 0,
+        "max": 7,
+        "step": 1,
+        "options": [
+          "Material",
+          "Dark",
+          "Light",
+          "Dark Blue",
+          "Midnight",
+          "Dark Purple",
+          "Sea",
+          "Sakura"
+        ],
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Coloured frost",
+        "value": false
+      },
+      {
+        "t": "toggle",
+        "name": "Matte liquid glass",
+        "value": false
       },
       {
         "t": "button",

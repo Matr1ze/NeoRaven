@@ -31,7 +31,7 @@ public final class FirstRun {
 
     /** Must be called before anything touches {@link ClientConfig#load()}. */
     public static void capture() {
-        firstLaunch = !CONFIG_DIR.isDirectory();
+        firstLaunch = !new File(CONFIG_DIR, "soar-setup-v1.done").isFile();
         pending = firstLaunch;
         System.out.println("[onyx] first launch: " + firstLaunch + " (" + CONFIG_DIR + ")");
     }
@@ -48,6 +48,9 @@ public final class FirstRun {
     /** "Get started" was pressed: never show it again this session. */
     public static void dismissed() {
         pending = false;
+        xyz.daikirai.gui.onyx.material.Theme.savePreferences();
+        try { CONFIG_DIR.mkdirs(); new File(CONFIG_DIR, "soar-setup-v1.done").createNewFile(); }
+        catch (java.io.IOException e) { System.err.println("[NeoRaven] Cannot save setup marker: " + e); }
     }
 
     @SubscribeEvent
