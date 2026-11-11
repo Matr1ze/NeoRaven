@@ -37,6 +37,11 @@ public final class ModuleList {
     private final List<Card> cards = new ArrayList<Card>();
     private final Map<Module, Card> byModule = new HashMap<Module, Card>();
     private final Anim scroll = new Anim(0.0F);
+    private final Anim scrollHover = new Anim(0.0F);
+
+    private boolean scrollbarHovered;
+    private boolean scrollbarDragging;
+    private float scrollbarGrabOffset;
 
     private float x;
     private float y;
@@ -46,10 +51,11 @@ public final class ModuleList {
     private float contentHeight;
     private Module selected;
     private boolean focused;
-    private String emptyText = "No modules here yet";
+    private String emptyText = xyz.daikirai.util.Lang.text("No modules here yet");
     private Category builtCategory;
     private String builtQuery = "";
     private int builtRevision = -1;
+    private int builtLanguage = -1;
 
     /** Opens the detail page for a module (right click / keyboard). */
     public interface Opener {
@@ -61,6 +67,7 @@ public final class ModuleList {
         this.builtCategory = category;
         this.builtQuery = query == null ? "" : query;
         this.builtRevision = Profiles.revision();
+        this.builtLanguage = xyz.daikirai.util.Lang.revision();
         cards.clear();
         byModule.clear();
         String needle = this.builtQuery.trim().toLowerCase(Locale.ROOT);
@@ -106,6 +113,7 @@ public final class ModuleList {
         this.contentHeight = cards.size() * (CARD_HEIGHT + GAP) - GAP;
         this.scrollTarget = 0.0F;
         this.scroll.set(0.0F);
+        this.scrollbarDragging = false;
         if (selected != null && !byModule.containsKey(selected)) {
             selected = null;
         }
@@ -116,6 +124,9 @@ public final class ModuleList {
 
     private static boolean matches(Module module, String needle) {
         if (module.getName() != null && module.getName().toLowerCase(Locale.ROOT).contains(needle)) {
+            return true;
+        }
+        if (module.localizedName().toLowerCase(Locale.ROOT).contains(needle)) {
             return true;
         }
         if (module.getInfo() != null && module.getInfo().toLowerCase(Locale.ROOT).contains(needle)) {
@@ -147,12 +158,22 @@ public final class ModuleList {
         return contentHeight;
     }
 
+    public float scrollTarget() {
+        return scrollTarget;
+    }
+
+    public void restoreScroll(float target) {
+        float visible = Math.max(0.0F, contentHeight - h);
+        this.scrollTarget = Material.clamp(target, 0.0F, visible);
+        this.scroll.set(this.scrollTarget);
+    }
+
     public void focus(boolean focused) {
         this.focused = focused;
     }
 
     public void update(float delta, float mouseX, float mouseY, boolean interactive) {
-        if (builtRevision != Profiles.revision()) {
+        if (builtRevision != Profiles.revision() || builtLanguage != xyz.daikirai.util.Lang.revision()) {
             setContent(builtCategory, builtQuery);
         }
         this.scroll.to(scrollTarget, 250.0F, Ease.DECELERATE);
@@ -161,8 +182,15 @@ public final class ModuleList {
         float visible = Math.max(0.0F, contentHeight - h);
         scrollTarget = Material.clamp(scrollTarget, 0.0F, visible);
 
-        for (int i = 0; i < cards.size(); i++) {
-            Card card = cards.get(i);
+        boolean overBar = interactive && barContains(mouseX, mouseY);
+        scrollbarHovered = overBar;
+        scrollHover.to(overBar || scrollbarDragging ? 1.0F : 0.0F, 150.0F, Ease.DECELERATE);
+        scrollHover.update(delta);
+        if (scrollbarDragging) {
+            applyScrollbar(mouseY);
+        }
+
+        for (int i = 0; i < cards.size(); i++) {            Card card = cards.get(i);
             float cardY = y + i * (CARD_HEIGHT + GAP) - scroll.value();
             boolean hovered = interactive && mouseX >= x && mouseX < x + w - 9.0F
                     && mouseY >= cardY && mouseY < cardY + CARD_HEIGHT
@@ -194,14 +222,67 @@ public final class ModuleList {
             float trackHeight = Math.max(24.0F, h * (h / contentHeight));
             float fraction = Material.clamp(scroll.value() / visible, 0.0F, 1.0F);
             float barY = y + (h - trackHeight) * fraction;
-            ui.rounded(x + w - 7.0F, barY, SCROLLBAR_WIDTH, trackHeight, SCROLLBAR_WIDTH / 2.0F,
-                    Material.withAlpha(scheme.outlineVariant, 0.8F));
+            float hover = scrollHover.value();
+            if (hover > 0.001F) {
+                ui.rounded(x + w - 8.0F, y, 6.0F, h, 3.0F,
+                        Material.withAlpha(scheme.surfaceContainerHighest, 0.55F * hover));
+            }
+            float width = SCROLLBAR_WIDTH + 2.0F * hover;
+            float barX = x + w - 7.0F - hover;
+            int color = scrollbarDragging || scrollbarHovered
+                    ? Material.withAlpha(scheme.primary, 0.9F)
+                    : Material.withAlpha(scheme.outlineVariant, 0.8F);
+            ui.rounded(barX, barY, width, trackHeight, width / 2.0F, color);
         }
+    }
+
+    private float trackHeight() {
+        return Math.max(24.0F, h * (h / contentHeight));
+    }
+
+    private float barX() {
+        return x + w - 7.0F;
+    }
+
+    private float barY() {
+        float visible = Math.max(0.0F, contentHeight - h);
+        float fraction = visible <= 0.0F ? 0.0F : Material.clamp(scroll.value() / visible, 0.0F, 1.0F);
+        return y + (h - trackHeight()) * fraction;
+    }
+
+    private boolean barContains(float mouseX, float mouseY) {
+        if (contentHeight - h <= 0.5F) {
+            return false;
+        }
+        return mouseX >= barX() - 3.0F && mouseX < x + w
+                && mouseY >= y && mouseY < y + h;
+    }
+
+    private void applyScrollbar(float mouseY) {
+        float visible = Math.max(0.0F, contentHeight - h);
+        if (visible <= 0.0F) {
+            return;
+        }
+        float travel = Math.max(1.0F, h - trackHeight());
+        float top = Material.clamp(mouseY - scrollbarGrabOffset - y, 0.0F, travel);
+        scrollTarget = Material.clamp(top / travel * visible, 0.0F, visible);
+        scroll.set(scrollTarget);
     }
 
     public boolean click(float mouseX, float mouseY, int button, Opener opener) {
         if (mouseX < x || mouseX >= x + w || mouseY < y || mouseY >= y + h) {
             return false;
+        }
+        if (button == 0 && barContains(mouseX, mouseY)) {
+            float top = barY();
+            if (mouseY >= top && mouseY < top + trackHeight()) {
+                scrollbarGrabOffset = mouseY - top;
+            } else {
+                scrollbarGrabOffset = trackHeight() / 2.0F;
+                applyScrollbar(mouseY);
+            }
+            scrollbarDragging = true;
+            return true;
         }
         for (int i = 0; i < cards.size(); i++) {
             Card card = cards.get(i);
@@ -223,9 +304,18 @@ public final class ModuleList {
     }
 
     public void release() {
+        scrollbarDragging = false;
         for (Card card : cards) {
             card.pressed = false;
         }
+    }
+
+    public boolean drag(float mouseX, float mouseY) {
+        if (!scrollbarDragging) {
+            return false;
+        }
+        applyScrollbar(mouseY);
+        return true;
     }
 
     public boolean wheel(float mouseX, float mouseY, double amount) {

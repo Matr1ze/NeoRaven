@@ -81,7 +81,7 @@ public class Script {
             if (string.isEmpty()) {
                 Chat.print(" &7enc: &cError encrypting error log");
             } else {
-                ChatComponentText text = new ChatComponentText(Chat.color(Chat.PREFIX + " &7enc: &cClick to copy"));
+                ChatComponentText text = new ChatComponentText(Chat.color(Chat.prefix() + " &7enc: &cClick to copy"));
                 ChatStyle style = new ChatStyle();
                 style.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(Chat.color("&7Click to copy"))));
                 style.setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, string));

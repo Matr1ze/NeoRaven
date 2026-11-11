@@ -8,6 +8,7 @@
     "IEntityPlayerSP",
     "IMinecraft",
     "IPlayerControllerMP",
+    "MixinServerAddress",
     "MixinNetworkManager",
     "MixinEntityPlayerSP",
     "MixinRendererLivingEntity",

@@ -37,6 +37,10 @@ public enum MenuStyle {
         return label;
     }
 
+    public String localizedLabel() {
+        return xyz.daikirai.util.Lang.text(label);
+    }
+
     public static MenuStyle current() {
         if (current == null) {
             current = read();

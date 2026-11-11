@@ -217,7 +217,7 @@ public class ViewPacketsModule extends Module {
         String head = "&7" + (isSent ? "Sent" : "Received") + " packet (t:&b" + ticks + " " + (int) (System.currentTimeMillis() % 10000L) + "&7): ";
         String details = isSent ? sentInfo(packet) : receivedInfo(packet);
         String name = (packet instanceof C03PacketPlayer ? "&6" : "&d") + packet.getClass().getSimpleName();
-        ChatComponentText line = new ChatComponentText(Chat.color(Chat.PREFIX + head));
+        ChatComponentText line = new ChatComponentText(Chat.color(Chat.prefix() + head));
         if (!Chat.inWorld() || logsOnly.isToggled()) {
             String[] lines = details.split("\n");
             for (int i = 0; i < lines.length; ++i) {

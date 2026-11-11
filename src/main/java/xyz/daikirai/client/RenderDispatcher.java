@@ -16,6 +16,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 public final class RenderDispatcher {
@@ -87,6 +88,20 @@ public final class RenderDispatcher {
         xyz.daikirai.module.player.ScaffoldModule.renderPlaced();
     }
 
+    /**
+     * The 3D lyrics are the only text drawn in world space, so they run after every world
+     * post-process (Fog Blur composites at {@code HIGHEST}, the rest of this dispatcher at
+     * {@code NORMAL}). Drawn earlier, the fog pass blurred and re-tinted the glyphs - with the fog
+     * distance pulled in, they washed out to black.
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onRenderWorldLast(RenderWorldLastEvent e) {
+        if (!Chat.inWorld()) {
+            return;
+        }
+        xyz.daikirai.music.WorldLyrics.render(e.partialTicks);
+    }
+
     @SubscribeEvent
     public void onSpecials(RenderLivingEvent.Specials.Pre<?> e) {
         if (PlayerESPModule.shaderPass || e.x == 0.0 && e.y == 0.0 && e.z == 0.0) {
@@ -111,7 +126,7 @@ public final class RenderDispatcher {
                 xyz.daikirai.module.player.Scaffold2Module.renderCount();
                 xyz.daikirai.module.player.FastPlaceModule.renderCount();
                 xyz.daikirai.module.player.AutoPlaceModule.renderCount();
-                xyz.daikirai.module.network.BlinkModule.renderTicks();
+                xyz.daikirai.module.network.BlinkModule.updateDisplayState();
                 xyz.daikirai.module.network.FreezeModule.render();
                 FallViewModule.render();
                 if (Console.bps) {

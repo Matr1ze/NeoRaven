@@ -54,6 +54,17 @@ public final class LegacyText {
                 if (i + 1 >= text.length()) {
                     break;
                 }
+                if (text.charAt(i + 1) == '#' && i + 7 < text.length()) {
+                    String hex = text.substring(i + 2, i + 8);
+                    i += 7;
+                    if (isHex(hex)) {
+                        flush(runs, current, color, strikethrough, underline);
+                        color = 0xFF000000 | Integer.parseInt(hex, 16);
+                        strikethrough = false;
+                        underline = false;
+                        continue;
+                    }
+                }
                 char code = Character.toLowerCase(text.charAt(++i));
                 int parsed = colorOf(code);
                 if (parsed != 0) {
@@ -163,6 +174,18 @@ public final class LegacyText {
             used += width;
         }
         return out.append(ELLIPSIS).toString();
+    }
+
+    private static boolean isHex(String digits) {
+        if (digits.length() != 6) {
+            return false;
+        }
+        for (int i = 0; i < digits.length(); i++) {
+            if (Character.digit(digits.charAt(i), 16) < 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static int colorOf(char code) {

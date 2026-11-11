@@ -132,9 +132,9 @@ public final class ChestLoot {
                     1.4F - t * 0.6F, Material.withAlpha(scheme.primary, opacity * 0.95F));
         }
         boolean done = session.finished && session.completed;
-        ui.text(Typeface.CAPTION, done ? "Finished" : "Taking items", 14.0F, 128.0F,
+        ui.text(Typeface.CAPTION, xyz.daikirai.util.Lang.text(done ? "Finished" : "Taking items"), 14.0F, 128.0F,
                 scheme.onSurfaceVariant, UI.ALIGN_LEFT);
-        String hint = pages > 1 ? (page + 1) + " / " + pages : "ChestStealer";
+        String hint = pages > 1 ? (page + 1) + " / " + pages : xyz.daikirai.util.Lang.module("ChestStealer");
         ui.text(Typeface.MICRO, hint, WIDTH - 14.0F, 128.0F, scheme.onSurfaceVariant, UI.ALIGN_RIGHT);
         WavyProgressIndicator.Style style = new WavyProgressIndicator.Style(16.0F, 0.65F, 22.0F,
                 scheme.primary, scheme.surfaceContainerHighest);

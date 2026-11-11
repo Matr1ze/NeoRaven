@@ -86,7 +86,7 @@ public class Profile {
                             ChatCommands.nameHider = Chat.color(cname);
                         }
                     }
-                    for (Setting s : m.getSettings()) {
+                    for (Setting s : m.persistedSettings()) {
                         if (s instanceof xyz.daikirai.module.setting.ColorSetting) {
                             loadColor(o.get(s.getName()), (xyz.daikirai.module.setting.ColorSetting) s);
                             continue;
@@ -179,7 +179,7 @@ public class Profile {
                     } else if (m == ModuleManager.get("Name Hider")) {
                         w.name("cname").value(ChatCommands.nameHiderRaw);
                     }
-                    for (Setting s : m.getSettings()) {
+                    for (Setting s : m.persistedSettings()) {
                         if (!s.saved) continue;
                         if (s instanceof xyz.daikirai.module.setting.ColorSetting) {
                             xyz.daikirai.module.setting.ColorSetting color = (xyz.daikirai.module.setting.ColorSetting) s;

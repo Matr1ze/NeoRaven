@@ -236,7 +236,7 @@ public final class MenuStyleSwitch {
         ui.rounded(popup[0], popup[1] + lift, popup[2], popup[3], 16.0F * u, surface);
         ui.outline(popup[0], popup[1] + lift, popup[2], popup[3], 16.0F * u, 1.0F,
                 light ? 0x14000000 : Material.withAlpha(scheme.outlineVariant, 0.5F));
-        ui.text(Typeface.CAPTION, "Menu style", popup[0] + 16.0F * u, popup[1] + lift + 17.0F * u, soft,
+        ui.text(Typeface.CAPTION, xyz.daikirai.util.Lang.text("Menu style"), popup[0] + 16.0F * u, popup[1] + lift + 17.0F * u, soft,
                 UI.ALIGN_LEFT);
         for (int i = 0; i < MenuStyle.values().length; i++) {
             float[] row = rowBounds(width, height, i);
@@ -249,7 +249,7 @@ public final class MenuStyleSwitch {
                         Material.withAlpha(ink, 0.07F * rowHover[i].value()));
             }
             boolean selected = MenuStyle.values()[i] == MenuStyle.current();
-            ui.text(Typeface.BODY_MEDIUM, MenuStyle.values()[i].label(), row[0] + 16.0F * u,
+            ui.text(Typeface.BODY_MEDIUM, MenuStyle.values()[i].localizedLabel(), row[0] + 16.0F * u,
                     row[1] + row[3] / 2.0F, selected ? accent : ink, UI.ALIGN_LEFT);
             float dotRadius = 7.0F * u;
             float dotX = row[0] + row[2] - 18.0F * u;

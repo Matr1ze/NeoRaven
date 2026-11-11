@@ -199,7 +199,7 @@ public class AntiKnockbackModule extends Module {
 
     @Override
     public String getDisplayName() {
-        return this.displayName("Velocity");
+        return this.displayName(xyz.daikirai.util.Lang.module("Velocity"));
     }
 
     @SubscribeEvent

@@ -108,7 +108,7 @@ public final class KeybindsHidden {
         List<String> names = new ArrayList<String>(HIDDEN.size());
         for (String key : HIDDEN) {
             Module module = ModuleManager.getIgnoreCase(key);
-            names.add(module == null ? key : module.getName());
+            names.add(module == null ? key : module.localizedName());
         }
         Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
         return names;

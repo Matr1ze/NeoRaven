@@ -9,11 +9,9 @@ import xyz.daikirai.module.SettingsModule;
 import xyz.daikirai.module.setting.ButtonSetting;
 import xyz.daikirai.module.setting.SliderSetting;
 import xyz.daikirai.util.Render3D;
-import xyz.daikirai.util.RenderUtils;
 import xyz.daikirai.util.Theme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityOtherPlayerMP;
-import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.client.C02PacketUseEntity;
@@ -31,8 +29,7 @@ public class BlinkModule extends Module {
     public static boolean blinking;
     private static int ticks;
     public static String text;
-    private static float halfWidth;
-    private static long startedAt, stoppedAt;
+    private static long stoppedAt;
     public static EntityOtherPlayerMP ghost;
 
     public BlinkModule(int key) {
@@ -88,12 +85,15 @@ public class BlinkModule extends Module {
 
     @Override
     public void onPacketQueueTick() {
-        if (autoDisable.isNotDefault() && (double) ticks >= autoDisable.getInput() * 20.0) {
+        boolean timed = hasAutoDisable();
+        int duration = timed ? autoDisableTicks() : 0;
+        if (timed && ticks >= duration) {
+            text = "0";
             instance.disable();
             return;
         }
-        text = String.valueOf(autoDisable.isNotDefault() ? (int) (autoDisable.getInput() * 20.0) - ticks + 1 : ++ticks);
-        halfWidth = (float) Minecraft.getMinecraft().fontRendererObj.getStringWidth(text) / 2.0f - 0.5f;
+        ++ticks;
+        text = String.valueOf(timed ? Math.max(0, duration - ticks + 1) : ticks);
     }
 
     @Override
@@ -140,8 +140,8 @@ public class BlinkModule extends Module {
         if (b) {
             if (!blinking) {
                 blinking = true;
-                startedAt = System.currentTimeMillis();
                 ticks = 0;
+                text = "0";
                 PacketQueue.open();
             }
         } else if (blinking) {
@@ -151,33 +151,36 @@ public class BlinkModule extends Module {
         }
     }
 
-    public static void renderTicks() {
-        Minecraft mc = Minecraft.getMinecraft();
-        int alpha;
-        long l;
-        if (showBlinkTicks == null || !showBlinkTicks.enabled || text == null) {
-            return;
+    /** Current Blink tick count used by the Dynamic Island HUD. */
+    public static int displayTicks() {
+        return Math.max(0, ticks);
+    }
+
+    /** Whether Blink is running with a finite auto-disable timer. */
+    public static boolean hasAutoDisable() {
+        return autoDisable != null && autoDisable.isNotDefault();
+    }
+
+    /** Elapsed portion of the auto-disable timer, used for the island's progress indicator. */
+    public static float autoDisableProgress() {
+        if (!hasAutoDisable()) {
+            return 0.0F;
         }
-        long now = System.currentTimeMillis();
-        if (blinking) {
-            l = now - startedAt;
-            alpha = l < 125L ? (int) ((float) l / 125.0f * 240.0f) : 240;
-        } else {
-            l = now - stoppedAt;
-            if (l < 125L) {
-                alpha = (int) (240.0f - (float) l / 125.0f * 240.0f);
-            } else {
-                alpha = 0;
-                text = null;
-            }
+        int total = autoDisableTicks();
+        return total <= 0 ? 0.0F : Math.min(1.0F, ticks / (float) total);
+    }
+
+    private static int autoDisableTicks() {
+        return Math.max(1, (int) (autoDisable.getInput() * 20.0F));
+    }
+
+    public static void updateDisplayState() {
+        if (!blinking && System.currentTimeMillis() - stoppedAt >= 125L) {
+            text = null;
         }
-        if (alpha > 0) {
-            float x = (float) RenderUtils.scaledWidth / 2.0f - halfWidth;
-            float y = (float) RenderUtils.scaledHeight / 2.0f + 9.0f;
-            GlStateManager.enableBlend();
-            GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
-            mc.fontRendererObj.drawString(text, x, y, RenderUtils.withAlpha(Theme.defaultTheme.getRGB(0.0), RenderUtils.clampAlpha(alpha)), true);
-            GlStateManager.disableBlend();
-        }
+    }
+
+    public static boolean displayEnabled() {
+        return showBlinkTicks != null && showBlinkTicks.enabled;
     }
 }

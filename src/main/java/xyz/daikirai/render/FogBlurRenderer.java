@@ -2,6 +2,7 @@ package xyz.daikirai.render;
 
 import java.nio.ByteBuffer;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.shader.Framebuffer;
 import org.lwjgl.opengl.GL11;
@@ -32,7 +33,14 @@ public final class FogBlurRenderer {
         if (failed || !OpenGlHelper.shadersSupported || !OpenGlHelper.isFramebufferEnabled() || scene == null) return;
         int previousFbo = GL11.glGetInteger(0x8CA6);
         int matrix = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
+        // Unit bindings are not part of GL_ALL_ATTRIB_BITS, so the pass has to put them back itself.
+        int[] previousTexture = new int[3];
         try (WorldRenderState state = new WorldRenderState(true)) {
+            for (int unit = 0; unit < previousTexture.length; unit++) {
+                GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit + unit);
+                previousTexture[unit] = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            }
+            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
             GL11.glMatrixMode(GL11.GL_PROJECTION);
             GL11.glPushMatrix();
             try {
@@ -72,7 +80,7 @@ public final class FogBlurRenderer {
                 composite.uniformColor("uColor4", Theme.scheme().tertiary);
                 bind(1, half);
                 bind(2, depth);
-                OpenGlHelper.setActiveTexture(OpenGlHelper.defaultTexUnit);
+                GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
                 GL11.glEnable(GL11.GL_BLEND);
                 OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
                 quad();
@@ -81,12 +89,27 @@ public final class FogBlurRenderer {
                 GL11.glMatrixMode(GL11.GL_PROJECTION);
                 GL11.glPopMatrix();
                 GL11.glMatrixMode(matrix);
+                restoreTextures(previousTexture);
             }
         } catch (RuntimeException error) {
             failed = true;
             dispose();
             System.err.println("[onyx] Fog Blur disabled after render failure: " + error);
         }
+    }
+
+    /**
+     * Puts the unit bindings back and leaves {@code GlStateManager}'s per-unit texture cache in
+     * step with the driver: every bind in this class goes through the manager, so a later
+     * {@code bindTexture} of a font or atlas can never be skipped as "already bound" while the
+     * driver still holds one of the fog targets (that is what turned world text black).
+     */
+    private static void restoreTextures(int[] previous) {
+        for (int unit = 0; unit < previous.length; unit++) {
+            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit + unit);
+            GlStateManager.bindTexture(previous[unit]);
+        }
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
     }
 
     private void ensure(int w, int h) {
@@ -125,8 +148,10 @@ public final class FogBlurRenderer {
     }
 
     private static void bind(int unit, int texture) {
-        OpenGlHelper.setActiveTexture(OpenGlHelper.defaultTexUnit + unit);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+        // Through GlStateManager: the class used to call glBindTexture directly, which left the
+        // per-unit texture cache stale for everything drawn after the fog pass.
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit + unit);
+        GlStateManager.bindTexture(texture);
     }
 
     private static void pass(Shader shader, int texture, int fbo, int w, int h, int sourceW, int sourceH) {

@@ -10,6 +10,7 @@ import org.lwjgl.input.Mouse;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
+import xyz.daikirai.gui.onyx.hud.HudPass;
 import xyz.daikirai.gui.onyx.render.Anim;
 import xyz.daikirai.gui.onyx.render.Blur;
 import xyz.daikirai.gui.onyx.render.Ease;
@@ -124,6 +125,7 @@ public final class MusicScreen extends GuiScreen {
     private boolean initialized;
     private boolean closing;
     private boolean closeCommitted;
+    private boolean restored;
     private boolean returnMini;
     private boolean endpointMini;
     private float[] islandBounds;
@@ -153,6 +155,7 @@ public final class MusicScreen extends GuiScreen {
     private boolean searchFocused;
     private long searchTypedAt;
     private long caretAt;
+    private int searchCaret;
 
     private boolean draggingProgress;
     private float progressPreview = -1.0F;
@@ -161,6 +164,7 @@ public final class MusicScreen extends GuiScreen {
     private float volumeAreaX;
     private float volumeAreaY;
     private float volumeAreaW;
+    private boolean volumeOpen;
     private SliderHit draggingSlider;
     private float searchRectX;
     private float searchRectY;
@@ -171,6 +175,7 @@ public final class MusicScreen extends GuiScreen {
     private boolean lyricOpen;
     private boolean qrOpen;
     private boolean settingsSavesVolume;
+    private boolean coverDark;
 
     public MusicScreen() {
         MusicManager.get().boot();
@@ -230,10 +235,8 @@ public final class MusicScreen extends GuiScreen {
                     ? new float[] {island.left(), island.top(), island.width(), island.height()}
                     : island.measure();
             endpointMini = islandBounds[3] / islandBounds[2] > 0.3F && MusicIsland.hasTrack();
-            open.set(0.0F);
-            open.to(1.0F, OPEN_MS, Ease.LINEAR);
-            scrim.set(0.0F);
-            scrim.to(1.0F, 320.0F, Ease.STANDARD);
+            open.set(1.0F);
+            scrim.set(1.0F);
             initialized = true;
         } else if (closing) {
             islandBounds = WatermarkModule.island().measure();
@@ -242,9 +245,15 @@ public final class MusicScreen extends GuiScreen {
         layout();
     }
 
+    /**
+     * The window is fitted to 92% of the screen and limited by the shared Material scale, then
+     * multiplied by the module's own "GUI Scale". The multiplier shrinks below the default fit and
+     * grows back up to it (never past it: the window must stay on screen).
+     */
     private float fitScale() {
         float fit = Math.min(this.width * 0.92F / W, this.height * 0.92F / H);
-        return Math.max(0.1F, Math.min(Theme.scale(), fit));
+        float base = Math.min(Theme.scale(), fit);
+        return Math.max(0.1F, Math.min(base * MusicModule.guiScale(), fit));
     }
 
     private void layout() {
@@ -266,6 +275,7 @@ public final class MusicScreen extends GuiScreen {
         tickIme();
         tickSearch();
         tickScheme();
+        tickScale();
         scroll.update(delta);
         if (contentScrollable) {
             float max = Math.max(0.0F, contentHeight - CT_H);
@@ -307,6 +317,37 @@ public final class MusicScreen extends GuiScreen {
         MusicIme.placeAt(Math.round(imeGuiX * factor), Math.round(imeGuiY * factor));
     }
 
+    /** Re-fits the window when "GUI Scale" (or the shared Material scale) changes while open. */
+    private void tickScale() {
+        float wanted = fitScale();
+        if (Math.abs(wanted - scale) > 0.001F) {
+            scale = wanted;
+            layout();
+        }
+    }
+
+
+    private void insertSearch(String value) {
+        String merged = searchText.substring(0, searchCaret) + value + searchText.substring(searchCaret);
+        if (merged.length() > 48) {
+            merged = merged.substring(0, 48);
+        }
+        searchText = merged;
+        searchCaret = Math.min(merged.length(), searchCaret + value.length());
+    }
+
+    private int searchStart(float maxText) {
+        float limit = Math.max(2.0F, maxText - 2.0F);
+        if (searchCaret <= 0) {
+            return 0;
+        }
+        int start = 0;
+        while (start < searchCaret && SEARCH.width(searchText.substring(start, searchCaret)) > limit) {
+            start++;
+        }
+        return start;
+    }
+
     private void tickSearch() {
         if (chineseInput != null) {
             return;
@@ -338,9 +379,11 @@ public final class MusicScreen extends GuiScreen {
         if (seed == 0) {
             seed = Theme.accent();
         }
-        if (scheme == null || seed != coverSeed) {
+        boolean dark = Theme.dark();
+        if (scheme == null || seed != coverSeed || coverDark != dark) {
             coverSeed = seed;
-            scheme = Scheme.of(seed, 0.35F);
+            coverDark = dark;
+            scheme = Scheme.of(seed, 0.35F, dark);
         }
     }
 
@@ -351,13 +394,6 @@ public final class MusicScreen extends GuiScreen {
     @Override
     public void drawScreen(int rawMouseX, int rawMouseY, float partialTicks) {
         tick();
-        if (closing && open.isDone()) {
-            closeCommitted = true;
-            MusicIsland.returned();
-            WatermarkModule.island().returnFromMusic(returnMini);
-            mc.displayGuiScreen(null);
-            return;
-        }
         updateMouse(rawMouseX, rawMouseY);
         hits.clear();
         volumeAreaW = 0.0F;
@@ -366,6 +402,9 @@ public final class MusicScreen extends GuiScreen {
         ui.begin();
         try {
             drawBackdrop();
+            // Same rule as the ClickGUI: the HUD keeps rendering for the whole time the screen is
+            // open; the window simply draws over it.
+            HudPass.render(partialTicks);
             drawMorph();
         } finally {
             ui.end();
@@ -385,6 +424,7 @@ public final class MusicScreen extends GuiScreen {
     private static final Ease CLOSE_CURVE = Ease.STANDARD;
     private static final float OPEN_MS = 420.0F;
     private static final float CLOSE_MS = 280.0F;
+    /** Above this morph the window covers the screen, so the HUD pass stops being drawn. */
 
     /** 0 = the island endpoint, 1 = the full window; eased in both directions. */
     private float morph() {
@@ -489,25 +529,26 @@ public final class MusicScreen extends GuiScreen {
         ui.scissorPop();
     }
 
-    /** Called by the existing Forge GUI hook, so Escape and programmatic closes share the morph. */
+    /** Called by the existing Forge GUI hook; the screen closes on the same frame. */
     public boolean deferClose() {
         if (closeCommitted) return false;
-        if (!closing) {
-            closingBounds = shellW > 0.0F ? new float[] {shellX, shellY, shellW, shellH} : islandBounds.clone();
-            closing = true;
-            returnMini = MusicIsland.hasTrack();
-            endpointMini = returnMini;
-            // Prime the HUD endpoint now, then measure it: the morph must land on the exact rect
-            // the island will occupy on the next HUD frame.
-            Island island = WatermarkModule.island();
-            island.returnFromMusic(returnMini);
-            islandBounds = island.measure();
-            open.to(0.0F, CLOSE_MS, Ease.LINEAR);
-            scrim.to(0.0F, 220.0F, Ease.DECELERATE);
-            draggingProgress = draggingVolume = false;
-            draggingSlider = null;
+        closeCommitted = true;
+        restoreIsland();
+        if (draggingVolume) {
+            manager.commitVolume();
         }
-        return true;
+        draggingProgress = draggingVolume = false;
+        volumeOpen = false;
+        draggingSlider = null;
+        return false;
+    }
+
+    private void restoreIsland() {
+        if (restored) return;
+        restored = true;
+        returnMini = MusicIsland.hasTrack();
+        MusicIsland.returned();
+        WatermarkModule.island().returnFromMusic(returnMini);
     }
 
     private boolean interactive() {
@@ -989,19 +1030,24 @@ public final class MusicScreen extends GuiScreen {
     private float drawSettings(Scheme current, float y) {
         MusicManager m = manager;
         y = settingRowHeader(current, "播放", y);
-        y = sliderRow(current, "音量", Math.round(m.volume() * 100.0F) + "%", y, m.volume(), 0.0F, 1.0F,
-                new FloatSetter() {
-                    @Override
-                    public void set(float value) {
-                        manager.setVolume(value);
-                    }
-                });
         y = chipRow(current, "音质", new String[]{"标准", "较高", "极高", "无损"},
                 new String[]{"standard", "higher", "exhigh", "lossless"},
                 new String[]{m.streamLevel()}, 1, y, new StringSetter() {
                     @Override
                     public void set(String value) {
                         manager.setStreamLevel(value);
+                    }
+                });
+        final int outputMode = m.outputMode();
+        y = chipRow(current, "音频输出", new String[]{"自动", "Java Sound", "游戏 OpenAL"},
+                new String[]{"auto", "java", "game"},
+                new String[]{outputMode == AudioEngine.OUTPUT_JAVA_SOUND ? "java"
+                        : outputMode == AudioEngine.OUTPUT_GAME ? "game" : "auto"},
+                1, y, new StringSetter() {
+                    @Override
+                    public void set(String value) {
+                        manager.setOutputMode("java".equals(value) ? AudioEngine.OUTPUT_JAVA_SOUND
+                                : "game".equals(value) ? AudioEngine.OUTPUT_GAME : AudioEngine.OUTPUT_AUTO);
                     }
                 });
         y = settingRowHeader(current, "外观", y);
@@ -1034,6 +1080,106 @@ public final class MusicScreen extends GuiScreen {
                         manager.setLyricAnimation(value);
                     }
                 });
+        y = settingRowHeader(current, "3D 歌词", y);
+        final MusicManager.Lyrics3DSettings l3 = m.lyrics3d;
+        y = switchRow(current, "3D 歌词", "把当前歌词漂在世界里（歌词来自内置播放器）", y, l3.enabled,
+                new BooleanSetter() {
+                    @Override
+                    public void set(boolean value) {
+                        l3.enabled = value;
+                        manager.saveSettings();
+                    }
+                });
+        if (l3.enabled) {
+            y = sliderRow(current, "字号", Math.round(l3.scale * 100.0F) + "%", y,
+                    (l3.scale - 0.5F) / 1.5F, 0.0F, 1.0F, new FloatSetter() {
+                        @Override
+                        public void set(float value) {
+                            l3.scale = 0.5F + value * 1.5F;
+                            manager.saveSettings();
+                        }
+                    });
+            y = sliderRow(current, "距离", Math.round(l3.distance) + " 格", y,
+                    (l3.distance - 3.0F) / 37.0F, 0.0F, 1.0F, new FloatSetter() {
+                        @Override
+                        public void set(float value) {
+                            l3.distance = 3.0F + value * 37.0F;
+                            manager.saveSettings();
+                        }
+                    });
+            y = sliderRow(current, "左右位置", String.format("%.1f", l3.offsetX), y,
+                    (l3.offsetX + 8.0F) / 16.0F, 0.0F, 1.0F, new FloatSetter() {
+                        @Override
+                        public void set(float value) {
+                            l3.offsetX = -8.0F + value * 16.0F;
+                            manager.saveSettings();
+                        }
+                    });
+            y = sliderRow(current, "上下位置", String.format("%.1f", l3.offsetY), y,
+                    (l3.offsetY + 6.0F) / 12.0F, 0.0F, 1.0F, new FloatSetter() {
+                        @Override
+                        public void set(float value) {
+                            l3.offsetY = -6.0F + value * 12.0F;
+                            manager.saveSettings();
+                        }
+                    });
+            y = sliderRow(current, "散布角度", Math.round(l3.spread) + "°", y,
+                    l3.spread / 60.0F, 0.0F, 1.0F, new FloatSetter() {
+                        @Override
+                        public void set(float value) {
+                            l3.spread = value * 60.0F;
+                            manager.saveSettings();
+                        }
+                    });
+            y = switchRow(current, "发光", "暗处更醒目", y, l3.glow,
+                    new BooleanSetter() {
+                        @Override
+                        public void set(boolean value) {
+                            l3.glow = value;
+                            manager.saveSettings();
+                        }
+                    });
+            y = switchRow(current, "手绘抖动", "逐字低频抖动", y, l3.wiggle,
+                    new BooleanSetter() {
+                        @Override
+                        public void set(boolean value) {
+                            l3.wiggle = value;
+                            manager.saveSettings();
+                        }
+                    });
+            y = switchRow(current, "逐字弹出", "唱到哪个字就弹出哪个字", y, l3.wordPop,
+                    new BooleanSetter() {
+                        @Override
+                        public void set(boolean value) {
+                            l3.wordPop = value;
+                            manager.saveSettings();
+                        }
+                    });
+            y = switchRow(current, "彩虹色", "唱过的字按彩虹渐变", y, l3.rainbow,
+                    new BooleanSetter() {
+                        @Override
+                        public void set(boolean value) {
+                            l3.rainbow = value;
+                            manager.saveSettings();
+                        }
+                    });
+            y = switchRow(current, "中文翻译", "关闭后只显示原语言歌词", y, l3.translation,
+                    new BooleanSetter() {
+                        @Override
+                        public void set(boolean value) {
+                            l3.translation = value;
+                            manager.saveSettings();
+                        }
+                    });
+            y = switchRow(current, "跟随视角", "关闭后固定在原处，出视野时自动拉回", y, l3.followView,
+                    new BooleanSetter() {
+                        @Override
+                        public void set(boolean value) {
+                            l3.followView = value;
+                            manager.saveSettings();
+                        }
+                    });
+        }
         y = settingRowHeader(current, "账号", y);
         boolean logged = m.profile() != null;
         button(current, logged ? "退出登录" : "扫码登录", CT_X + 8.0F, y + 6.0F, 132.0F, 38.0F, !logged,
@@ -1051,7 +1197,11 @@ public final class MusicScreen extends GuiScreen {
         ui.text(MusicTypeface.BODY, logged ? "已登录：" + m.profile().nickname : "未登录，仅能播放试听/免费曲目",
                 CT_X + 156.0F, y + 25.0F, current.onSurfaceVariant, UI.ALIGN_LEFT);
         y += 56.0F;
-        ui.text(MusicTypeface.CAPTION, "音频输出：Java Sound（独立于游戏 OpenAL 混音）",
+        String active = m.activeOutput();
+        String outputLabel = active.isEmpty()
+                ? ("自动（" + AudioRuntime.autoReason() + "）")
+                : ("当前：" + active);
+        ui.text(MusicTypeface.CAPTION, "音频输出：" + outputLabel,
                 CT_X + 8.0F, y + 10.0F, Material.withAlpha(current.onSurfaceVariant, 0.7F), UI.ALIGN_LEFT);
         return y + 28.0F;
     }
@@ -1582,8 +1732,26 @@ public final class MusicScreen extends GuiScreen {
                 draggingSlider = (SliderHit) hit;
                 draggingSlider.apply(mouseX);
             } else {
-                searchFocused = mouseX >= searchRectX && mouseX < searchRectX + searchRectW
+                boolean wasSearch = mouseX >= searchRectX && mouseX < searchRectX + searchRectW
                         && mouseY >= searchRectY && mouseY < searchRectY + searchRectH;
+                searchFocused = wasSearch;
+                if (wasSearch) {
+                    // Click-to-place caret, measured the same way the search box draws its text.
+                    float target = mouseX - (searchRectX + 38.0F) + searchScroll;
+                    int best = 0;
+                    float bestDelta = Float.MAX_VALUE;
+                    for (int c = 0; c <= searchText.length(); c++) {
+                        float w = SEARCH.width(searchText.substring(0, c));
+                        float delta = Math.abs(w - target);
+                        if (delta < bestDelta) {
+                            bestDelta = delta;
+                            best = c;
+                        }
+                    }
+                    searchInput.setFocused(true);
+                    searchInput.setCursorPosition(best);
+                    caretAt = System.currentTimeMillis();
+                }
                 if (hit.action != null) {
                     hit.action.run();
                 }
@@ -1593,6 +1761,7 @@ public final class MusicScreen extends GuiScreen {
         if (lyricOpen && lyricPanel.mouseClicked(mouseX, mouseY)) {
             return;
         }
+        volumeOpen = false;
         searchFocused = false;
     }
 
@@ -1618,6 +1787,9 @@ public final class MusicScreen extends GuiScreen {
             }
         }
         draggingProgress = false;
+        if (draggingVolume) {
+            manager.commitVolume();
+        }
         draggingVolume = false;
         draggingSlider = null;
         progressPreview = -1.0F;
@@ -1739,10 +1911,12 @@ public final class MusicScreen extends GuiScreen {
         }
         if (key == 200) {
             manager.setVolume(Math.min(1.0F, manager.volume() + 0.05F));
+            manager.commitVolume();
             return;
         }
         if (key == 208) {
             manager.setVolume(Math.max(0.0F, manager.volume() - 0.05F));
+            manager.commitVolume();
             return;
         }
         if (key == 203) {
@@ -1771,6 +1945,7 @@ public final class MusicScreen extends GuiScreen {
             chineseInput.close();
             chineseInput = null;
         }
+        restoreIsland();
         Blur.request();
         manager.saveSettings();
     }

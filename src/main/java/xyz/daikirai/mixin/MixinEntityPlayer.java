@@ -31,6 +31,7 @@ public abstract class MixinEntityPlayer {
     @Inject(method = "attackTargetEntityWithCurrentItem", at = @At("HEAD"))
     private void clickgui$captureTarget(Entity target, CallbackInfo ci) {
         clickgui$attackTarget = target;
+        Hooks.onAttackTarget(target);
     }
 
     @Redirect(method = "attackTargetEntityWithCurrentItem", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/player/EntityPlayer;motionX:D", opcode = 181, ordinal = 0))

@@ -10,7 +10,6 @@ import xyz.daikirai.module.render.CustomGuiModule;
 
 /** Onyx's vanilla GUI font: a 7px cap height inside Minecraft's unchanged 9px line box. */
 public final class GuiFont {
-    private static final String ROOT = "/assets/onyx/font/ttf/googlesansflex_24pt-";
     private static final String COLORS = "0123456789abcdef";
     private static final String OBFUSCATED = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int BOLD = 1;
@@ -18,7 +17,6 @@ public final class GuiFont {
     private static final int RANDOM = 4;
     private static final int STRIKE = 8;
     private static final int UNDERLINE = 16;
-    private static final TtfFont[] FONTS = new TtfFont[4];
     private static final ThreadLocal<Integer> SCOPE = new ThreadLocal<Integer>() {
         @Override
         protected Integer initialValue() {
@@ -63,17 +61,9 @@ public final class GuiFont {
         System.err.println("[onyx] GUI font fell back to Minecraft's bitmap font: " + error);
     }
 
-    private static TtfFont font(int index) {
-        if (FONTS[index] == null) {
-            String[] weights = {"regular", "medium", "semibold", "bold"};
-            FONTS[index] = TtfFont.load(ROOT + weights[index] + ".ttf", 24.0F);
-        }
-        return FONTS[index];
-    }
-
     private static final class Metrics {
-        final TtfFont normal = font(CustomGuiModule.mediumFont() ? 1 : 0);
-        final TtfFont bold = font(CustomGuiModule.mediumFont() ? 3 : 2);
+        final TtfFont normal = Typeface.text24();
+        final TtfFont bold = Typeface.text24();
         final float scale = 7.0F / Math.max(1.0F, normal.ascent()) * CustomGuiModule.fontSize();
         final float spacing = CustomGuiModule.fontSpacing();
 
@@ -108,6 +98,35 @@ public final class GuiFont {
                 }
             }
         }
+    }
+
+    /** Length of the colour code starting at {@code i} (a section sign): 2, or 8 for §#RRGGBB. */
+    private static int codeLength(String text, int i) {
+        if (i + 1 >= text.length()) {
+            return 1;
+        }
+        if (text.charAt(i + 1) == '#' && isHex(text, i + 2)) {
+            return 8;
+        }
+        return 2;
+    }
+
+    /** True when six hex digits start at {@code i}. */
+    private static boolean isHex(String text, int i) {
+        if (i + 6 > text.length()) {
+            return false;
+        }
+        for (int k = i; k < i + 6; k++) {
+            if (Character.digit(text.charAt(k), 16) < 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Colour of a {@code §#RRGGBB} code whose digits start at {@code i}. */
+    private static int hexColor(String text, int i) {
+        return 0xFF000000 | Integer.parseInt(text.substring(i, i + 6), 16);
     }
 
     private static int format(int flags, char code) {
@@ -175,6 +194,13 @@ public final class GuiFont {
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             if (c == '\u00a7' && i + 1 < text.length()) {
+                if (text.charAt(i + 1) == '#' && isHex(text, i + 2)) {
+                    int hex = hexColor(text, i + 2);
+                    color = shadow ? darken(hex) : hex;
+                    flags = 0;
+                    i += 7;
+                    continue;
+                }
                 char code = Character.toLowerCase(text.charAt(++i));
                 flags = format(flags, code);
                 if (COLORS.indexOf(code) >= 0) {
@@ -224,10 +250,11 @@ public final class GuiFont {
             Metrics metrics = new Metrics();
             // Match Onyx's upload-before-draw order for both shadow and foreground passes.
             metrics.prepare(text);
-            // The glyph atlas is a GL_ALPHA texture: it only shows the text colour while
-            // GL_MODULATE is the env mode, unit 0 is sampled, texturing and blending are on and
-            // lighting is off. World renderers leave raw glEnable/glDisable calls behind, and any
-            // one of those states being wrong renders every glyph black, so rebuild them here.
+            // The glyph atlas is an RGBA texture with white RGB and coverage in alpha, so
+            // GL_MODULATE tints the glyphs with the caller's colour. Unit 0 must be sampled,
+            // texturing and blending must be on, and lighting must be off. World renderers leave
+            // raw glEnable/glDisable calls behind, and any one of those states being wrong renders
+            // every glyph black, so rebuild them here.
             GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
             GlStateManager.disableLighting();
             GlStateManager.disableAlpha();
@@ -308,6 +335,20 @@ public final class GuiFont {
         }
     }
 
+    /** Index of the section sign that owns position {@code i}, or -1 when it is plain text. */
+    private static int codeStartAt(String text, int i) {
+        for (int start = Math.max(0, i - 7); start <= i; start++) {
+            if (text.charAt(start) != '\u00a7') {
+                continue;
+            }
+            int length = codeLength(text, start);
+            if (i < start + length) {
+                return start;
+            }
+        }
+        return -1;
+    }
+
     private static float[] advances(FontRenderer renderer, String text) {
         Metrics metrics = new Metrics();
         float[] widths = new float[text.length()];
@@ -315,7 +356,13 @@ public final class GuiFont {
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             if (c == '\u00a7' && i + 1 < text.length()) {
-                flags = format(flags, Character.toLowerCase(text.charAt(++i)));
+                int length = codeLength(text, i);
+                if (length == 8) {
+                    flags = 0;
+                } else {
+                    flags = format(flags, Character.toLowerCase(text.charAt(i + 1)));
+                }
+                i += length - 1;
             } else {
                 widths[i] = metrics.advance(renderer, c, (flags & BOLD) != 0);
             }
@@ -331,8 +378,10 @@ public final class GuiFont {
             if (reverse) {
                 int start = text.length();
                 for (int i = text.length() - 1; i >= 0; i--) {
-                    if (i > 0 && text.charAt(i - 1) == '\u00a7') {
-                        start = --i;
+                    int codeStart = codeStartAt(text, i);
+                    if (codeStart >= 0) {
+                        start = codeStart;
+                        i = codeStart;
                         continue;
                     }
                     if (Math.round(width + widths[i]) > limit) break;
@@ -344,7 +393,9 @@ public final class GuiFont {
             int end = 0;
             for (int i = 0; i < text.length(); i++) {
                 if (text.charAt(i) == '\u00a7' && i + 1 < text.length()) {
-                    end = ++i + 1;
+                    int length = codeLength(text, i);
+                    end = i + length;
+                    i += length - 1;
                     continue;
                 }
                 if (Math.round(width + widths[i]) > limit) break;
@@ -367,7 +418,7 @@ public final class GuiFont {
             for (int i = 0; i < text.length(); i++) {
                 char c = text.charAt(i);
                 if (c == '\u00a7' && i + 1 < text.length()) {
-                    i++;
+                    i += codeLength(text, i) - 1;
                     continue;
                 }
                 if (c == '\n') return Integer.valueOf(i);

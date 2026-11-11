@@ -20,6 +20,8 @@ public final class Ease {
     public static final Ease STANDARD = new Ease(0.4, 0.0, 0.2, 1.0);
     /** Onyx's {@code IFACE4}. */
     public static final Ease EMPHASIZED_ACCELERATE = new Ease(0.3, 0.0, 1.0, 1.0);
+    /** Onyx notification exit (render.misc.Util.IFACE). */
+    public static final Ease NOTIFICATION_EXIT = new Ease(0.3, 0.0, 0.8, 0.15);
 
     private final double x1;
     private final double y1;

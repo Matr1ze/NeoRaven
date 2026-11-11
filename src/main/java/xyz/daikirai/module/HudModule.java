@@ -151,6 +151,7 @@ public class HudModule extends Module {
             if (m.isHidden() || m == ModuleManager.hud || m == ModuleManager.gui || m == ModuleManager.commandLine
                     || m instanceof xyz.daikirai.module.render.WatermarkModule
                     || m instanceof xyz.daikirai.module.render.KeybindsModule
+                    || m instanceof xyz.daikirai.module.render.NotificationsModule
                     || m instanceof xyz.daikirai.module.render.CustomGuiModule
                     || m instanceof xyz.daikirai.module.render.TargetHudModule
                     || m instanceof xyz.daikirai.module.render.PotionHudModule

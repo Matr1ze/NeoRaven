@@ -234,7 +234,7 @@ public abstract class AndroidListScreen extends GuiScreen {
         ui.rounded(doneX, doneY, doneWidth, doneHeight, 15.0F,
                 hovered ? AndroidWallpaper.primaryContainer()
                         : Material.mix(AndroidWallpaper.card(), AndroidWallpaper.primaryContainer(), 0.55F));
-        ui.text(Typeface.LABEL, I18n.format("gui.done"), doneX + doneWidth / 2.0F, doneY + doneHeight / 2.0F,
+        ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Done"), doneX + doneWidth / 2.0F, doneY + doneHeight / 2.0F,
                 AndroidWallpaper.onPrimaryContainer(), UI.ALIGN_CENTER);
     }
 
@@ -371,7 +371,7 @@ public abstract class AndroidListScreen extends GuiScreen {
         ui.rounded(x, y, confirmW, 30.0F, 15.0F, AndroidWallpaper.errorContainer());
         ui.text(Typeface.LABEL, confirmLabel, x + confirmW / 2.0F, y + 15.0F, AndroidWallpaper.onErrorContainer(), UI.ALIGN_CENTER);
         ui.rounded(x - 8.0F - cancelW, y, cancelW, 30.0F, 15.0F, AndroidWallpaper.surfaceHigh());
-        ui.text(Typeface.LABEL, I18n.format("gui.cancel"), x - 8.0F - cancelW / 2.0F, y + 15.0F,
+        ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Cancel"), x - 8.0F - cancelW / 2.0F, y + 15.0F,
                 AndroidWallpaper.ink(), UI.ALIGN_CENTER);
         ui.pop();
         ui.end();

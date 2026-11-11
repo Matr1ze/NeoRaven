@@ -57,6 +57,12 @@ public class ClickGuiMod {
 
     @SubscribeEvent
     public void onGuiOpen(net.minecraftforge.client.event.GuiOpenEvent event) {
+        if (mc.currentScreen instanceof xyz.daikirai.gui.onyx.OnyxClickGui
+                && event.gui == null
+                && ((xyz.daikirai.gui.onyx.OnyxClickGui) mc.currentScreen).deferClose()) {
+            event.setCanceled(true);
+            return;
+        }
         if (mc.currentScreen instanceof xyz.daikirai.music.MusicScreen
                 && event.gui == null
                 && ((xyz.daikirai.music.MusicScreen) mc.currentScreen).deferClose()) {

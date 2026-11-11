@@ -136,6 +136,13 @@ public final class TargetHudModule extends Module {
         return HUD;
     }
 
+    /** Draws the card once from inside a screen (see {@code HudPass}). */
+    public static void renderHud(float partialTicks) {
+        if (instance != null) {
+            HUD.render(instance, false, partialTicks);
+        }
+    }
+
     public boolean frosted() {
         return frostedGlass == null || frostedGlass.isToggled();
     }

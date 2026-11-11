@@ -443,7 +443,7 @@ public final class ChatCommands {
             Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(name), null);
         } catch (Exception ignored) {
         }
-        ChatComponentText text = new ChatComponentText(Chat.color(Chat.PREFIX + lower(tag(cmd, "&7Your username: "))));
+        ChatComponentText text = new ChatComponentText(Chat.color(Chat.prefix() + lower(tag(cmd, "&7Your username: "))));
         ChatStyle style = new ChatStyle();
         style.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(Chat.color(lower("&7Copied to clipboard")))));
         style.setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, name));

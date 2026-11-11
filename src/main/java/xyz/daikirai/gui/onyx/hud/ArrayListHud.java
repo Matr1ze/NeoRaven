@@ -192,7 +192,7 @@ public final class ArrayListHud {
                 row = new Row(candidate);
                 rows.put(candidate, row);
             }
-            String base = candidate.getName();
+            String base = candidate.localizedName();
             if (base == null) {
                 continue;
             }
@@ -231,7 +231,7 @@ public final class ArrayListHud {
         if (mode == 1) {
             order.sort((a, b) -> Float.compare(rows.get(a).textWidth, rows.get(b).textWidth));
         } else if (mode == 2) {
-            order.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+            order.sort((a, b) -> a.localizedName().compareToIgnoreCase(b.localizedName()));
         } else {
             order.sort((a, b) -> Float.compare(rows.get(b).textWidth, rows.get(a).textWidth));
         }
@@ -288,8 +288,12 @@ public final class ArrayListHud {
             float rowWidth = row.textWidth + inset * 2.0F;
             float left = rightAnchored ? layoutWidth - rowWidth : 0.0F;
             int accent = accentColor(module, scheme, row, i, count);
-            int nameColor = style == STYLE_ACCENT_BAR ? scheme.onSurface : accent;
-            int suffixColor = Material.withAlpha(style == STYLE_TEXT ? accent : scheme.onSurface, 0.6F);
+            // Use the row accent for the text too.  Surface ink made the light HUD render as a
+            // black column that was disconnected from its own accent bars.
+            int nameColor = Theme.hudText(accent, style == STYLE_ACCENT_BAR ? scheme.onSurface : accent);
+            int suffixColor = Material.withAlpha(
+                    Theme.hudText(accent, style == STYLE_TEXT ? accent : scheme.onSurface),
+                    style == STYLE_TEXT ? 1.0F : 0.72F);
             float centerY = top + ROW_H / 2.0F;
 
             ui.alphaPush(alpha);

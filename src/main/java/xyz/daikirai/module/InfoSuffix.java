@@ -8,7 +8,7 @@ public final class InfoSuffix {
     }
 
     private static String display(Module m, String setting) {
-        return slider(m, setting).getDisplay(false);
+        return xyz.daikirai.util.Lang.setting(slider(m, setting).getDisplay(false));
     }
 
     private static SliderSetting slider(Module m, String setting) {

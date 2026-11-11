@@ -3,7 +3,6 @@ package xyz.daikirai.gui.onyx;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
-import xyz.daikirai.gui.onyx.menu.MenuBackdrop;
 import xyz.daikirai.gui.onyx.render.M3LoadingIndicator;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
@@ -11,12 +10,12 @@ import xyz.daikirai.gui.onyx.render.UI;
 /**
  * The client's "joining a server" screen.
  *
- * <p>Vanilla draws a dirt background with one line of text; this replaces that drawing with the same
- * Onyx cloud backdrop the menus use and the Material 3 Expressive morphing loading indicator
+ * <p>Vanilla draws a dirt background with one line of text; this replaces that drawing with the
+ * client's surface gradient and the Material 3 Expressive morphing loading indicator
  * ({@link M3LoadingIndicator}, twelve-sided cookie -> nine-sided cookie -> pentagon -> circle, the
  * {@code Shape Morph 3.mp4} cycle) with the connection status underneath. No plate behind the shape:
- * the reference clip's light disc only exists because that clip has a flat field, and on the Onyx
- * backdrop it read as a sticker.</p>
+ * the reference clip's light disc only exists because that clip has a flat field, and on the
+ * gradient it read as a sticker.</p>
  *
  * <p>The whole block is anchored to the Cancel button instead of the screen centre, because
  * {@code GuiConnecting} places that button at {@code height / 4 + 132} — centring the status text put
@@ -53,7 +52,8 @@ public final class LoadingOverlay {
         UI ui = UI;
         ui.begin();
         try {
-            MenuBackdrop.draw(ui, width, height);
+            ui.rect(0.0F, 0.0F, width, height, scheme.surface);
+            ui.gradient(0.0F, 0.0F, width, height, scheme.surfaceContainerLow, scheme.surface);
             ui.rect(0.0F, 0.0F, width, height, Theme.scrim(0.35F));
 
             float cx = width / 2.0F;
@@ -91,7 +91,7 @@ public final class LoadingOverlay {
             int fill = hover ? Material.mix(scheme.primaryContainer, scheme.primary, 0.18F)
                     : scheme.primaryContainer;
             ui.rounded(bx, by, CANCEL_WIDTH, CANCEL_HEIGHT, CANCEL_HEIGHT / 2.0F, fill);
-            ui.text(Typeface.LABEL, "Cancel", bx + CANCEL_WIDTH / 2.0F, by + CANCEL_HEIGHT / 2.0F,
+            ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Cancel"), bx + CANCEL_WIDTH / 2.0F, by + CANCEL_HEIGHT / 2.0F,
                     scheme.onPrimaryContainer, UI.ALIGN_CENTER);
         } finally {
             ui.end();

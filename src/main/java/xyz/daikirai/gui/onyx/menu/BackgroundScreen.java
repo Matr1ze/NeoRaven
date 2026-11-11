@@ -53,7 +53,7 @@ final class BackgroundScreen extends MenuScreen {
 
     @Override
     void drawContent(Scheme s) {
-        title("Menu background");
+        title(xyz.daikirai.util.Lang.text("Menu background"));
         // The colour sheet writes straight into the setting; mirror it into the saved theme.
         int wanted = dockColor.followsTheme() ? 0 : dockColor.color();
         if (wanted != MenuTheme.dockColor() || dockColor.followsTheme() != MenuTheme.dockFollows()) {
@@ -100,10 +100,10 @@ final class BackgroundScreen extends MenuScreen {
         boolean over = actionHit(0, mx, my);
         ui.rounded(LEFT, y, WIDTH, ACTION_H, 14.0F,
                 Material.mix(s.surfaceContainerHighest, 0xFFFFFFFF, over ? 0.08F : 0.0F));
-        ui.textBaseline(Typeface.BODY_MEDIUM, "Dock colour", LEFT + 18.0F, y + ACTION_H / 2.0F,
+        ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Dock colour"), LEFT + 18.0F, y + ACTION_H / 2.0F,
                 s.onSurface, UI.ALIGN_LEFT);
         ui.textBaseline(Typeface.CAPTION,
-                dockColor.followsTheme() ? "Follows the wallpaper" : "Custom colour",
+                dockColor.followsTheme() ? xyz.daikirai.util.Lang.text("Follows the wallpaper") : xyz.daikirai.util.Lang.text("Custom colour"),
                 LEFT + 150.0F, y + ACTION_H / 2.0F, s.onSurfaceVariant, UI.ALIGN_LEFT);
         int swatch = dockColor.followsTheme() ? AndroidWallpaper.dock() : dockColor.color();
         ui.rounded(LEFT + WIDTH - 76.0F, y + ACTION_H / 2.0F - 11.0F, 40.0F, 22.0F, 11.0F, swatch);
@@ -117,9 +117,9 @@ final class BackgroundScreen extends MenuScreen {
         boolean darkOver = actionHit(1, mx, my);
         ui.rounded(LEFT, dy, WIDTH, ACTION_H, 14.0F,
                 Material.mix(s.surfaceContainerHighest, 0xFFFFFFFF, darkOver ? 0.08F : 0.0F));
-        ui.textBaseline(Typeface.BODY_MEDIUM, "Dark mode", LEFT + 18.0F, dy + ACTION_H / 2.0F,
+        ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Dark mode"), LEFT + 18.0F, dy + ACTION_H / 2.0F,
                 s.onSurface, UI.ALIGN_LEFT);
-        ui.textBaseline(Typeface.CAPTION, "Black theme for the menus", LEFT + 150.0F,
+        ui.textBaseline(Typeface.CAPTION, xyz.daikirai.util.Lang.text("Shared across client screens and HUDs"), LEFT + 150.0F,
                 dy + ACTION_H / 2.0F, s.onSurfaceVariant, UI.ALIGN_LEFT);
         switchTrack(s, dy, dark);
 
@@ -129,17 +129,17 @@ final class BackgroundScreen extends MenuScreen {
         boolean blurOver = actionHit(2, mx, my);
         ui.rounded(LEFT, by, WIDTH, ACTION_H, 14.0F,
                 Material.mix(s.surfaceContainerHighest, 0xFFFFFFFF, blurOver ? 0.08F : 0.0F));
-        ui.textBaseline(Typeface.BODY_MEDIUM, "Background blur", LEFT + 18.0F,
+        ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Background blur"), LEFT + 18.0F,
                 by + ACTION_H / 2.0F, s.onSurface, UI.ALIGN_LEFT);
         String state;
         if (!MenuBackground.current().wallpaper()) {
-            state = "Only affects wallpapers";
+            state = xyz.daikirai.util.Lang.text("Only affects wallpapers");
         } else if (mode == 1) {
-            state = "Mica";
+            state = xyz.daikirai.util.Lang.text("Mica");
         } else if (mode == 2) {
-            state = "Frosted glass";
+            state = xyz.daikirai.util.Lang.text("Frosted glass");
         } else {
-            state = "Off";
+            state = xyz.daikirai.util.Lang.text("Off");
         }
         ui.textBaseline(Typeface.CAPTION, state, LEFT + 150.0F, by + ACTION_H / 2.0F,
                 s.onSurfaceVariant, UI.ALIGN_LEFT);
@@ -154,10 +154,10 @@ final class BackgroundScreen extends MenuScreen {
         boolean clockOver = actionHit(3, mx, my);
         ui.rounded(LEFT, cy, WIDTH, ACTION_H, 14.0F,
                 Material.mix(s.surfaceContainerHighest, 0xFFFFFFFF, clockOver ? 0.08F : 0.0F));
-        ui.textBaseline(Typeface.BODY_MEDIUM, "Clock face", LEFT + 18.0F, cy + ACTION_H / 2.0F,
+        ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Clock face"), LEFT + 18.0F, cy + ACTION_H / 2.0F,
                 s.onSurface, UI.ALIGN_LEFT);
         boolean analog = MenuTheme.clockStyle() == MenuTheme.CLOCK_ANALOG;
-        ui.textBaseline(Typeface.CAPTION, analog ? "Analog" : "Digital", LEFT + 150.0F,
+        ui.textBaseline(Typeface.CAPTION, analog ? xyz.daikirai.util.Lang.text("Analog") : xyz.daikirai.util.Lang.text("Digital"), LEFT + 150.0F,
                 cy + ACTION_H / 2.0F, s.onSurfaceVariant, UI.ALIGN_LEFT);
         drawClockGlyph(s, LEFT + WIDTH - 54.0F, cy + ACTION_H / 2.0F, 11.0F, analog);
         ui.icon(Icons.EXPAND_MORE, LEFT + WIDTH - 22.0F, cy + ACTION_H / 2.0F, 14.0F,
@@ -168,11 +168,8 @@ final class BackgroundScreen extends MenuScreen {
     private void drawClockGlyph(Scheme s, float cx, float cy, float radius, boolean analog) {
         int ink = s.onSurface;
         if (analog) {
-            ui.outline(cx - radius, cy - radius, radius * 2.0F, radius * 2.0F, radius, 1.2F,
-                    Material.withAlpha(ink, 0.8F));
-            hand(cx, cy, -60.0F, radius * 0.72F, 1.6F, ink);
-            hand(cx, cy, 140.0F, radius * 0.5F, 2.0F, ink);
-            ui.circle(cx, cy, 1.4F, ink);
+            // The ported Material face draws its own scalloped dial; the row previews that shape.
+            xyz.daikirai.gui.onyx.hud.AndroidClock.glyph(ui, cx, cy, radius, s);
         } else {
             ui.rounded(cx - radius * 0.72F, cy - radius * 0.6F, radius * 0.46F, radius * 1.1F,
                     radius * 0.16F, ink);

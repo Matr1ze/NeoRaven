@@ -126,16 +126,16 @@ abstract class MenuScreen extends GuiScreen {
         ui.alphaPop();
         ui.pop(); ui.end();
         for(MenuButton b:buttons) if(b.icon!=null && b.label.isEmpty() && b.hit(mx,my)) {
-            String tip="\ue5cd".equals(b.icon)?"Close":tooltip(b.icon);
+            String tip="\ue5cd".equals(b.icon)?xyz.daikirai.util.Lang.text("Close"):tooltip(b.icon);
             if(!tip.isEmpty()) drawHoveringText(Collections.singletonList(tip),x,y);
         }
     }
     String tooltip(String icon) {
-        if("\ue872".equals(icon)) return "Delete";
-        if("\ue5d5".equals(icon)) return "Refresh tokens";
-        if("\ue037".equals(icon)) return "Log in";
-        if("\ue14d".equals(icon)) return "Copy username";
-        if("\ue5c4".equals(icon)) return "Back";
+        if("\ue872".equals(icon)) return xyz.daikirai.util.Lang.text("Delete");
+        if("\ue5d5".equals(icon)) return xyz.daikirai.util.Lang.text("Refresh tokens");
+        if("\ue037".equals(icon)) return xyz.daikirai.util.Lang.text("Log in");
+        if("\ue14d".equals(icon)) return xyz.daikirai.util.Lang.text("Copy username");
+        if("\ue5c4".equals(icon)) return xyz.daikirai.util.Lang.text("Back");
         return "";
     }
     abstract void drawContent(Scheme scheme);
@@ -153,7 +153,7 @@ abstract class MenuScreen extends GuiScreen {
     void message(String text,boolean bad) { status=text; error=bad; }
     static String failure(Throwable e) {
         while(e.getCause()!=null) e=e.getCause();
-        return e.getMessage()==null ? "Operation failed" : e.getMessage();
+        return e.getMessage()==null ? xyz.daikirai.util.Lang.text("Operation failed") : e.getMessage();
     }
     <T> void task(java.util.concurrent.Callable<T> work,java.util.function.Consumer<T> success) {
         if(busy) return;
