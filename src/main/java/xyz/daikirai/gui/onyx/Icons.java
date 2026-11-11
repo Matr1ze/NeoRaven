@@ -29,11 +29,8 @@ public final class Icons {
     private Icons() {
     }
 
-    /** Title-cased English label, or the Chinese label when the game is in Simplified Chinese. */
+    /** Title-cased category label, translated by the ClickGUI language switch. */
     public static String label(Category category) {
-        if (GuiLanguage.simplifiedChinese()) {
-            return ModuleTranslations.category(category);
-        }
         String name = category.name();
         return xyz.daikirai.util.Lang.category(name.substring(0, 1).toUpperCase() + name.substring(1));
     }

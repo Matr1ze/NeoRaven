@@ -107,9 +107,7 @@ public final class ModuleList {
             byModule.put(module, card);
         }
 
-        this.emptyText = !needle.isEmpty()
-                ? (GuiLanguage.simplifiedChinese() ? "没有匹配的模块" : "No modules match")
-                : (GuiLanguage.simplifiedChinese() ? "这里还没有模块" : "No modules here yet");
+        this.emptyText = xyz.daikirai.util.Lang.text(!needle.isEmpty() ? "No modules match" : "No modules here yet");
         this.contentHeight = cards.size() * (CARD_HEIGHT + GAP) - GAP;
         this.scrollTarget = 0.0F;
         this.scroll.set(0.0F);
@@ -418,10 +416,9 @@ public final class ModuleList {
             // Command Line, ...) get no switch at all instead of a dead control.
             boolean showSwitch = !module.noToggle;
             float textWidth = w - 12.0F - 10.0F - (showSwitch ? 38.0F + 12.0F : 0.0F);
-            boolean chinese = GuiLanguage.simplifiedChinese();
-            String title = ui.truncate(Typeface.HEADLINE,
-                    chinese ? ModuleTranslations.name(module) : Text.strip(module.getName()), textWidth);
-            String sub = chinese ? ModuleTranslations.description(module) : subtitle();
+            String title = ui.truncate(Typeface.HEADLINE, Text.strip(module.localizedName()), textWidth);
+            // Upstream has no Chinese module descriptions; ModuleTranslations still supplies them.
+            String sub = xyz.daikirai.util.Lang.chinese() ? ModuleTranslations.description(module) : "";
             if (sub.isEmpty()) {
                 sub = subtitle();
             }

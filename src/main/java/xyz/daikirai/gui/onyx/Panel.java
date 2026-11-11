@@ -258,9 +258,7 @@ public final class Panel {
             String label;
             if (!search.text().isEmpty()) {
                 int results = list.size();
-                label = GuiLanguage.simplifiedChinese()
-                        ? (results == 1 ? "1 个结果" : results + " 个结果")
-                        : (results == 1 ? "1 result" : results + " results");
+                label = results == 1 ? xyz.daikirai.util.Lang.text("1 result") : results + " " + xyz.daikirai.util.Lang.text("results");
             } else {
                 label = Icons.label(category);
             }
@@ -275,13 +273,7 @@ public final class Panel {
                         Material.withAlpha(scheme.onSurface, 0.08F * backHover.value()));
             }
             ui.icon(Icons.ARROW_BACK, chipX + 13.0F, chipY + 13.0F, 15.0F, scheme.onSurface);
-            String title;
-            if (themeOpen || current == null) {
-                title = GuiLanguage.simplifiedChinese() ? "主题" : "Theme";
-            } else {
-                title = GuiLanguage.simplifiedChinese()
-                        ? ModuleTranslations.name(current) : Text.strip(current.getName());
-            }
+            String title = themeOpen || current == null ? xyz.daikirai.util.Lang.text("Theme") : Text.strip(current.localizedName());
             ui.text(Typeface.HEADLINE, ui.truncate(Typeface.HEADLINE, title, 340.0F),
                     chipX + 26.0F + 8.0F, y + HEADER / 2.0F, scheme.onSurface, UI.ALIGN_LEFT);
             ui.text(Typeface.LABEL, currentCategoryLabel(), x + WIDTH - PADDING - 6.0F, y + HEADER / 2.0F,

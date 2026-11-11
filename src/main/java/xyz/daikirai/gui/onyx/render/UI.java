@@ -12,8 +12,8 @@ import org.lwjgl.util.glu.GLU;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
-import xyz.daikirai.gui.onyx.GuiLanguage;
 import xyz.daikirai.render.HandState;
+import xyz.daikirai.util.Lang;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -718,9 +718,14 @@ public final class UI {
     // Text and icons
     // ------------------------------------------------------------------ //
 
+    /** UI labels follow the ClickGUI language switch (Theme page); user text has no table entry. */
+    private static String translate(String text) {
+        return text == null || text.isEmpty() || !Lang.chinese() ? text : Lang.text(text);
+    }
+
     /** Draws a string with the given alignment, vertically centred on {@code y}. */
     public void text(Typeface.Style style, String text, float x, float y, int color, int align) {
-        text = GuiLanguage.translate(text);
+        text = translate(text);
         if (text == null || text.isEmpty()) {
             return;
         }
@@ -740,7 +745,7 @@ public final class UI {
 
     /** Draws a string with its top at {@code y} (matches Onyx's leading-anchored text). */
     public void textTop(Typeface.Style style, String text, float x, float y, int color, int align) {
-        text = GuiLanguage.translate(text);
+        text = translate(text);
         if (text == null || text.isEmpty()) {
             return;
         }
@@ -805,7 +810,7 @@ public final class UI {
      * positioned by its baseline instead.
      */
     public void textBaseline(Typeface.Style style, String text, float x, float baseline, int color, int align) {
-        text = GuiLanguage.translate(text);
+        text = translate(text);
         if (text == null || text.isEmpty()) {
             return;
         }

@@ -116,8 +116,7 @@ public final class SearchField {
         float maxText = w - 28.0F - clearSpace;
 
         if (text.isEmpty() && !focused) {
-            String placeholder = GuiLanguage.simplifiedChinese() ? "搜索模块" : "Search modules";
-            ui.text(Typeface.BODY_MEDIUM, placeholder, textStart, centerY,
+            ui.text(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Search modules"), textStart, centerY,
                     Material.withAlpha(scheme.onSurfaceVariant, 0.7F), UI.ALIGN_LEFT);
         } else {
             int start = windowStart(maxText);
