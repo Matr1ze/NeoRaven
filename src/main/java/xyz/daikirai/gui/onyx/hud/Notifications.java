@@ -112,8 +112,7 @@ public final class Notifications {
         ui.alphaPush(show); ui.push();
         ui.translate((1.0F - show) * 14.0F, top);
         ui.shadow(0, 0, width, HEIGHT, RADIUS, 3);
-        ui.rounded(0, 0, width, HEIGHT, RADIUS, scheme.surfaceContainerHigh);
-        if (module.frosted() && Blur.ready()) ui.frost(0, 0, width, HEIGHT, RADIUS, scheme.surfaceContainerHigh, 0.55F);
+        ui.hudGlass(0, 0, width, HEIGHT, RADIUS, scheme.surfaceContainerHigh, 0.55F);
         ui.icon(entry.level.icon, 18.0F, 17.0F, 16.0F, accent);
         boolean subtitle = module.subtitles() && entry.message != null;
         ui.text(TITLE, ui.truncate(TITLE, entry.title, width - 45.0F), 35.0F, subtitle ? 11.5F : 17.0F,

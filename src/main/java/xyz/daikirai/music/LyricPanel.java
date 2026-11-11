@@ -146,11 +146,11 @@ final class LyricPanel {
         MusicManager manager = MusicManager.get();
         Song song = manager.current();
 
-        // Same treatment as the rest of the window: frosted glass over the blurred background,
-        // falling back to a translucent surface when the frost pipeline is unavailable.
-        if (Theme.frost() && Blur.ready()) {
-            ui.rounded(x, y, w, h, 22.0F, Material.withAlpha(scheme.surfaceContainer, 0.55F));
-            ui.frost(x, y, w, h, 22.0F, scheme.surfaceContainer, 0.82F);
+        // Same treatment as the rest of the window: follows the master glass switch, falling back
+        // to a translucent surface when the blur pipeline is unavailable or glass is off.
+        if (Theme.glass() && Blur.ready()) {
+            ui.glassSurface(x, y, w, h, 22.0F, Material.withAlpha(scheme.surfaceContainer, 0.55F),
+                    0.82F, xyz.daikirai.gui.onyx.render.UI.GLASS_BEVEL);
         } else {
             ui.rounded(x, y, w, h, 22.0F, Material.withAlpha(scheme.surfaceContainer, 0.93F));
         }

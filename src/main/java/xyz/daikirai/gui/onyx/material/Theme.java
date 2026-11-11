@@ -166,6 +166,14 @@ public final class Theme {
         return liquidGlass;
     }
 
+    /**
+     * Master glass switch: true when frosted or liquid glass is on in the Theme page. Every HUD,
+     * the ClickGUI, the music player and the menu screens follow this instead of their own toggles.
+     */
+    public static boolean glass() {
+        return frost || liquidGlass;
+    }
+
     public static void hudTextColor(boolean value) {
         hudTextColor = value;
     }

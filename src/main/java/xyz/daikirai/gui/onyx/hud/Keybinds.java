@@ -256,10 +256,7 @@ public final class Keybinds {
         int surface = Material.withAlpha(scheme.surfaceContainerHigh, 1.0F);
         int edge = Material.withAlpha(scheme.outlineVariant, 0.6F);
         ui.shadow(0.0F, 0.0F, width, height, RETRO_RADIUS, 3);
-        ui.rounded(0.0F, 0.0F, width, height, RETRO_RADIUS, surface);
-        if (module.frosted() && Blur.ready()) {
-            ui.frost(0.0F, 0.0F, width, height, RETRO_RADIUS, scheme.surfaceContainerHigh, BLUR_COVERAGE);
-        }
+        ui.hudGlass(0.0F, 0.0F, width, height, RETRO_RADIUS, surface, BLUR_COVERAGE);
         ui.outline(0.5F, 0.5F, width - 1.0F, height - 1.0F, RETRO_RADIUS - 0.5F,
                 0.7F, edge);
 

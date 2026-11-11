@@ -173,7 +173,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
         ui.alphaPush(enter * dim);
         ui.translate(0.0F, (1.0F - enter) * 26.0F);
         ui.shadow(dockX, dockY, dockWidth, dockHeight, dockHeight / 2.0F, 3);
-        ui.rounded(dockX, dockY, dockWidth, dockHeight, dockHeight / 2.0F, AndroidWallpaper.dock());
+        ui.glassSurface(dockX, dockY, dockWidth, dockHeight, dockHeight / 2.0F, AndroidWallpaper.dock());
 
         int hoveredIndex = -1;
         float strongest = 0.15F;
@@ -240,7 +240,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
         float slide = (1.0F - e) * 40.0F;
         ui.alphaPush(e);
         ui.shadow(sheetX, sheetY + slide, sheetWidth, sheetHeight, 28.0F, 4);
-        ui.rounded(sheetX, sheetY + slide, sheetWidth, sheetHeight, 28.0F, AndroidWallpaper.sheet());
+        ui.glassSurface(sheetX, sheetY + slide, sheetWidth, sheetHeight, 28.0F, AndroidWallpaper.sheet());
         float handleY = sheetY + slide + 14.0F;
         ui.rounded(DESIGN_WIDTH / 2.0F - 16.0F, handleY, 32.0F, 4.0F, 2.0F,
                 Material.withAlpha(AndroidWallpaper.ink(), 0.22F));

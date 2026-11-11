@@ -80,7 +80,7 @@ public final class NotificationsModule extends Module {
     public static boolean needsMedia() {
         return instance != null && instance.isEnabled() && on(nowPlaying) && mc.theWorld != null;
     }
-    public boolean frosted() { return on(frostedGlass); }
+    public boolean frosted() { return xyz.daikirai.gui.onyx.material.Theme.glass(); }
     public boolean subtitles() { return on(subtitle); }
     public boolean progress() { return on(progressBar); }
     public float scale() { return scale == null ? 0.85F : (float) scale.getInput(); }

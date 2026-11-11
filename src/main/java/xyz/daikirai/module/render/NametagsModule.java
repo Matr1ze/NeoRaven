@@ -141,7 +141,7 @@ public final class NametagsModule extends Module {
     }
 
     public boolean frosted() {
-        return frostedGlass.isToggled();
+        return xyz.daikirai.gui.onyx.material.Theme.glass();
     }
 
     public boolean background() {

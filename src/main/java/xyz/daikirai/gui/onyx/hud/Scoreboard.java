@@ -172,10 +172,7 @@ public final class Scoreboard {
                           boolean hasTitle, float rowsTop, boolean scores, float rowMax) {
         // Opaque backing + a fully opaque frost layer on top, the same recipe as the keybind card.
         int surface = Material.withAlpha(scheme.surfaceContainerHigh, 1.0F);
-        ui.rounded(0.0F, 0.0F, width, height, RADIUS, surface);
-        if (module.scoreboardFrosted() && Blur.ready()) {
-            ui.frost(0.0F, 0.0F, width, height, RADIUS, scheme.surfaceContainerHigh, BLUR_COVERAGE);
-        }
+        ui.hudGlass(0.0F, 0.0F, width, height, RADIUS, surface, BLUR_COVERAGE);
         // Borderless card, matching the rest of the ported HUD.
 
         ui.scissorPush(0.0F, 0.0F, width, height);

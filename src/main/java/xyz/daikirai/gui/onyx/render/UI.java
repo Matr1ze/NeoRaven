@@ -570,6 +570,15 @@ public final class UI {
         rounded(x, y, w, h, radius, tint);
     }
 
+    /**
+     * HUD card background that follows the master glass switch: liquid glass, frosted glass or a
+     * plain opaque fill when both are off. No bright rim, and the card keeps its own frost coverage.
+     */
+    public void hudGlass(float x, float y, float w, float h, float radius, int tint, float coverage) {
+        float bevel = Math.min(GLASS_BEVEL, Math.max(8.0F, Math.min(w, h) * 0.8F));
+        glassSurface(x, y, w, h, radius, tint, coverage, bevel, 0.0F);
+    }
+
     /** Preserved dark recipe; a future toggle can route HUD surfaces here. */
     public void darkGlassSurface(float x, float y, float w, float h, float radius) {
         float bevel = Math.min(DARK_GLASS_BEVEL, Math.max(6.0F, Math.min(w, h) * 0.55F));

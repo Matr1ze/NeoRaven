@@ -208,6 +208,7 @@ public abstract class AndroidListScreen extends GuiScreen {
         ui.begin();
         MenuBackground.mouse(mouseX, mouseY, width, height);
         MenuBackground.draw(ui, width, height, true);
+        if (xyz.daikirai.gui.onyx.material.Theme.glass()) xyz.daikirai.gui.onyx.render.Blur.prepare();
         ui.rect(0.0F, 0.0F, width, height, Material.withAlpha(AndroidWallpaper.page(), 0.94F));
         ui.push();
         ui.scale(scale, 0.0F, 0.0F);
@@ -240,7 +241,7 @@ public abstract class AndroidListScreen extends GuiScreen {
 
     private void drawCard() {
         ui.shadow(cardX, cardY, cardWidth, cardHeight, 24.0F, 2);
-        ui.rounded(cardX, cardY, cardWidth, cardHeight, 24.0F, AndroidWallpaper.card());
+        ui.glassSurface(cardX, cardY, cardWidth, cardHeight, 24.0F, AndroidWallpaper.card());
         ui.scissorPush(cardX, cardY, cardWidth, cardHeight);
         float height = rowHeight();
         float y = cardY + 4.0F - scrollSpring.value();
@@ -356,7 +357,7 @@ public abstract class AndroidListScreen extends GuiScreen {
         ui.rect(-ox, -oy, DESIGN_WIDTH + ox * 2.0F, DESIGN_HEIGHT + oy * 2.0F, 0x99000000);
         float[] box = confirmBounds();
         ui.shadow(box[0], box[1], box[2], box[3], 28.0F, 4);
-        ui.rounded(box[0], box[1], box[2], box[3], 28.0F, AndroidWallpaper.sheet());
+        ui.glassSurface(box[0], box[1], box[2], box[3], 28.0F, AndroidWallpaper.sheet());
         ui.textBaseline(Typeface.BODY_MEDIUM, confirmTitle, box[0] + 24.0F, box[1] + 40.0F,
                 AndroidWallpaper.ink(), UI.ALIGN_LEFT);
         java.util.List<String> lines = ui.wrap(Typeface.BODY, confirmMessage, box[2] - 48.0F, 2);

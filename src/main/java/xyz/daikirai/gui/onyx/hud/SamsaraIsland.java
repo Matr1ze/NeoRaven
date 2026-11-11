@@ -500,7 +500,11 @@ public final class SamsaraIsland {
             ui.translate(x, y + (1.0F - fade) * 4.0F);
             ui.scale(renderScale, 0.0F, 0.0F);
             drawShadow(designWidth, designHeight, designRadius);
-            if (Blur.ready()) {
+            if (Theme.liquidGlass() && Blur.ready()) {
+                // Liquid glass draws the refracted scene itself, so the frost-then-tint recipe
+                // below is skipped.
+                ui.hudGlass(0.0F, 0.0F, designWidth, designHeight, designRadius, BODY, FROST_COVERAGE);
+            } else if (Theme.frost() && Blur.ready()) {
                 // Upstream paints the body over the blurred scene only; the plain fill would stack a
                 // second 60% black on top of it.
                 ui.frost(0.0F, 0.0F, designWidth, designHeight, designRadius, BODY_FROST, FROST_COVERAGE);

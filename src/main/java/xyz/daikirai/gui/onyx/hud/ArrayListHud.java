@@ -268,7 +268,7 @@ public final class ArrayListHud {
             if (blurred) {
                 // An opaque tint plus a coverage, the same recipe the HUD cards use: a translucent
                 // tint would let the sharp world through and read as no blur at all.
-                ui.frost(0.0F, 0.0F, layoutWidth, layoutHeight, BLOCK_RADIUS,
+                ui.hudGlass(0.0F, 0.0F, layoutWidth, layoutHeight, BLOCK_RADIUS,
                         Material.withAlpha(scheme.surface, 1.0F), BLUR_COVERAGE);
             } else {
                 ui.rounded(0.0F, 0.0F, layoutWidth, layoutHeight, BLOCK_RADIUS,
@@ -311,7 +311,7 @@ public final class ArrayListHud {
                 float pillY = top;
                 float pillH = ROW_H;
                 if (blurred) {
-                    ui.frost(left, pillY, rowWidth, pillH, PILL_RADIUS,
+                    ui.hudGlass(left, pillY, rowWidth, pillH, PILL_RADIUS,
                             Material.withAlpha(scheme.surface, 1.0F), BLUR_COVERAGE);
                 } else {
                     ui.rounded(left, pillY, rowWidth, pillH, PILL_RADIUS,

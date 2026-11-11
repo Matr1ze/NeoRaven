@@ -354,6 +354,7 @@ public final class AndroidSettingsScreen extends GuiScreen {
         ui.begin();
         MenuBackground.mouse(mouseX, mouseY, width, height);
         MenuBackground.draw(ui, width, height, true);
+        if (xyz.daikirai.gui.onyx.material.Theme.glass()) xyz.daikirai.gui.onyx.render.Blur.prepare();
         ui.rect(0.0F, 0.0F, width, height, Material.withAlpha(AndroidWallpaper.page(), 0.94F));
         ui.push();
         ui.scale(scale, 0.0F, 0.0F);
@@ -378,7 +379,7 @@ public final class AndroidSettingsScreen extends GuiScreen {
                 AndroidWallpaper.ink(), UI.ALIGN_LEFT);
         float groupHeight = ITEM_HEIGHT * CATEGORY_LABELS.length;
         ui.shadow(railX, RAIL_Y, RAIL_WIDTH, groupHeight, 24.0F, 1);
-        ui.rounded(railX, RAIL_Y, RAIL_WIDTH, groupHeight, 24.0F, AndroidWallpaper.card());
+        ui.glassSurface(railX, RAIL_Y, RAIL_WIDTH, groupHeight, 24.0F, AndroidWallpaper.card());
 
         for (int i = 0; i < CATEGORY_LABELS.length; i++) {
             float y = RAIL_Y + i * ITEM_HEIGHT;
@@ -424,7 +425,7 @@ public final class AndroidSettingsScreen extends GuiScreen {
                 AndroidWallpaper.onPrimaryContainer(), UI.ALIGN_CENTER);
 
         ui.shadow(cardX, cardY, cardWidth, cardHeight, CARD_RADIUS, 2);
-        ui.rounded(cardX, cardY, cardWidth, cardHeight, CARD_RADIUS, AndroidWallpaper.card());
+        ui.glassSurface(cardX, cardY, cardWidth, cardHeight, CARD_RADIUS, AndroidWallpaper.card());
         ui.scissorPush(cardX, cardY, cardWidth, viewport());
         ui.push();
         ui.translate((1.0F - fade) * 14.0F, 0.0F);

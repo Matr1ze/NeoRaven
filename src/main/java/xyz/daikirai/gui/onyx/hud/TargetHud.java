@@ -417,10 +417,7 @@ public final class TargetHud {
 
     private void drawCard(TargetHudModule module, Scheme scheme, float width) {
         int surface = Material.withAlpha(scheme.surfaceContainerHigh, 1.0F);
-        ui.rounded(0.0F, 0.0F, width, HEIGHT, RADIUS, surface);
-        if (module.frosted() && Blur.ready()) {
-            ui.frost(0.0F, 0.0F, width, HEIGHT, RADIUS, scheme.surfaceContainerHigh, BLUR_COVERAGE);
-        }
+        ui.hudGlass(0.0F, 0.0F, width, HEIGHT, RADIUS, surface, BLUR_COVERAGE);
 
         ui.alphaPush(content.value());
         drawAvatar(scheme);

@@ -20,8 +20,7 @@ final class MenuButton {
         if (!enabled) ui.alphaPush(0.38F);
         if (style == 0) {
             ui.shadow(x,y,w,h,12,1);
-            ui.rounded(x,y,w,h,12,s.secondaryContainer);
-            if(Theme.frost()) ui.frost(x,y,w,h,12,s.secondaryContainer,0.62F+0.16F*hover.value());
+            ui.glassSurface(x,y,w,h,12,s.secondaryContainer);
         } else if (style == 1) ui.rounded(x,y,w,h,20,s.primary);
         if (hover.value() > 0.001F) ui.rounded(x,y,w,h,style == 0 ? 12 : 20,Material.withAlpha(foreground,hover.value()*0.08F));
         if (icon != null) ui.icon(icon,label.isEmpty() ? x+w/2 : x+17,y+h/2,18,foreground);

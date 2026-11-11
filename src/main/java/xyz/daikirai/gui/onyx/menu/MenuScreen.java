@@ -111,8 +111,7 @@ abstract class MenuScreen extends GuiScreen {
             ui.outline(inset,-peek,panelWidth-inset*2.0F,peek+8.0F,28,1.0F,Material.withAlpha(s.outlineVariant,0.45F));
             ui.alphaPop();
         }
-        ui.rounded(0,0,panelWidth,panelHeight,28,s.surfaceContainer);
-        if(Theme.frost()) ui.frost(0,0,panelWidth,panelHeight,28,s.surfaceContainer,0.88F);
+        ui.glassSurface(0,0,panelWidth,panelHeight,28,s.surfaceContainer);
         buttons.clear();
         button(panelWidth-42,12,30,30,"","\ue5cd",2,this::closeToParent);
         drawContent(s);

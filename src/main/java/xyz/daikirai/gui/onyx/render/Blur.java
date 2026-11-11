@@ -135,7 +135,11 @@ public final class Blur {
             return true;
         }
         xyz.daikirai.module.render.NametagsModule nametags = xyz.daikirai.module.render.NametagsModule.instance;
-        return nametags != null && nametags.isEnabled() && nametags.frosted() && nametags.background();
+        if (nametags != null && nametags.isEnabled() && nametags.frosted() && nametags.background()) {
+            return true;
+        }
+        xyz.daikirai.module.render.NotificationsModule notifications = xyz.daikirai.module.render.NotificationsModule.instance;
+        return notifications != null && notifications.isEnabled() && notifications.frosted();
     }
 
     /** Marks the next frame as needing a fresh blur (Onyx's {@code Util3.run4}). */

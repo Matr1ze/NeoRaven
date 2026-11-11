@@ -451,9 +451,8 @@ public final class MusicScreen extends GuiScreen {
         Scheme current = scheme();
         int color = Material.mix(Theme.scheme().surfaceContainerHigh, current.surfaceContainer, k);
         ui.shadow(shellX, shellY, shellW, shellH, radius, Math.round(3.0F + k));
-        ui.rounded(shellX, shellY, shellW, shellH, radius, color);
-        if (Theme.frost() && Blur.ready()) ui.frost(shellX, shellY, shellW, shellH, radius, color,
-                0.58F + 0.35F * k);
+        // Window body follows the master glass switch (liquid, frosted or opaque).
+        ui.glassSurface(shellX, shellY, shellW, shellH, radius, color, 0.58F + 0.35F * k, UI.GLASS_BEVEL);
 
         drawMorphArtwork(k);
         drawMorphWindow(k, radius);
@@ -562,7 +561,7 @@ public final class MusicScreen extends GuiScreen {
             ui.gradient(0.0F, 0.0F, width, height, current.surfaceContainerLow, current.surface);
             return;
         }
-        if (Theme.frost()) {
+        if (Theme.glass()) {
             Blur.prepare();
         }
         ui.rect(0.0F, 0.0F, width, height, Theme.scrim(scrim.value()));
@@ -1316,10 +1315,8 @@ public final class MusicScreen extends GuiScreen {
         float pw = MINI_W - 8.0F;
         float ph = MINI_H - 8.0F;
         ui.shadow(px, py, pw, ph, 18.0F, 2);
-        ui.rounded(px, py, pw, ph, 18.0F, Material.withAlpha(current.surfaceContainerHigh, 0.97F));
-        if (Theme.frost() && Blur.ready()) {
-            ui.frost(px, py, pw, ph, 18.0F, current.surfaceContainerHigh, 0.82F);
-        }
+        ui.glassSurface(px, py, pw, ph, 18.0F, Material.withAlpha(current.surfaceContainerHigh, 0.97F),
+                0.82F, Math.min(UI.GLASS_BEVEL, ph * 0.8F));
 
         Song song = manager.current();
         long duration = manager.durationMs();

@@ -233,7 +233,7 @@ public final class MenuStyleSwitch {
         float lift = (1.0F - progress) * 10.0F * u;
         ui.alphaPush(progress);
         ui.shadow(popup[0], popup[1] + lift, popup[2], popup[3], 16.0F * u, 3);
-        ui.rounded(popup[0], popup[1] + lift, popup[2], popup[3], 16.0F * u, surface);
+        ui.glassSurface(popup[0], popup[1] + lift, popup[2], popup[3], 16.0F * u, surface);
         ui.outline(popup[0], popup[1] + lift, popup[2], popup[3], 16.0F * u, 1.0F,
                 light ? 0x14000000 : Material.withAlpha(scheme.outlineVariant, 0.5F));
         ui.text(Typeface.CAPTION, xyz.daikirai.util.Lang.text("Menu style"), popup[0] + 16.0F * u, popup[1] + lift + 17.0F * u, soft,

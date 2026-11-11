@@ -197,11 +197,7 @@ public final class Hotbar {
 
     private void drawBar(CustomGuiModule module, Scheme scheme, EntityPlayerSP player) {
         int surface = Material.withAlpha(scheme.surfaceContainerHigh, 1.0F);
-        if (module.hotbarFrosted() && Blur.ready()) {
-            ui.frost(0.0F, 0.0F, W, H, RADIUS, surface, BLUR_COVERAGE);
-        } else {
-            ui.rounded(0.0F, 0.0F, W, H, RADIUS, surface);
-        }
+        ui.hudGlass(0.0F, 0.0F, W, H, RADIUS, surface, BLUR_COVERAGE);
 
         float selected = PAD + selection.value() * SLOT;
         ui.rounded(selected, PAD, SLOT, SLOT, RADIUS, Material.withAlpha(scheme.primary, 0.28F));

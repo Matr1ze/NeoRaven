@@ -185,7 +185,7 @@ public final class CustomGuiModule extends Module {
     }
 
     public boolean hotbarFrosted() {
-        return hotbarFrostedGlass == null || hotbarFrostedGlass.isToggled();
+        return xyz.daikirai.gui.onyx.material.Theme.glass();
     }
 
     public boolean hotbarSlotGlide() {
@@ -250,7 +250,7 @@ public final class CustomGuiModule extends Module {
     }
 
     public boolean scoreboardFrosted() {
-        return scoreboardFrostedGlass == null || scoreboardFrostedGlass.isToggled();
+        return xyz.daikirai.gui.onyx.material.Theme.glass();
     }
 
     public boolean scoreboardShowScores() {

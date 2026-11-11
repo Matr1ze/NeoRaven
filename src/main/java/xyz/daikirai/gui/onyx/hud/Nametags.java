@@ -194,14 +194,18 @@ public final class Nametags {
 
         if (background) {
             float left = -plateWidth / 2.0F;
-            if (module.frosted() && Blur.ready()) {
-                // The blurred backdrop is laid down first and the plate tint is mixed over it
-                // afterwards. Feeds the opacity into the shader as well (as the first port did)
-                // and the plate is attenuated twice, which on anything but a bright sky reads as
-                // no background at all.
-                ui.frost(left, -PLATE_H, plateWidth, PLATE_H, RADIUS, backgroundTint, 0.0F);
+            if (Theme.liquidGlass() && Blur.ready()) {
+                ui.hudGlass(left, -PLATE_H, plateWidth, PLATE_H, RADIUS, backgroundFill, 0.0F);
+            } else {
+                if (module.frosted() && Blur.ready()) {
+                    // The blurred backdrop is laid down first and the plate tint is mixed over it
+                    // afterwards. Feeds the opacity into the shader as well (as the first port did)
+                    // and the plate is attenuated twice, which on anything but a bright sky reads as
+                    // no background at all.
+                    ui.frost(left, -PLATE_H, plateWidth, PLATE_H, RADIUS, backgroundTint, 0.0F);
+                }
+                ui.rounded(left, -PLATE_H, plateWidth, PLATE_H, RADIUS, backgroundFill);
             }
-            ui.rounded(left, -PLATE_H, plateWidth, PLATE_H, RADIUS, backgroundFill);
         }
 
         float cursor = -textWidth / 2.0F;

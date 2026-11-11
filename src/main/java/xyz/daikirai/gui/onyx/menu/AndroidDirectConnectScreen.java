@@ -83,6 +83,7 @@ public final class AndroidDirectConnectScreen extends GuiScreen {
         ui.begin();
         MenuBackground.mouse(mouseX, mouseY, width, height);
         MenuBackground.draw(ui, width, height, true);
+        if (xyz.daikirai.gui.onyx.material.Theme.glass()) xyz.daikirai.gui.onyx.render.Blur.prepare();
         ui.rect(0.0F, 0.0F, width, height, 0xB3000000);
         ui.push();
         ui.scale(scale, 0.0F, 0.0F);
@@ -91,7 +92,7 @@ public final class AndroidDirectConnectScreen extends GuiScreen {
         ui.alphaPush(Material.clamp(enter * 1.4F, 0.0F, 1.0F));
 
         ui.shadow(cardX, cardY, cardWidth, CARD_HEIGHT, 28.0F, 4);
-        ui.rounded(cardX, cardY, cardWidth, CARD_HEIGHT, 28.0F, AndroidWallpaper.sheet());
+        ui.glassSurface(cardX, cardY, cardWidth, CARD_HEIGHT, 28.0F, AndroidWallpaper.sheet());
         ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Direct connect"), cardX + 24.0F, cardY + 40.0F,
                 AndroidWallpaper.ink(), UI.ALIGN_LEFT);
         ui.textBaseline(Typeface.CAPTION, xyz.daikirai.util.Lang.text("Server address, host or host:port"), cardX + 24.0F, cardY + 62.0F,

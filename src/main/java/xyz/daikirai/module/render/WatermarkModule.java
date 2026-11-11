@@ -294,7 +294,7 @@ public final class WatermarkModule extends Module {
     }
 
     public boolean frosted() {
-        return frostedGlass == null || frostedGlass.isToggled();
+        return xyz.daikirai.gui.onyx.material.Theme.glass();
     }
 
     public boolean scaffoldGauge() {
@@ -534,7 +534,7 @@ public final class WatermarkModule extends Module {
     }
 
     public static boolean tablistFrosted() {
-        return tablistFrostedGlass == null || tablistFrostedGlass.isToggled();
+        return xyz.daikirai.gui.onyx.material.Theme.glass();
     }
 
     public static boolean tablistShowsServerText() {
