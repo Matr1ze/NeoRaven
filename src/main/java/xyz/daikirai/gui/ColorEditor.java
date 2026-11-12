@@ -10,6 +10,7 @@ import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Blur;
+import xyz.daikirai.gui.onyx.render.Glass;
 import xyz.daikirai.gui.onyx.render.Spring;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
@@ -240,7 +241,7 @@ public final class ColorEditor extends GuiScreen {
         tick();
         Scheme s = Theme.scheme();
         boolean scene = mc.theWorld != null && mc.thePlayer != null;
-        boolean frosted = scene && Theme.frost();
+        boolean frosted = scene && Glass.enabled();
         if (frosted) {
             // The backdrop is captured before anything is drawn on top of it, exactly like the
             // ClickGUI does: the scene behind the sheet must not contain the sheet's own scrim.
@@ -260,11 +261,8 @@ public final class ColorEditor extends GuiScreen {
 
             float radius = sheetRadius();
             ui.shadow(0.0F, 0.0F, W, H, radius, 3);
-            ui.rounded(0.0F, 0.0F, W, H, radius, s.surfaceContainer);
-            if (frosted && Blur.ready()) {
-                // Same call the ClickGUI panel makes, so the sheet is the identical material.
-                ui.frost(0.0F, 0.0F, W, H, radius, s.surfaceContainer);
-            }
+            // Same material as the ClickGUI window.
+            ui.windowGlass(0.0F, 0.0F, W, H, radius, s.surfaceContainer, UI.DEFAULT_TINT_COVERAGE);
             ui.outline(0.0F, 0.0F, W, H, radius, 1.0F, Material.withAlpha(s.outlineVariant, 0.5F));
 
             // The content is not alpha-faded with the entrance: a frosted surface that is

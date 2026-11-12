@@ -144,7 +144,7 @@ public final class TargetHudModule extends Module {
     }
 
     public boolean frosted() {
-        return xyz.daikirai.gui.onyx.material.Theme.glass();
+        return xyz.daikirai.gui.onyx.render.Glass.enabled();
     }
 
     public boolean showHealth() {

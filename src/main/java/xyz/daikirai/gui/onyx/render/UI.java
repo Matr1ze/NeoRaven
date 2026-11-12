@@ -491,8 +491,7 @@ public final class UI {
     public void frostCorners(float x, float y, float w, float h,
                              float topLeft, float topRight, float bottomRight, float bottomLeft,
                              int tint, float coverage) {
-        if (frostShader == null || !frostShader.valid() || !Blur.ready()
-                || (!Theme.frost() && !Theme.liquidGlass())) {
+        if (frostShader == null || !frostShader.valid() || !Glass.ready()) {
             return;
         }
         float tl = Theme.radius(topLeft, w, h);
@@ -547,27 +546,38 @@ public final class UI {
     }
 
     /**
-     * Draws a surface with the same glass material as the ClickGUI. When liquid glass is active
-     * no opaque backing is painted: the shader writes the refracted scene itself, which prevents
-     * dark HUD tints from bleeding into the captured backdrop at the rim.
+     * The single surface entry point. The material comes from {@link Glass#mode()}: liquid glass,
+     * frosted glass or an opaque fill. Liquid glass paints no opaque backing (the shader writes the
+     * refracted scene itself); if its shader is missing the surface falls back to frost.
      */
     public void glassSurface(float x, float y, float w, float h, float radius,
                              int tint, float coverage, float bevel, float rimStrength) {
-        if (Blur.ready() && (Theme.frost() || Theme.liquidGlass())) {
-            if (Theme.liquidGlass()
-                    && liquidGlass(x, y, w, h, radius, tint, coverage, bevel, rimStrength)) {
-                return;
-            }
+        if (!Glass.ready()) {
             rounded(x, y, w, h, radius, tint);
-            if (Theme.frost()) {
-                // HUD surfaces pass rimStrength == 0. Keep their lower coverage so the blurred
-                // backdrop actually shows through; ClickGUI controls keep the 0.88 panel tint.
-                float frostCoverage = rimStrength <= 0.001F ? coverage : Theme.frostOpacity;
-                frost(x, y, w, h, radius, tint, frostCoverage);
-            }
+            return;
+        }
+        if (Glass.liquid() && liquidGlass(x, y, w, h, radius, tint, coverage, bevel, rimStrength)) {
             return;
         }
         rounded(x, y, w, h, radius, tint);
+        // HUD surfaces pass rimStrength == 0. Keep their lower coverage so the blurred
+        // backdrop actually shows through; ClickGUI controls keep the panel tint.
+        float frostCoverage = rimStrength <= 0.001F ? coverage : Theme.frostOpacity;
+        frost(x, y, w, h, radius, tint, frostCoverage);
+    }
+
+    /** Large window shells (ClickGUI, music player, colour sheet): glass with a set frost coverage. */
+    public void windowGlass(float x, float y, float w, float h, float radius, int tint, float coverage) {
+        if (!Glass.ready()) {
+            rounded(x, y, w, h, radius, tint);
+            return;
+        }
+        float bevel = Math.min(GLASS_BEVEL, Math.max(8.0F, Math.min(w, h) * 0.8F));
+        if (Glass.liquid() && liquidGlass(x, y, w, h, radius, tint, GLASS_COVERAGE, bevel, 1.0F)) {
+            return;
+        }
+        rounded(x, y, w, h, radius, tint);
+        frost(x, y, w, h, radius, tint, coverage);
     }
 
     /**
@@ -598,8 +608,7 @@ public final class UI {
 
     public boolean liquidGlass(float x, float y, float w, float h, float radius,
                                int tint, float coverage, float bevel, float rimStrength) {
-        if (w <= 0.0F || h <= 0.0F || liquidShader == null || !liquidShader.valid() || !Blur.ready()
-                || (!Theme.frost() && !Theme.liquidGlass())) {
+        if (w <= 0.0F || h <= 0.0F || liquidShader == null || !liquidShader.valid() || !Glass.ready()) {
             return false;
         }
         coverage = Material.clamp(coverage * Theme.liquidOpacity / GLASS_COVERAGE, 0, 1);

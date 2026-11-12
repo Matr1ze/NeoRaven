@@ -105,7 +105,7 @@ public final class Blur {
 
     /** Whether any in-world HUD will actually draw frosted or liquid glass this frame. */
     public static boolean hudGlassActive() {
-        if (!Overlay.canRender() || (!Theme.frost() && !Theme.liquidGlass())) {
+        if (!Overlay.canRender() || !xyz.daikirai.gui.onyx.render.Glass.enabled()) {
             return false;
         }
         if (xyz.daikirai.module.render.WatermarkModule.instance != null

@@ -15,6 +15,7 @@ import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Anim;
 import xyz.daikirai.gui.onyx.render.Blur;
+import xyz.daikirai.gui.onyx.render.Glass;
 import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
@@ -494,17 +495,17 @@ public final class SamsaraIsland {
         ui.push();
         try {
             if (fade > 0.01F) {
-                Blur.prepare();
+                Glass.prepare();
             }
             ui.alphaPush(fade);
             ui.translate(x, y + (1.0F - fade) * 4.0F);
             ui.scale(renderScale, 0.0F, 0.0F);
             drawShadow(designWidth, designHeight, designRadius);
-            if (Theme.liquidGlass() && Blur.ready()) {
+            if (Glass.liquid() && Blur.ready()) {
                 // Liquid glass draws the refracted scene itself, so the frost-then-tint recipe
                 // below is skipped.
                 ui.hudGlass(0.0F, 0.0F, designWidth, designHeight, designRadius, BODY, FROST_COVERAGE);
-            } else if (Theme.frost() && Blur.ready()) {
+            } else if (Glass.ready()) {
                 // Upstream paints the body over the blurred scene only; the plain fill would stack a
                 // second 60% black on top of it.
                 ui.frost(0.0F, 0.0F, designWidth, designHeight, designRadius, BODY_FROST, FROST_COVERAGE);

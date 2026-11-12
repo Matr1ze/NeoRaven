@@ -180,7 +180,7 @@ public final class Keybinds {
                 GlStateManager.pushMatrix();
                 mc.entityRenderer.setupOverlayRendering();
             }
-            if ((Theme.frost() || Theme.liquidGlass()) && fade > 0.01F) {
+            if (xyz.daikirai.gui.onyx.render.Glass.enabled() && fade > 0.01F) {
                 // The global HIGHEST-priority overlay hook already captured a clean frame; this
                 // remains as a fallback for editor previews and non-standard render paths.
                 Blur.prepare();

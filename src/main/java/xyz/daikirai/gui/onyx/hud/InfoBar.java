@@ -94,7 +94,7 @@ public final class InfoBar {
         Scheme scheme = Theme.scheme();
         ui.begin();
         try {
-            if ((Theme.frost() || Theme.liquidGlass()) && fade > 0.01F) {
+            if (xyz.daikirai.gui.onyx.render.Glass.enabled() && fade > 0.01F) {
                 Blur.prepare();
             }
             ui.alphaPush(fade);

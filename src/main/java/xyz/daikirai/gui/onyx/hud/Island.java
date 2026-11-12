@@ -282,7 +282,7 @@ public final class Island {
         ui.begin();
         ui.push();
         try {
-            if ((Theme.frost() || Theme.liquidGlass()) && fade > 0.01F) {
+            if (xyz.daikirai.gui.onyx.render.Glass.enabled() && fade > 0.01F) {
                 Blur.prepare();
             }
             ui.alphaPush(fade);

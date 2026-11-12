@@ -8,6 +8,7 @@ import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Anim;
 import xyz.daikirai.gui.onyx.render.Blur;
+import xyz.daikirai.gui.onyx.render.Glass;
 import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.UI;
 import xyz.daikirai.module.render.WatermarkModule;
@@ -206,14 +207,12 @@ public final class OnyxClickGui extends GuiScreen {
     private void drawMorph(Scheme scheme) {
         int color = Material.mix(scheme.surfaceContainerHigh, scheme.surfaceContainer, morph);
         ui.shadow(shellX, shellY, shellW, shellH, shellRadius, Math.round(3.0F + morph));
-        ui.rounded(shellX, shellY, shellW, shellH, shellRadius, color);
-        if ((Theme.frost() || Theme.translucent()) && Blur.ready()) {
-            float coverage = 0.58F + 0.35F * morph;
-            if (Theme.translucent()) {
-                coverage = Math.max(coverage, Theme.TRANSLUCENT_FROST);
-            }
-            ui.frost(shellX, shellY, shellW, shellH, shellRadius, color, coverage);
+        float coverage = 0.58F + 0.35F * morph;
+        if (Theme.translucent()) {
+            coverage = Math.max(coverage, Theme.TRANSLUCENT_FROST);
         }
+        // The shell is the ClickGUI window while open, so it must follow the glass switch.
+        ui.windowGlass(shellX, shellY, shellW, shellH, shellRadius, color, coverage);
         drawIsland(scheme);
         float alpha = Material.clamp((morph - 0.15F) / 0.65F, 0.0F, 1.0F);
         if (alpha <= 0.003F) return;
@@ -284,7 +283,7 @@ public final class OnyxClickGui extends GuiScreen {
         // Both materials need the captured backdrop. Liquid glass uses the blurred texture for
         // its body and the sharp copy for refraction, so it must prepare the same scene even when
         // Frosted glass is disabled.
-        boolean glassEnabled = Theme.frost() || Theme.liquidGlass() || Theme.translucent();
+        boolean glassEnabled = Glass.enabled();
         if (glassEnabled && !backdropFrozen) {
             // The render-overlay hook consumes the frame capture only for glass HUDs. If none
             // are enabled, it marks the frame as already handled; the ClickGUI still needs its

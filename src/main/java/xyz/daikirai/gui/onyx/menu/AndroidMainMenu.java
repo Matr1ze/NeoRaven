@@ -142,7 +142,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
         ui.begin();
         MenuBackground.mouse(mouseX, mouseY, width, height);
         MenuBackground.draw(ui, width, height, true);
-        if (Theme.frost() || Theme.liquidGlass()) Blur.prepare();
+        xyz.daikirai.gui.onyx.render.Glass.prepare();
         ui.push();
         ui.scale(scale, 0.0F, 0.0F);
         ui.translate(ox, oy);

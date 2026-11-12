@@ -135,7 +135,7 @@ public final class KeybindsModule extends Module {
     }
 
     public boolean frosted() {
-        return xyz.daikirai.gui.onyx.material.Theme.glass();
+        return xyz.daikirai.gui.onyx.render.Glass.enabled();
     }
 
     /** {@code Show} mode: 0 = every bound module, 1 = only the ones that are switched on. */

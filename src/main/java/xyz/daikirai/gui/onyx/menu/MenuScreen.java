@@ -89,7 +89,7 @@ abstract class MenuScreen extends GuiScreen {
             }
             ui.end();
         } else drawDefaultBackground();
-        if(Theme.frost() || Theme.liquidGlass()) Blur.prepare();
+        xyz.daikirai.gui.onyx.render.Glass.prepare();
         ui.begin(); ui.rect(0,0,width,height,Theme.scrim(0.2F+0.8F*enter));
         ui.push(); ui.scale(scale,0,0); ui.translate(ox,oy);
         // The sheet starts a full screen below and rises; the ghost sheets above it are the stack

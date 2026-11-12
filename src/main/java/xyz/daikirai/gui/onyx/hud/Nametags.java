@@ -22,6 +22,7 @@ import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Anim;
 import xyz.daikirai.gui.onyx.render.Blur;
+import xyz.daikirai.gui.onyx.render.Glass;
 import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
@@ -194,7 +195,7 @@ public final class Nametags {
 
         if (background) {
             float left = -plateWidth / 2.0F;
-            if (Theme.liquidGlass() && Blur.ready()) {
+            if (Glass.liquid() && Blur.ready()) {
                 ui.hudGlass(left, -PLATE_H, plateWidth, PLATE_H, RADIUS, backgroundFill, 0.0F);
             } else {
                 if (module.frosted() && Blur.ready()) {

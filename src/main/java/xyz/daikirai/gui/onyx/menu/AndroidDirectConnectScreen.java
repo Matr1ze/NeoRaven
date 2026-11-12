@@ -83,7 +83,7 @@ public final class AndroidDirectConnectScreen extends GuiScreen {
         ui.begin();
         MenuBackground.mouse(mouseX, mouseY, width, height);
         MenuBackground.draw(ui, width, height, true);
-        if (xyz.daikirai.gui.onyx.material.Theme.glass()) xyz.daikirai.gui.onyx.render.Blur.prepare();
+        xyz.daikirai.gui.onyx.render.Glass.prepare();
         ui.rect(0.0F, 0.0F, width, height, 0xB3000000);
         ui.push();
         ui.scale(scale, 0.0F, 0.0F);

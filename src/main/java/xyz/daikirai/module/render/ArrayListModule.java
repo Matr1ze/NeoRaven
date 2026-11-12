@@ -226,7 +226,7 @@ public final class ArrayListModule extends Module {
     }
 
     public boolean blur() {
-        return xyz.daikirai.gui.onyx.material.Theme.glass();
+        return xyz.daikirai.gui.onyx.render.Glass.enabled();
     }
 
     public boolean textShadow() {

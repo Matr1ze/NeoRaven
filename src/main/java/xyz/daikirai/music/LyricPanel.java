@@ -148,9 +148,8 @@ final class LyricPanel {
 
         // Same treatment as the rest of the window: follows the master glass switch, falling back
         // to a translucent surface when the blur pipeline is unavailable or glass is off.
-        if (Theme.glass() && Blur.ready()) {
-            ui.glassSurface(x, y, w, h, 22.0F, Material.withAlpha(scheme.surfaceContainer, 0.55F),
-                    0.82F, xyz.daikirai.gui.onyx.render.UI.GLASS_BEVEL);
+        if (xyz.daikirai.gui.onyx.render.Glass.enabled() && Blur.ready()) {
+            ui.windowGlass(x, y, w, h, 22.0F, Material.withAlpha(scheme.surfaceContainer, 0.55F), 0.82F);
         } else {
             ui.rounded(x, y, w, h, 22.0F, Material.withAlpha(scheme.surfaceContainer, 0.93F));
         }

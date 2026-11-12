@@ -196,25 +196,7 @@ public final class Panel {
         Scheme scheme = Theme.scheme();
 
         ui.shadow(x, y, WIDTH, HEIGHT, RADIUS, 3);
-        // Liquid glass is an independent material toggle. It still needs the captured backdrop,
-        // but it must render when Frosted glass is off; liquid takes precedence when both are on.
-        boolean glassEnabled = Theme.frost() || Theme.liquidGlass();
-        if (glassEnabled && Blur.ready()) {
-            boolean liquid = Theme.liquidGlass()
-                    && ui.liquidGlass(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer,
-                    UI.GLASS_COVERAGE, UI.GLASS_BEVEL);
-            if (!liquid && Theme.frost()) {
-                ui.frost(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer);
-            } else if (!liquid) {
-                ui.rounded(x, y, WIDTH, HEIGHT, RADIUS,
-                        Material.withAlpha(scheme.surfaceContainer, 0.92F));
-            }
-        } else {
-            // Opaque backing is only a fallback. Painting it before a glass shader would hide the
-            // captured scene and make both material switches look disabled.
-            ui.rounded(x, y, WIDTH, HEIGHT, RADIUS,
-                    Material.withAlpha(scheme.surfaceContainer, glassEnabled ? 0.92F : 0.97F));
-        }
+        ui.windowGlass(x, y, WIDTH, HEIGHT, RADIUS, scheme.surfaceContainer, UI.DEFAULT_TINT_COVERAGE);
 
         drawContents(ui);
     }

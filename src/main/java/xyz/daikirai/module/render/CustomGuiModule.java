@@ -185,7 +185,7 @@ public final class CustomGuiModule extends Module {
     }
 
     public boolean hotbarFrosted() {
-        return xyz.daikirai.gui.onyx.material.Theme.glass();
+        return xyz.daikirai.gui.onyx.render.Glass.enabled();
     }
 
     public boolean hotbarSlotGlide() {
@@ -250,7 +250,7 @@ public final class CustomGuiModule extends Module {
     }
 
     public boolean scoreboardFrosted() {
-        return xyz.daikirai.gui.onyx.material.Theme.glass();
+        return xyz.daikirai.gui.onyx.render.Glass.enabled();
     }
 
     public boolean scoreboardShowScores() {
