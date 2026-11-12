@@ -1,6 +1,5 @@
 package xyz.daikirai.gui.onyx.menu;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.gui.GuiLanguage;
 import net.minecraft.client.gui.GuiOptions;
@@ -13,193 +12,421 @@ import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
+import xyz.daikirai.util.Lang;
 
-/** Soar-inspired first-run flow with clickable theme, accent and glass previews. */
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Monochrome Material 3 first-run flow, in the same style as the startup splash.
+ *
+ * <p>Six pages: welcome, theme, glass, music, modules and done. Pages slide on a shared X axis
+ * with Material's emphasized curve; each page has its own entrance animation. Hit areas are
+ * recorded while drawing, so clicks always match what is on screen.</p>
+ */
 public final class WelcomeScreen extends GuiScreen {
+    private static final int PAGES = 6;
+    private static final ResourceLocation RAVEN = new ResourceLocation("clickgui", "textures/raven.png");
     private static final String[] THEMES = {"Material", "Dark", "Light", "Dark Blue", "Midnight", "Dark Purple", "Sea", "Sakura"};
-    private static final int[] ACCENTS = {0xFF6750A4, 0xFF3F5F90, 0xFF3F6B62, 0xFF4F6B45, 0xFF7A5C1E, 0xFF8C4A32, 0xFF8C4767, 0xFF6B5A4E};
-    private static final String[] ACCENT_NAMES = {"Purple", "Blue", "Teal", "Green", "Amber", "Orange", "Pink", "Mocha"};
-    private static final int[][] PREVIEW = {{0xFF131314,0xFF222327,0xFFFFFFFF,0xFFEBEBEB},{0xFFFEFEFE,0xFFEEEEEE,0xFF363636,0xFF6B7581},{0xFF161C29,0xFF1B2434,0xFF9DAFD3,0xFF7483A4},{0xFF2F363D,0xFF24292E,0xFFFFFFFF,0xFFEBEBEB},{0xFF2C0E48,0xFF35185A,0xFFEAE2FC,0xFFC2BAD4},{0xFFCBE0FF,0xFFBED8EE,0xFF24354C,0xFF405570},{0xFFFFBFB2,0xFFFFDFE2,0xFF542F37,0xFF73525C}};
-    private static final Typeface.Style TITLE = Typeface.custom(19, 28, 34, false);
-    private static final Typeface.Style BODY = Typeface.custom(9, 13, 16, false);
-    private static final Typeface.Style BUTTON = Typeface.custom(9, 12, 15, true);
-    private final UI ui = new UI();
-    private int step, theme = Theme.surfaceTheme(), accent = 0;
-    private float frost = Theme.frostOpacity, liquid = Theme.liquidOpacity, matte = Theme.liquidFrost;
-    private boolean frostOn = Theme.frost(), liquidOn = Theme.liquidGlass();
-    private boolean coloured = Theme.colouredFrost, matteOn = Theme.matteLiquid, dragging;
-    private float px, py;
-    private long shownAt;
+    private static final int[][] PREVIEW = {{0xFF282A30,0xFF41444C,0xFFECEBF1,0xFFB8BBC4},{0xFF131314,0xFF222327,0xFFFFFFFF,0xFFEBEBEB},{0xFFFEFEFE,0xFFEEEEEE,0xFF363636,0xFF6B7581},{0xFF161C29,0xFF1B2434,0xFF9DAFD3,0xFF7483A4},{0xFF2F363D,0xFF24292E,0xFFFFFFFF,0xFFEBEBEB},{0xFF2C0E48,0xFF35185A,0xFFEAE2FC,0xFFC2BAD4},{0xFFCBE0FF,0xFFBED8EE,0xFF24354C,0xFF405570},{0xFFFFBFB2,0xFFFFDFE2,0xFF542F37,0xFF73525C}};
+    private static final String[][] CATEGORIES = {{"\ue3e7", "Combat", "战斗"}, {"\ue566", "Movement", "移动"},
+            {"\ue7fd", "Player", "玩家"}, {"\ue8f4", "Render", "渲染"}, {"\ue80b", "World", "世界"}};
 
-    @Override public void initGui() { shownAt = System.currentTimeMillis(); }
+    private static final int BG = 0xFF0B0B0C, SURFACE = 0xFF1A1A1C, SURFACE_HI = 0xFF26262A, OUTLINE = 0xFF3C3C41;
+    private static final int ON = 0xFFF2F2F2, ON_VAR = 0xFF9C9CA3, DIM = 0xFF5E5E64;
+
+    private static final Typeface.Style DISPLAY = Typeface.custom(24, 30, 36, false);
+    private static final Typeface.Style TITLE = Typeface.custom(19, 20, 26, false);
+    private static final Typeface.Style BODY = Typeface.custom(9, 12, 16, false);
+    private static final Typeface.Style SMALL = Typeface.custom(9, 10, 13, false);
+    private static final Typeface.Style BUTTON = Typeface.custom(9, 12, 15, true);
+    private static final Typeface.Style LYRIC = Typeface.custom(19, 18, 22, true);
+
+    private static final int NEXT = 1, BACK = 2, SKIP = 3, LANGUAGE = 4, OPTIONS = 5;
+    private static final int THEME = 100, TOGGLE = 200, SLIDER = 300;
+
+    private final UI ui = new UI();
+    private final List<Hit> hits = new ArrayList<>();
+    private int step, dir = 1, theme = Theme.surfaceTheme(), dragging = -1;
+    private float frost = Theme.frostOpacity, liquid = Theme.liquidOpacity;
+    private boolean frostOn = Theme.frost(), liquidOn = Theme.liquidGlass();
+    private boolean coloured = Theme.colouredFrost, matteOn = Theme.matteLiquid;
+    private float px, py;
+    private long openedAt, pageAt;
+
+    @Override public void initGui() {
+        long now = System.currentTimeMillis();
+        if (openedAt == 0) openedAt = now;
+        pageAt = now;
+    }
     @Override public boolean doesGuiPauseGame() { return false; }
 
     @Override public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         px = mouseX; py = mouseY;
-        if (dragging) updateSlider(mouseX, mouseY);
-        float fade = Ease.EMPHASIZED.get(Material.clamp((System.currentTimeMillis()-shownAt)/420.0F,0,1));
-        int width = Math.min(520, this.width - 32), height = Math.min(300, this.height - 32);
-        float x = (this.width-width)/2.0F, y=(this.height-height)/2.0F;
+        if (dragging >= 0) drag(mouseX);
+        hits.clear();
+        long now = System.currentTimeMillis();
+        float t = (now - openedAt) / 1000F, local = (now - pageAt) / 1000F;
+        float pe = Ease.EMPHASIZED.get(clamp(local / 0.45F));
+        float cx = width / 2F, cy = height / 2F - 16;
         ui.begin();
         try {
-            ui.rect(0,0,this.width,this.height,0xEE090A0D);
-            ui.alphaPush(fade);
-            ui.rounded(x,y,width,height,10,0xF21D2025);
-            ui.rect(x+20,y+52,width-40,1,0xFF41444A);
-            ui.text(TITLE, title(), x+24,y+27,0xFFF4F3F7,UI.ALIGN_LEFT);
-            ui.text(BODY, "NeoRaven 1.2", x+width-22,y+28,0xFF9CA0A8,UI.ALIGN_RIGHT);
-            ui.text(BODY, ""+(step+1)+" / 4",x+width/2.0F,y+height-31,0xFF898D95,UI.ALIGN_CENTER);
-            if (step==0) drawWelcome(x,y,width,height);
-            else if (step==1) drawThemes(x,y,width,height);
-            else if (step==2) drawAccents(x,y,width,height);
-            else drawGlass(x,y,width,height);
-            drawNavigation(x,y,width,height);
+            background(t);
+            ui.push();
+            ui.translate(dir * 40 * (1 - pe), 0);
+            ui.alphaPush(pe);
+            switch (step) {
+                case 0: welcome(cx, cy, t, local); break;
+                case 1: themes(cx, cy, local); break;
+                case 2: glass(cx, cy, t, local); break;
+                case 3: music(cx, cy, t, local); break;
+                case 4: modules(cx, cy, t, local); break;
+                default: done(cx, cy, t, local); break;
+            }
             ui.alphaPop();
+            ui.pop();
+            chrome(t);
         } finally { ui.end(); }
     }
 
-    private String title() {
-        switch(step) { case 0:return "Welcome to NeoRaven"; case 1:return "Choose a theme"; case 2:return "Choose an accent color"; default:return "Tune glass materials"; }
+    // ------------------------------------------------------------------ pages
+
+    private void welcome(float cx, float cy, float t, float local) {
+        float k = Ease.EMPHASIZED.get(clamp(local / 0.9F));
+        float ry = cy - 44;
+        ring(cx, ry, mix(90, 48, k), 56, t * 24, k, 1.0F, 0x66FFFFFF);
+        ring(cx, ry, mix(110, 62, k), 72, -t * 14, k, 0.8F, 0x33FFFFFF);
+        float size = mix(20, 58, k);
+        ui.image(RAVEN, cx - size / 2, ry - size / 2, size, size, 0, 0, 1, 1, Material.withAlpha(0xFFFFFF, k));
+        float a = Ease.EMPHASIZED.get(clamp((local - 0.35F) / 0.7F));
+        ui.text(DISPLAY, tr("Welcome to NeoRaven", "欢迎使用 NeoRaven"), cx, cy + 40 + 16 * (1 - a), Material.withAlpha(ON, a), UI.ALIGN_CENTER);
+        float b = Ease.EMPHASIZED.get(clamp((local - 0.55F) / 0.7F));
+        ui.text(BODY, tr("A few quick steps to make it yours.", "几步就能设置好你的客户端。"), cx, cy + 68 + 12 * (1 - b), Material.withAlpha(ON_VAR, b), UI.ALIGN_CENTER);
+        float c = Ease.EMPHASIZED.get(clamp((local - 0.75F) / 0.7F));
+        ui.alphaPush(c);
+        tonal(cx - 116, cy + 90, 108, 30, "\ue894", tr("Language", "语言"), LANGUAGE);
+        tonal(cx + 8, cy + 90, 108, 30, "\ue8b8", tr("Options", "设置"), OPTIONS);
+        ui.alphaPop();
     }
 
-    private void drawWelcome(float x,float y,float w,float h) {
-        ui.image(new ResourceLocation("clickgui","textures/raven.png"),x+30,y+82,72,72,0,0,1,1,0xFFFFFFFF);
-        ui.text(Typeface.HEADLINE,"Welcome to your",x+130,y+100,0xFFF4F3F7,UI.ALIGN_LEFT);
-        ui.text(Typeface.HEADLINE,"NeoRaven",x+130,y+137,0xFFF4F3F7,UI.ALIGN_LEFT);
-        ui.text(BODY,"Let's set up your look.",x+132,y+171,0xFFADB1B9,UI.ALIGN_LEFT);
-        button(x+26,y+217,132,34,"Language",false);
-        button(x+168,y+217,156,34,"Accessibility",false);
-        ui.text(BODY,"Choose a theme, accent color and glass finish.",x+26,y+194,0xFFADB1B9,UI.ALIGN_LEFT);
-    }
-
-    private void drawThemes(float x,float y,float w,float h) {
-        ui.text(BODY,"Select one of Soar's seven surface palettes.",x+22,y+72,0xFFADB1B9,UI.ALIGN_LEFT);
-        float start=x+22, cy=y+105, cw=50, ch=66, gap=10;
-        for(int i=0;i<7;i++) {
-            float cx=start+i*(cw+gap);
-            int[] p=PREVIEW[i];
-            ui.rounded(cx,cy,cw,ch,6,p[0]);
-            ui.rounded(cx+7,cy+10,cw-14,ch-20,3,p[1]);
-            ui.rounded(cx+10,cy+17,Math.min(cw-20,24),6,2,p[2]);
-            ui.rounded(cx+10,cy+29,Math.min(cw-20,30),6,2,p[3]);
-            if(theme==i+1) ui.outline(cx-2,cy-2,cw+4,ch+4,7,2,Theme.accent());
-            ui.text(BODY,THEMES[i+1],cx+cw/2,cy+82,0xFFF0EFF4,UI.ALIGN_CENTER);
+    private void themes(float cx, float cy, float local) {
+        header(cx, cy - 92, tr("Choose a theme", "选一个主题"), tr("Used by the menu, HUD and music player.", "菜单、HUD 和音乐播放器都会用它。"), local);
+        float cw = 66, ch = 54, gap = 12, left = cx - (4 * cw + 3 * gap) / 2, top = cy - 32;
+        for (int i = 0; i < 8; i++) {
+            float k = Ease.EMPHASIZED.get(clamp((local - 0.12F - i * 0.05F) / 0.5F));
+            if (k <= 0.01F) continue;
+            float bx = left + (i % 4) * (cw + gap), by = top + (i / 4) * (ch + 28);
+            float s = mix(0.6F, 1, k), w = cw * s, h = ch * s, x = bx + (cw - w) / 2, y = by + (ch - h) / 2 + 10 * (1 - k);
+            ui.alphaPush(k);
+            int[] p = PREVIEW[i];
+            boolean selected = theme == i, hover = hover(bx, by, cw, ch + 18);
+            if (selected) ui.outline(x - 3, y - 3, w + 6, h + 6, 12, 2, ON);
+            else if (hover) ui.outline(x - 3, y - 3, w + 6, h + 6, 12, 1, DIM);
+            ui.rounded(x, y, w, h, 9, p[0]);
+            ui.rounded(x + 6 * s, y + 8 * s, w - 12 * s, h - 16 * s, 5, p[1]);
+            ui.rounded(x + 10 * s, y + 14 * s, 26 * s, 5 * s, 2, p[2]);
+            ui.rounded(x + 10 * s, y + 24 * s, 36 * s, 5 * s, 2, p[3]);
+            ui.text(SMALL, THEMES[i], bx + cw / 2, by + ch + 11, selected ? ON : ON_VAR, UI.ALIGN_CENTER);
+            ui.alphaPop();
+            hit(THEME + i, bx, by, cw, ch + 18);
         }
-        float cx=start+7*(cw+gap);
-        ui.rounded(cx,cy,cw,ch,6,0xFF282A30); ui.rounded(cx+7,cy+12,cw-14,9,3,0xFF4A4D55);
-        ui.text(BODY,"Default",cx+cw/2,cy+82,0xFFF0EFF4,UI.ALIGN_CENTER);
     }
 
-    private void drawAccents(float x,float y,float w,float h) {
-        ui.text(BODY,"Pick an accent used by highlights and controls.",x+22,y+72,0xFFADB1B9,UI.ALIGN_LEFT);
-        float start=x+44, top=y+103;
-        for(int i=0;i<8;i++) {
-            float bx=start+(i%4)*112, by=top+(i/4)*62;
-            ui.rounded(bx,by,88,42,8,ACCENTS[i]);
-            ui.text(BODY,ACCENT_NAMES[i],bx+44,by+21,0xFFFFFFFF,UI.ALIGN_CENTER);
-            if(accent==i) ui.rounded(bx-2,by-2,92,46,9,0xFFE9E7EF);
-            ui.rounded(bx,by,88,42,8,ACCENTS[i]);
-            ui.text(BODY,ACCENT_NAMES[i],bx+44,by+21,0xFFFFFFFF,UI.ALIGN_CENTER);
-        }
-        ui.text(BODY,"Your selected color updates the preview immediately.",x+22,y+244,0xFFADB1B9,UI.ALIGN_LEFT);
-    }
-
-    private void drawGlass(float x,float y,float w,float h) {
-        ui.text(BODY,"Glass remains optional. Liquid glass takes priority when both materials are enabled.",x+22,y+70,0xFFADB1B9,UI.ALIGN_LEFT);
-        slider(x+24,y+107,390,"Frost opacity",frost);
-        slider(x+24,y+151,390,"Liquid opacity",liquid);
-        toggle(x+24,y+183,"Frosted glass",frostOn);
-        toggle(x+240,y+183,"Liquid glass",liquidOn);
-        toggle(x+24,y+211,"Coloured frost",coloured);
-        toggle(x+240,y+211,"Matte liquid",matteOn);
-        if(matteOn) slider(x+24,y+251,390,"Liquid frost amount",matte);
-        ui.rounded(x+440,y+100,48,116,7,0xFF252830);
-        ui.rounded(x+445,y+105,38,106,6,0x553F5F90);
-        ui.rounded(x+445,y+105,38,106,6,Material.withAlpha(Theme.accent(),0.20F));
-        ui.rounded(x+450,y+111,2,93,1,0x88FFFFFF);
-        ui.text(BODY,"Preview",x+464,y+229,0xFFADB1B9,UI.ALIGN_CENTER);
-    }
-
-    private void slider(float x,float y,float width,String label,float value) {
-        ui.text(BODY,label+"  "+Math.round(value*100)+"%",x,y,0xFFE6E5EB,UI.ALIGN_LEFT);
-        float lineY=y+21;
-        ui.rounded(x,lineY,width,4,2,0xFF41444C);
-        ui.rounded(x,lineY,width*value,4,2,Theme.accent());
-        float cx=x+width*value;
-        ui.circle(cx,lineY+2,7,Theme.accent());
-        ui.circle(cx,lineY+2,3,0xFFFFFFFF);
-    }
-
-    private void toggle(float x,float y,String label,boolean value) {
-        ui.rounded(x,y,32,18,9,value?Theme.accent():0xFF454850);
-        ui.circle(x+(value?23:9),y+9,6,0xFFFFFFFF);
-        ui.text(BODY,label,x+40,y+9,0xFFE6E5EB,UI.ALIGN_LEFT);
-    }
-
-    private void drawNavigation(float x,float y,float w,float h) {
-        if(step>0) button(x+20,y+h-46,76,30,"Back",false);
-        button(x+w-112,y+h-46,92,30,step==3?"Finish":"Next",true);
-    }
-
-    private void button(float x,float y,float w,float h,String text,boolean primary) {
-        boolean hover=px>=x&&px<x+w&&py>=y&&py<y+h;
-        int color=primary?Theme.accent():(hover?0xFF34373E:0xFF292C32);
-        ui.rounded(x,y,w,h,7,color);
-        ui.text(BUTTON,text,x+w/2,y+h/2,primary?0xFFFFFFFF:0xFFE7E6EC,UI.ALIGN_CENTER);
-    }
-
-    private int[] preview(int index) { return index==0?new int[]{0xFF282A30,0xFF41444C,0xFFECEBF1,0xFFB8BBC4}:PREVIEW[index-1]; }
-
-    private void updateSlider(int mouseX,int mouseY) {
-        float w=Math.min(520,this.width-32), x=(this.width-w)/2.0F, y=(this.height-Math.min(300,this.height-32))/2.0F;
-        if(mouseY<y+120&&mouseY>=y+90) frost=sliderValue(mouseX,x+24,390);
-        else if(mouseY<y+164&&mouseY>=y+134) liquid=sliderValue(mouseX,x+24,390);
-        else if(matteOn&&mouseY<y+264&&mouseY>=y+234) matte=sliderValue(mouseX,x+24,390);
-    }
-    private float sliderValue(float x,float left,float width) { return Material.clamp((x-left)/width,0,1); }
-
-    @Override protected void mouseClicked(int mouseX,int mouseY,int button) {
-        if(button!=0)return;
-        float w=Math.min(520,this.width-32), h=Math.min(300,this.height-32), x=(this.width-w)/2.0F, y=(this.height-h)/2.0F;
-        float bx=x+w-112, by=y+h-46;
-        if(mouseX>=bx&&mouseX<bx+92&&mouseY>=by&&mouseY<by+30) { sound(); if(step==3) finish(); else {step++; shownAt=System.currentTimeMillis();} return; }
-        if(step>0&&mouseX>=x+20&&mouseX<x+96&&mouseY>=by&&mouseY<by+30) { sound(); step--; shownAt=System.currentTimeMillis(); return; }
-        if(step==0) {
-            float cx=x+26, cy=y+217;
-            if(mouseX>=cx&&mouseX<cx+132&&mouseY>=cy&&mouseY<cy+34) mc.displayGuiScreen(new GuiLanguage(this,mc.gameSettings,mc.getLanguageManager()));
-            else if(mouseX>=cx+142&&mouseX<cx+298&&mouseY>=cy&&mouseY<cy+34) mc.displayGuiScreen(new GuiOptions(this,mc.gameSettings));
-        } else if(step==1) {
-            float start=x+22, top=y+105, cw=50,gap=10;
-            for(int i=0;i<8;i++) { float cx=start+i*(cw+gap); if(mouseX>=cx&&mouseX<cx+cw&&mouseY>=top&&mouseY<top+96) theme=i==7?0:i+1; }
-        } else if(step==2) {
-            float start=x+44, top=y+103;
-            for(int i=0;i<8;i++) { float cx=start+(i%4)*112, cy=top+(i/4)*62; if(mouseX>=cx-2&&mouseX<cx+90&&mouseY>=cy-2&&mouseY<cy+44) { accent=i; Theme.accent(ACCENTS[i]); } }
+    private void glass(float cx, float cy, float t, float local) {
+        header(cx, cy - 92, tr("Glass materials", "玻璃材质"), tr("Liquid glass wins when both are on.", "两个都开时，用液态玻璃。"), local);
+        // Preview: stripes drift behind a card that slides across them.
+        float x = cx - 196, y = cy - 40, w = 160, h = 120;
+        float k = Ease.EMPHASIZED.get(clamp((local - 0.1F) / 0.6F));
+        ui.alphaPush(k);
+        ui.rounded(x, y, w, h, 16, SURFACE);
+        ui.scissorPush(x, y, w, h);
+        float shift = (t * 18) % 28;
+        for (float sx = x - 28 + shift; sx < x + w; sx += 28) ui.rect(sx, y, 12, h, 0xFF2E2E33);
+        ui.circle(x + w * 0.3F, y + h * 0.35F, 18, 0xFFE6E6E6);
+        ui.circle(x + w * 0.72F, y + h * 0.7F, 12, 0xFF8A8A90);
+        float slide = (float) Math.sin(t * 1.3) * 0.5F + 0.5F;
+        float gx = x + 14 + slide * (w - 28 - 84), gy = y + 26;
+        if (liquidOn) {
+            ui.rounded(gx, gy, 84, 68, 14, matteOn ? 0x66303034 : 0x22FFFFFF);
+            ui.outline(gx, gy, 84, 68, 14, 1, 0x88FFFFFF);
+            ui.rounded(gx + 10, gy + 6, 40, 2, 1, 0x99FFFFFF);
+        } else if (frostOn) {
+            ui.rounded(gx, gy, 84, 68, 14, Material.withAlpha(coloured ? 0x34343C : 0x2A2A2E, 0.55F + 0.4F * frost));
+            ui.outline(gx, gy, 84, 68, 14, 1, 0x33FFFFFF);
         } else {
-            if(mouseY>=y+90&&mouseY<y+120) { dragging=true; frost=sliderValue(mouseX,x+24,390); }
-            else if(mouseY>=y+134&&mouseY<y+164) { dragging=true; liquid=sliderValue(mouseX,x+24,390); }
-            else if(mouseY>=y+234&&mouseY<y+264&&matteOn) { dragging=true; matte=sliderValue(mouseX,x+24,390); }
-            else if(mouseY>=y+174&&mouseY<y+202) { if(mouseX<x+w/2)frostOn=!frostOn; else liquidOn=!liquidOn; }
-            else if(mouseY>=y+202&&mouseY<y+230) { if(mouseX<x+w/2)coloured=!coloured; else matteOn=!matteOn; }
+            ui.rounded(gx, gy, 84, 68, 14, 0xFF202023);
+        }
+        ui.text(SMALL, liquidOn ? tr("Liquid", "液态") : frostOn ? tr("Frost", "毛玻璃") : tr("Solid", "实心"), gx + 42, gy + 50, ON, UI.ALIGN_CENTER);
+        ui.scissorPop();
+        ui.alphaPop();
+
+        float rx = cx - 14, ry = cy - 40;
+        String[] names = {tr("Frosted glass", "毛玻璃"), tr("Liquid glass", "液态玻璃"), tr("Coloured frost", "彩色毛玻璃"), tr("Matte liquid", "磨砂液态玻璃")};
+        boolean[] values = {frostOn, liquidOn, coloured, matteOn};
+        for (int i = 0; i < 4; i++) {
+            float e = Ease.EMPHASIZED.get(clamp((local - 0.15F - i * 0.05F) / 0.5F));
+            ui.alphaPush(e);
+            float tx = rx + (i % 2) * 108, ty = ry + (i / 2) * 28 + 8 * (1 - e);
+            toggle(tx, ty, names[i], values[i]);
+            hit(TOGGLE + i, tx, ty - 2, 104, 22);
+            ui.alphaPop();
+        }
+        float e = Ease.EMPHASIZED.get(clamp((local - 0.4F) / 0.5F));
+        ui.alphaPush(e);
+        slider(rx, ry + 70, 210, tr("Frost opacity", "毛玻璃不透明度"), frost, 0);
+        slider(rx, ry + 106, 210, tr("Liquid opacity", "液态玻璃不透明度"), liquid, 1);
+        ui.alphaPop();
+    }
+
+    private void music(float cx, float cy, float t, float local) {
+        header(cx, cy - 92, tr("Music and lyrics", "音乐与歌词"), tr("Built-in NetEase player with 3D lyrics in the world.", "内置网易云播放器，歌词能显示在游戏世界里。"), local);
+        float k = Ease.EMPHASIZED.get(clamp((local - 0.1F) / 0.7F));
+        float dx = cx - 120 - 30 * (1 - k), dy = cy + 6;
+        ui.alphaPush(k);
+        ui.circle(dx, dy, 50, SURFACE);
+        float spin = t * 45 * k;
+        for (int r = 44; r > 18; r -= 5) ring(dx, dy, r, r * 2, spin, 1, 0.45F, 0x22FFFFFF);
+        ring(dx, dy, 40, 24, spin, 0.25F, 1.1F, 0x77FFFFFF);
+        ui.circle(dx, dy, 15, 0xFFEDEDED);
+        double a = Math.toRadians(spin);
+        ui.circle(dx + (float) Math.cos(a) * 9, dy + (float) Math.sin(a) * 9, 2, BG);
+        ui.circle(dx, dy, 2.5F, BG);
+        ui.alphaPop();
+
+        // A sample line streamed word by word, with the translation in small type below.
+        String line = tr("Starlight on your shoulder", "星光落在你的肩上");
+        String sub = tr("星光落在你的肩上", "Starlight on your shoulder");
+        float cycle = 4.6F, p = (local - 0.4F) % cycle;
+        if (local < 0.4F) p = -1;
+        float lx = cx - 40, ly = cy - 4, x = lx;
+        for (int i = 0; i < line.length(); i++) {
+            String ch = line.substring(i, i + 1);
+            float at = i * 0.12F, ce = clamp((p - at) / 0.25F), fade = 1 - clamp((p - cycle + 0.5F) / 0.5F);
+            float e = Ease.EMPHASIZED.get(ce) * fade;
+            if (e > 0.01F) ui.text(LYRIC, ch, x, ly + 6 * (1 - e), Material.withAlpha(ON, e * (0.45F + 0.55F * clamp((p - at) / 0.6F))), UI.ALIGN_LEFT);
+            x += ui.width(LYRIC, ch);
+        }
+        float se = clamp((p - line.length() * 0.12F) / 0.4F) * (1 - clamp((p - cycle + 0.5F) / 0.5F));
+        ui.text(SMALL, sub, lx, ly + 24, Material.withAlpha(ON_VAR, se), UI.ALIGN_LEFT);
+        float h = Ease.EMPHASIZED.get(clamp((local - 0.6F) / 0.6F));
+        ui.alphaPush(h);
+        chip(lx, cy + 46, tr("NetEase  >  Settings  >  3D Lyrics", "网易云  >  设置  >  3D 歌词"));
+        ui.alphaPop();
+    }
+
+    private void modules(float cx, float cy, float t, float local) {
+        header(cx, cy - 92, tr("Modules", "模块"), tr("Everything lives in one menu, sorted by category.", "所有功能都在一个菜单里，按分类排好。"), local);
+        float gap = 72, left = cx - gap * 2;
+        for (int i = 0; i < CATEGORIES.length; i++) {
+            float e = Ease.EMPHASIZED.get(clamp((local - 0.1F - i * 0.07F) / 0.6F));
+            float bob = (float) Math.sin(t * 2 + i * 1.2) * 3 * e;
+            float x = left + i * gap, y = cy - 22 + 24 * (1 - e) + bob;
+            ui.alphaPush(e);
+            ui.circle(x, y, 22, SURFACE_HI);
+            ui.icon(CATEGORIES[i][0], x, y + 7, 20, ON);
+            ui.text(SMALL, tr(CATEGORIES[i][1], CATEGORIES[i][2]), x, y + 36, ON_VAR, UI.ALIGN_CENTER);
+            ui.alphaPop();
+        }
+        float e = Ease.EMPHASIZED.get(clamp((local - 0.55F) / 0.6F));
+        float pulse = 0.5F + 0.5F * (float) Math.sin(t * 3.2);
+        float kw = 96, kh = 30, kx = cx - kw / 2, ky = cy + 50 + 10 * (1 - e);
+        ui.alphaPush(e);
+        ui.rounded(kx - 4 * pulse, ky - 4 * pulse, kw + 8 * pulse, kh + 8 * pulse, 12, Material.withAlpha(0xFFFFFF, 0.08F * (1 - pulse)));
+        ui.rounded(kx, ky + 3, kw, kh, 9, 0xFF050505);
+        ui.rounded(kx, ky, kw, kh, 9, Material.mix(SURFACE_HI, 0xFFFFFFFF, 0.85F * pulse));
+        ui.text(BUTTON, "Right Shift", cx, ky + kh / 2, Material.mix(ON, 0xFF0B0B0C, pulse), UI.ALIGN_CENTER);
+        ui.text(SMALL, tr("Press it in game to open the menu.", "在游戏里按它，打开功能菜单。"), cx, ky + kh + 16, ON_VAR, UI.ALIGN_CENTER);
+        ui.alphaPop();
+    }
+
+    private void done(float cx, float cy, float t, float local) {
+        float k = Ease.EMPHASIZED.get(clamp(local / 1.1F));
+        float ry = cy - 34;
+        ring(cx, ry, mix(150, 44, k), 64, t * 30, 1, 1.0F, Material.withAlpha(0xFFFFFF, 0.25F + 0.35F * k));
+        ring(cx, ry, mix(190, 58, k), 80, -t * 18, 1, 0.8F, Material.withAlpha(0xFFFFFF, 0.15F + 0.2F * k));
+        float r = Ease.EMPHASIZED.get(clamp((local - 0.6F) / 0.6F));
+        ui.circle(cx, ry, 38 * r, SURFACE_HI);
+        float size = 50 * mix(0.8F, 1, r);
+        ui.image(RAVEN, cx - size / 2, ry - size / 2, size, size, 0, 0, 1, 1, Material.withAlpha(0xFFFFFF, r));
+        float a = Ease.EMPHASIZED.get(clamp((local - 0.8F) / 0.6F));
+        ui.text(DISPLAY, tr("You're all set", "一切就绪"), cx, cy + 46 + 14 * (1 - a), Material.withAlpha(ON, a), UI.ALIGN_CENTER);
+        ui.text(BODY, tr("You can change all of this later on the Theme page.", "这些以后都能在主题页里改。"), cx, cy + 74 + 10 * (1 - a), Material.withAlpha(ON_VAR, a), UI.ALIGN_CENTER);
+    }
+
+    // ------------------------------------------------------------------ shared pieces
+
+    private void background(float t) {
+        ui.rect(0, 0, width, height, BG);
+        float fade = clamp(t / 1.0F), drift = (t * 5) % 24;
+        float cx = width / 2F, cy = height / 2F;
+        for (float y = 12 - drift; y < height; y += 24) {
+            for (float x = 12; x < width; x += 24) {
+                float dx = (x - cx) / cx, dy = (y - cy) / cy;
+                float a = 0.10F * (1 - Math.min(1, (float) Math.sqrt(dx * dx + dy * dy))) * fade;
+                if (a > 0.004F) ui.rect(x, y, 1, 1, Material.withAlpha(0xFFFFFF, a));
+            }
         }
     }
 
-    @Override protected void mouseClickMove(int x,int y,int button,long elapsed) { if(dragging)updateSlider(x,y); }
-    @Override protected void mouseReleased(int x,int y,int state) { dragging=false; }
-    @Override protected void keyTyped(char c,int key) { if(key==Keyboard.KEY_ESCAPE)finish(); else if(key==Keyboard.KEY_RETURN){ if(step==3)finish(); else step++; } }
+    private void chrome(float t) {
+        ui.text(SMALL, "N E O R A V E N", 18, 16, ON_VAR, UI.ALIGN_LEFT);
+        if (step < PAGES - 1) textButton(width - 18, 16, tr("Skip", "跳过"), SKIP);
+        float y = height - 40, total = 0;
+        for (int i = 0; i < PAGES; i++) total += (i == step ? 18 : 6) + (i < PAGES - 1 ? 6 : 0);
+        float x = width / 2F - total / 2;
+        for (int i = 0; i < PAGES; i++) {
+            float w = i == step ? 18 : 6;
+            ui.rounded(x, y + 9, w, 6, 3, i == step ? ON : OUTLINE);
+            x += w + 6;
+        }
+        if (step > 0) outlined(24, y, 84, 24, tr("Back", "上一步"), BACK);
+        filled(width - 24 - 96, y, 96, 24, step == PAGES - 1 ? tr("Start", "开始") : tr("Next", "下一步"), NEXT);
+    }
+
+    private void header(float cx, float y, String title, String sub, float local) {
+        float a = Ease.EMPHASIZED.get(clamp(local / 0.5F));
+        ui.text(TITLE, title, cx, y + 10 * (1 - a), Material.withAlpha(ON, a), UI.ALIGN_CENTER);
+        ui.text(BODY, sub, cx, y + 22 + 10 * (1 - a), Material.withAlpha(ON_VAR, a), UI.ALIGN_CENTER);
+    }
+
+    /** Dotted ring; {@code sweep} 0..1 reveals it clockwise. */
+    private void ring(float cx, float cy, float r, int dots, float rotation, float sweep, float dot, int color) {
+        int n = (int) (dots * clamp(sweep));
+        double start = Math.toRadians(rotation);
+        for (int i = 0; i < n; i++) {
+            double a = start + i * Math.PI * 2 / dots;
+            ui.circle(cx + (float) Math.cos(a) * r, cy + (float) Math.sin(a) * r, dot, color);
+        }
+    }
+
+    private void toggle(float x, float y, String label, boolean on) {
+        if (on) {
+            ui.rounded(x, y, 32, 18, 9, ON);
+            ui.circle(x + 23, y + 9, 6.5F, BG);
+        } else {
+            ui.outline(x, y, 32, 18, 9, 1.5F, DIM);
+            ui.circle(x + 9, y + 9, 4.5F, DIM);
+        }
+        ui.text(SMALL, label, x + 38, y + 9, on ? ON : ON_VAR, UI.ALIGN_LEFT);
+    }
+
+    private void slider(float x, float y, float w, String label, float value, int id) {
+        ui.text(SMALL, label, x, y, ON_VAR, UI.ALIGN_LEFT);
+        ui.text(SMALL, Math.round(value * 100) + "%", x + w, y, ON, UI.ALIGN_RIGHT);
+        float ly = y + 14, hx = x + w * value;
+        if (hx - 4 > x) ui.rounded(x, ly, hx - 4 - x, 6, 3, ON);
+        if (hx + 4 < x + w) ui.rounded(hx + 4, ly, x + w - hx - 4, 6, 3, OUTLINE);
+        ui.rounded(hx - 1.5F, ly - 5, 3, 16, 1.5F, ON);
+        hit(SLIDER + id, x, ly - 8, w, 22);
+    }
+
+    private void chip(float x, float y, String text) {
+        float w = ui.width(SMALL, text) + 20;
+        ui.outline(x, y, w, 22, 8, 1, OUTLINE);
+        ui.text(SMALL, text, x + 10, y + 11, ON, UI.ALIGN_LEFT);
+    }
+
+    private void tonal(float x, float y, float w, float h, String icon, String text, int id) {
+        boolean hover = hover(x, y, w, h);
+        ui.rounded(x, y, w, h, h / 2, hover ? 0xFF33333A : SURFACE_HI);
+        ui.icon(icon, x + 18, y + h / 2 + 5, 14, ON);
+        ui.text(BUTTON, text, x + 30, y + h / 2, ON, UI.ALIGN_LEFT);
+        hit(id, x, y, w, h);
+    }
+
+    private void filled(float x, float y, float w, float h, String text, int id) {
+        boolean hover = hover(x, y, w, h);
+        ui.rounded(x, y, w, h, h / 2, hover ? 0xFFDADADA : ON);
+        ui.text(BUTTON, text, x + w / 2, y + h / 2, BG, UI.ALIGN_CENTER);
+        hit(id, x, y, w, h);
+    }
+
+    private void outlined(float x, float y, float w, float h, String text, int id) {
+        if (hover(x, y, w, h)) ui.rounded(x, y, w, h, h / 2, 0x14FFFFFF);
+        ui.outline(x, y, w, h, h / 2, 1, DIM);
+        ui.text(BUTTON, text, x + w / 2, y + h / 2, ON, UI.ALIGN_CENTER);
+        hit(id, x, y, w, h);
+    }
+
+    private void textButton(float right, float y, String text, int id) {
+        float w = ui.width(SMALL, text) + 16, x = right - w;
+        if (hover(x, y - 9, w, 18)) ui.rounded(x, y - 9, w, 18, 9, 0x14FFFFFF);
+        ui.text(SMALL, text, x + 8, y, ON_VAR, UI.ALIGN_LEFT);
+        hit(id, x, y - 9, w, 18);
+    }
+
+    // ------------------------------------------------------------------ input
+
+    @Override protected void mouseClicked(int mouseX, int mouseY, int button) {
+        if (button != 0) return;
+        for (int i = hits.size() - 1; i >= 0; i--) {
+            Hit h = hits.get(i);
+            if (!h.contains(mouseX, mouseY)) continue;
+            if (h.id == NEXT) { if (step == PAGES - 1) finish(); else go(step + 1); }
+            else if (h.id == BACK) go(step - 1);
+            else if (h.id == SKIP) go(PAGES - 1);
+            else if (h.id == LANGUAGE) mc.displayGuiScreen(new GuiLanguage(this, mc.gameSettings, mc.getLanguageManager()));
+            else if (h.id == OPTIONS) mc.displayGuiScreen(new GuiOptions(this, mc.gameSettings));
+            else if (h.id >= SLIDER) { dragging = h.id - SLIDER; drag(mouseX); return; }
+            else if (h.id >= TOGGLE) {
+                int k = h.id - TOGGLE;
+                if (k == 0) frostOn = !frostOn; else if (k == 1) liquidOn = !liquidOn;
+                else if (k == 2) coloured = !coloured; else matteOn = !matteOn;
+            } else if (h.id >= THEME) theme = h.id - THEME;
+            sound();
+            return;
+        }
+    }
+
+    private void drag(int mouseX) {
+        for (Hit h : hits) {
+            if (h.id != SLIDER + dragging) continue;
+            float v = clamp((mouseX - h.x) / h.w);
+            if (dragging == 0) frost = v; else liquid = v;
+        }
+    }
+
+    @Override protected void mouseClickMove(int x, int y, int button, long elapsed) { if (dragging >= 0) drag(x); }
+    @Override protected void mouseReleased(int x, int y, int state) { dragging = -1; }
+    @Override protected void keyTyped(char c, int key) {
+        if (key == Keyboard.KEY_ESCAPE) finish();
+        else if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_RIGHT) { if (step == PAGES - 1) finish(); else go(step + 1); }
+        else if (key == Keyboard.KEY_LEFT) go(step - 1);
+    }
+
+    private void go(int to) {
+        if (to < 0 || to >= PAGES || to == step) return;
+        dir = to > step ? 1 : -1;
+        step = to;
+        pageAt = System.currentTimeMillis();
+    }
+
     private void finish() {
-        Theme.surfaceTheme(theme); Theme.accent(ACCENTS[Math.max(0,Math.min(accent,ACCENTS.length-1))]);
-        if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.accent != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.accent.setAppearance(ACCENTS[accent], false);
+        Theme.surfaceTheme(theme);
         Theme.frost(frostOn); Theme.liquidGlass(liquidOn);
-        Theme.frostOpacity=frost; Theme.liquidOpacity=liquid; Theme.liquidFrost=matte; Theme.colouredFrost=coloured; Theme.matteLiquid=matteOn;
+        Theme.frostOpacity = frost; Theme.liquidOpacity = liquid; Theme.colouredFrost = coloured; Theme.matteLiquid = matteOn;
         if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.surfaceTheme != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.surfaceTheme.setValue(theme);
-        if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.frostOpacity != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.frostOpacity.setValue(frost*100.0);
-        if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.liquidOpacity != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.liquidOpacity.setValue(liquid*100.0);
-        if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.liquidFrost != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.liquidFrost.setValue(matte*100.0);
+        if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.frostOpacity != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.frostOpacity.setValue(frost * 100.0);
+        if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.liquidOpacity != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.liquidOpacity.setValue(liquid * 100.0);
         if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.colouredFrost != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.colouredFrost.set(coloured);
         if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.matteLiquid != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.matteLiquid.set(matteOn);
         if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.frostedGlass != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.frostedGlass.set(frostOn);
         if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.liquidGlass != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.liquidGlass.set(liquidOn);
         Theme.savePreferences(); FirstRun.dismissed(); mc.displayGuiScreen(MenuStyle.current().screen());
     }
-    private void sound() { mc.getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("gui.button.press"),1)); }
+
+    // ------------------------------------------------------------------ helpers
+
+    private void hit(int id, float x, float y, float w, float h) { hits.add(new Hit(id, x, y, w, h)); }
+    private boolean hover(float x, float y, float w, float h) { return px >= x && px < x + w && py >= y && py < y + h; }
+    private void sound() { mc.getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("gui.button.press"), 1)); }
+    private static String tr(String en, String zh) { return Lang.chinese() ? zh : en; }
+    private static float clamp(float v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+    private static float mix(float a, float b, float t) { return a + (b - a) * t; }
+
+    private static final class Hit {
+        final int id; final float x, y, w, h;
+        Hit(int id, float x, float y, float w, float h) { this.id = id; this.x = x; this.y = y; this.w = w; this.h = h; }
+        boolean contains(float mx, float my) { return mx >= x && mx < x + w && my >= y && my < y + h; }
+    }
 }
