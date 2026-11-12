@@ -35,8 +35,8 @@ public final class StartupAnimation {
     private static final int TERMS = 110, SAMPLES = 512, PATH = 720;
     private static final float BIG = 210, SMALL = 116, GAP = 30;
 
-    private static int raven, stageText, brand, chip, halo;
-    private static float wordWidth, chipWidth, imageSize = 128, shownProgress;
+    private static int raven, stageText, halo;
+    private static float wordWidth, imageSize = 128, shownProgress;
     private static long started, stageChangedAt;
     private static String lastStage = "";
     private static boolean finished;
@@ -83,39 +83,41 @@ public final class StartupAnimation {
             boolean traced = freq.length > 0;
             if (!traced) reveal = intro;
 
+            float idle = smooth((t - 5.0F) / 0.8F);
             float groupWidth = SMALL + GAP + wordWidth;
             float size = mix(BIG * mix(0.6F, 1, intro), SMALL, settle);
+            size *= 1 + 0.018F * (float) Math.sin(t * 2.2) * idle; // breathing once loaded in
             float boxX = mix(cx, cx - groupWidth / 2 + SMALL / 2, settle);
             float radius = mix(size / 2, size * 0.3F, settle);
 
             // A soft white light behind the container; the only "colour" on the page.
-            texture(halo, boxX - size * 1.6F, cy - size * 1.6F, size * 3.2F, size * 3.2F, 0.10F * intro);
+            float light = 0.10F + 0.05F * (float) Math.sin(t * 1.6) * idle + 0.25F * pulse(t, 3.35F, 0.9F);
+            texture(halo, boxX - size * 1.6F, cy - size * 1.6F, size * 3.2F, size * 3.2F, light * intro);
+            ripples(boxX, cy, size, t);
             roundRect(boxX - size / 2, cy - size / 2, size, size, radius, 0.12F, intro);
             roundOutline(boxX - size / 2, cy - size / 2, size, size, radius, 0.30F, intro * 0.55F);
 
             float unit = size * 0.70F / imageSize;
             float epicycleAlpha = intro * (1 - reveal);
             if (traced && epicycleAlpha > 0.01F) epicycles(boxX, cy, unit, trace, epicycleAlpha);
+            if (traced) burst(cx, cy, BIG * 0.70F / imageSize, t);
             if (reveal > 0.01F) {
                 float s = imageSize * unit * mix(0.92F, 1, reveal);
                 texture(raven, boxX - s / 2, cy - s / 2, s, s, reveal);
             }
+            orbit(boxX, cy, size, t, idle);
 
             // Wordmark rises in letter by letter once the container settles.
-            float x = cx - groupWidth / 2 + SMALL + GAP;
-            float last = 0;
+            float wordLeft = cx - groupWidth / 2 + SMALL + GAP;
+            float x = wordLeft;
             for (int i = 0; i < NAME.length(); i++) {
                 float d = emphasized((t - 3.95F - i * 0.06F) / 0.75F);
                 float gy = cy - 8 + 22 * (1 - d);
-                texture(LETTERS[i], x + ADVANCE[i] / 2 - 48, gy - 48, 96, 96, d);
+                float cell = 96 * mix(1.18F, 1, d);
+                texture(LETTERS[i], x + ADVANCE[i] / 2 - cell / 2, gy - cell / 2, cell, cell, d);
                 x += ADVANCE[i];
-                last = d;
             }
-            if (chip != 0 && last > 0.01F) {
-                float chipX = cx - groupWidth / 2 + SMALL + GAP + 4, chipY = cy + 36 + 10 * (1 - last);
-                roundOutline(chipX, chipY, chipWidth + 24, 26, 13, 0.45F, last);
-                texture(chip, chipX + 12, chipY + 1, 256, 24, last);
-            }
+            underline(wordLeft, cy + 34, t);
             drawProgress(w, h, t);
         } finally {
             GL11.glMatrixMode(GL11.GL_MODELVIEW); GL11.glPopMatrix();
@@ -166,19 +168,6 @@ public final class StartupAnimation {
             light.setRGB(x, y, (alpha << 24) | 0xFFFFFF);
         }
         halo = upload(light);
-
-        BufferedImage badge = new BufferedImage(512, 64, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = badge.createGraphics(); quality(g);
-        g.setFont(new Font("SansSerif", Font.PLAIN, 21)); g.setColor(new java.awt.Color(150, 150, 155));
-        g.drawString("N E O R A V E N", 0, 36); g.dispose(); brand = upload(badge);
-
-        BufferedImage pill = new BufferedImage(512, 48, BufferedImage.TYPE_INT_ARGB);
-        g = pill.createGraphics(); quality(g);
-        Font chipFont = new Font("SansSerif", Font.PLAIN, 26);
-        g.setFont(chipFont); g.setColor(new java.awt.Color(200, 200, 204));
-        String chipText = "Client  ·  1.2";
-        chipWidth = g.getFontMetrics().stringWidth(chipText) / 2F;
-        g.drawString(chipText, 0, 34); g.dispose(); chip = upload(pill);
         System.out.println("[NeoRaven] Animated Forge splash initialized (" + freq.length + " epicycles)");
     }
 
@@ -315,6 +304,18 @@ public final class StartupAnimation {
         for (int p = 0; p <= end; p++) GL11.glVertex2f(cx + pathX[p] * unit, cy + pathY[p] * unit);
         if (progress < 1) GL11.glVertex2f(x, y);
         GL11.glEnd();
+        // A brighter, wider comet tail right behind the pen.
+        if (progress < 1 && end > 2) {
+            GL11.glLineWidth(5F);
+            GL11.glBegin(GL11.GL_LINE_STRIP);
+            for (int p = Math.max(0, end - 48); p <= end; p++) {
+                float k = 1 - (end - p) / 48F;
+                GL11.glColor4f(1, 1, 1, alpha * 0.16F * k);
+                GL11.glVertex2f(cx + pathX[p] * unit, cy + pathY[p] * unit);
+            }
+            GL11.glVertex2f(x, y);
+            GL11.glEnd();
+        }
         if (progress < 1) {
             disc(x, y, 6, alpha * 0.18F);
             disc(x, y, 2.6F, alpha);
@@ -339,7 +340,98 @@ public final class StartupAnimation {
             }
         }
         GL11.glEnd();
-        texture(brand, 36, 22, 280, 35, 0.75F * fade);
+        // Two huge dotted orbits turning in opposite directions, very faint.
+        float ocx = w / 2, ocy = h * 0.45F;
+        GL11.glPointSize(1.6F);
+        GL11.glBegin(GL11.GL_POINTS);
+        for (int ring = 0; ring < 2; ring++) {
+            float r = ring == 0 ? 236 : 318, spin = (ring == 0 ? 0.06F : -0.04F) * t;
+            int n = ring == 0 ? 96 : 132;
+            for (int i = 0; i < n; i++) {
+                double a = spin + i * Math.PI * 2 / n;
+                GL11.glColor4f(1, 1, 1, (i % 6 == 0 ? 0.10F : 0.045F) * fade);
+                GL11.glVertex2f(ocx + (float) Math.cos(a) * r, ocy + (float) Math.sin(a) * r);
+            }
+        }
+        GL11.glEnd();
+    }
+
+    /** Material ripple rings: three on the reveal, then a soft one every few seconds. */
+    private static void ripples(float x, float y, float size, float t) {
+        for (int i = 0; i < 3; i++) {
+            float k = (t - 3.35F - i * 0.16F) / 1.3F;
+            if (k > 0 && k < 1) circle(x, y, size / 2 + emphasized(k) * 240, 1.3F, (1 - k) * 0.35F);
+        }
+        if (t > 5.6F) {
+            float k = ((t - 5.6F) % 3.4F) / 1.8F;
+            if (k < 1) circle(x, y, size * 0.55F + emphasized(k) * 90, 1, (1 - k) * 0.18F);
+        }
+    }
+
+    /** White sparks thrown outward from the traced outline as the solid raven appears. */
+    private static void burst(float cx, float cy, float unit, float t) {
+        float k = (t - 3.3F) / 1.5F;
+        if (k <= 0 || k >= 1 || pathX.length == 0) return;
+        float e = 1 - (1 - k) * (1 - k) * (1 - k);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glPointSize(2.2F);
+        GL11.glBegin(GL11.GL_POINTS);
+        for (int i = 0; i < 140; i++) {
+            int p = i * PATH / 140;
+            float sx = pathX[p] * unit, sy = pathY[p] * unit;
+            double angle = Math.atan2(sy, sx) + (rnd(i, 2) - 0.5F) * 0.7F;
+            float d = (28 + 110 * rnd(i, 1)) * e;
+            GL11.glColor4f(1, 1, 1, (1 - k) * (0.4F + 0.6F * rnd(i, 3)));
+            GL11.glVertex2f(cx + sx + (float) Math.cos(angle) * d, cy + sy + (float) Math.sin(angle) * d);
+        }
+        GL11.glEnd();
+    }
+
+    /** Three small satellites circling the container while the game keeps loading. */
+    private static void orbit(float x, float y, float size, float t, float idle) {
+        if (idle <= 0.01F) return;
+        float r = size * 0.68F;
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glPointSize(1.4F);
+        GL11.glBegin(GL11.GL_POINTS);
+        for (int i = 0; i < 72; i++) {
+            double a = i * Math.PI * 2 / 72;
+            GL11.glColor4f(1, 1, 1, 0.10F * idle);
+            GL11.glVertex2f(x + (float) Math.cos(a) * r, y + (float) Math.sin(a) * r);
+        }
+        GL11.glEnd();
+        for (int i = 0; i < 3; i++) {
+            double a = t * 1.1 + i * Math.PI * 2 / 3;
+            disc(x + (float) Math.cos(a) * r, y + (float) Math.sin(a) * r, i == 0 ? 2.6F : 1.7F, idle * (i == 0 ? 0.9F : 0.45F));
+        }
+    }
+
+    /** A line grows under the wordmark, then a light dot sweeps along it now and then. */
+    private static void underline(float left, float y, float t) {
+        float e = emphasized((t - 4.6F) / 0.8F);
+        if (e <= 0.01F) return;
+        roundRect(left + 2, y, Math.max(2, (wordWidth - 4) * e), 2, 1, 0.85F, e * 0.45F);
+        if (t > 5.4F) {
+            float s = ((t - 5.4F) % 2.6F) / 1.2F;
+            if (s < 1) {
+                float hx = left + 2 + (wordWidth - 4) * standard(s), a = (float) Math.sin(Math.PI * s);
+                texture(halo, hx - 14, y - 13, 28, 28, a * 0.5F);
+                disc(hx, y + 1, 2.2F, a);
+            }
+        }
+    }
+
+    /** 0 → 1 → 0 bump starting at {@code at}, lasting {@code length} seconds. */
+    private static float pulse(float t, float at, float length) {
+        float k = (t - at) / length;
+        return k <= 0 || k >= 1 ? 0 : (float) Math.sin(Math.PI * k);
+    }
+
+    /** Stable pseudo-random value in [0, 1) for particle {@code i}. */
+    private static float rnd(int i, int salt) {
+        long h = i * 0x9E3779B97F4A7C15L ^ salt * 0xBF58476D1CE4E5B9L;
+        h ^= h >>> 31; h *= 0x94D049BB133111EBL; h ^= h >>> 29;
+        return (h & 0xFFFFFF) / (float) 0x1000000;
     }
 
     /** Material 3 linear progress: rounded track, 4 px gap, active indicator and stop dot. */
@@ -412,7 +504,7 @@ public final class StartupAnimation {
         }
     }
     private static void circle(float x, float y, float radius, float width, float alpha) {
-        GL11.glLineWidth(width); GL11.glColor4f(1, 1, 1, alpha);
+        GL11.glDisable(GL11.GL_TEXTURE_2D); GL11.glLineWidth(width); GL11.glColor4f(1, 1, 1, alpha);
         int segments = Math.max(16, Math.min(64, (int) (radius * 1.5F)));
         GL11.glBegin(GL11.GL_LINE_LOOP);
         for (int i = 0; i < segments; i++) {
@@ -454,8 +546,8 @@ public final class StartupAnimation {
     public static void finish() {
         finished = true; for (int texture : LETTERS) if (texture != 0) GL11.glDeleteTextures(texture);
         Arrays.fill(LETTERS, 0);
-        for (int texture : new int[]{raven, stageText, brand, chip, halo}) if (texture != 0) GL11.glDeleteTextures(texture);
-        raven = stageText = brand = chip = halo = 0;
+        for (int texture : new int[]{raven, stageText, halo}) if (texture != 0) GL11.glDeleteTextures(texture);
+        raven = stageText = halo = 0;
     }
 
     // ------------------------------------------------------------------ easing
