@@ -204,6 +204,20 @@ public final class MusicManager {
         saveSettings();
     }
 
+    /** 0 顺序播放, 1 列表循环, 2 单曲循环, 3 随机播放 (shuffle wins over repeat). */
+    public int playMode() {
+        if (shuffle) return 3;
+        return repeat == Repeat.ONE ? 2 : repeat == Repeat.ALL ? 1 : 0;
+    }
+
+    /** One button walks the four modes in order: 顺序 → 列表循环 → 单曲循环 → 随机. */
+    public void cyclePlayMode() {
+        int next = (playMode() + 1) % 4;
+        shuffle = next == 3;
+        repeat = next == 0 ? Repeat.OFF : next == 2 ? Repeat.ONE : Repeat.ALL;
+        saveSettings();
+    }
+
     public String streamLevel() {
         return streamLevel;
     }

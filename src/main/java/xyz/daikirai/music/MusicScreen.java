@@ -64,6 +64,7 @@ public final class MusicScreen extends GuiScreen {
     private static final String I_REPEAT = "\ue040";
     private static final String I_REPEAT_ONE = "\ue041";
     private static final String I_SHUFFLE = "\ue043";
+    private static final String I_ORDER = "\ue5c8";
     private static final String I_VOLUME = "\ue050";
     private static final String I_VOLUME_OFF = "\ue04f";
     private static final String I_CLOSE = "\ue5cd";
@@ -1422,27 +1423,29 @@ public final class MusicScreen extends GuiScreen {
                 }
             }
         });
-        rightX -= 42.0F;
-        String modeIcon = manager.repeat() == MusicManager.Repeat.ONE ? I_REPEAT_ONE : I_REPEAT;
-        int modeColor = manager.repeat() == MusicManager.Repeat.OFF
-                ? Material.withAlpha(current.onSurfaceVariant, 0.75F) : current.primary;
-        ui.icon(modeIcon, rightX, buttonY, 19.0F, manager.shuffle() ? current.primary : modeColor);
-        hits.add(new Hit(rightX - 16.0F, buttonY - 16.0F, 32.0F, 32.0F, new Runnable() {
+        rightX -= 22.0F;
+        // One play-mode pill: icon + name, so the current mode is always readable.
+        int mode = manager.playMode();
+        String[] modeNames = {"顺序播放", "列表循环", "单曲循环", "随机播放"};
+        String[] modeIcons = {I_ORDER, I_REPEAT, I_REPEAT_ONE, I_SHUFFLE};
+        String modeName = modeNames[mode];
+        float pillW = 30.0F + MusicTypeface.CAPTION.width(modeName) + 12.0F;
+        float pillH = 28.0F;
+        float pillX = rightX - pillW;
+        boolean pillHover = inside(pillX, buttonY - pillH / 2.0F, pillW, pillH);
+        int pillInk = mode == 0 ? Material.withAlpha(current.onSurfaceVariant, 0.9F) : current.onSecondaryContainer;
+        ui.rounded(pillX, buttonY - pillH / 2.0F, pillW, pillH, pillH / 2.0F,
+                mode == 0 ? Material.withAlpha(current.onSurface, pillHover ? 0.10F : 0.05F)
+                        : Material.withAlpha(current.secondaryContainer, pillHover ? 1.0F : 0.85F));
+        ui.icon(modeIcons[mode], pillX + 16.0F, buttonY, 16.0F, pillInk);
+        ui.text(MusicTypeface.CAPTION, modeName, pillX + 28.0F, buttonY, pillInk, UI.ALIGN_LEFT);
+        hits.add(new Hit(pillX, buttonY - pillH / 2.0F, pillW, pillH, new Runnable() {
             @Override
             public void run() {
-                manager.cycleRepeat();
+                manager.cyclePlayMode();
             }
         }));
-        rightX -= 42.0F;
-        ui.icon(manager.shuffle() ? I_SHUFFLE : I_SHUFFLE, rightX, buttonY, 19.0F,
-                manager.shuffle() ? current.primary : Material.withAlpha(current.onSurfaceVariant, 0.75F));
-        hits.add(new Hit(rightX - 16.0F, buttonY - 16.0F, 32.0F, 32.0F, new Runnable() {
-            @Override
-            public void run() {
-                manager.toggleShuffle();
-            }
-        }));
-        rightX -= 44.0F;
+        rightX = pillX - 22.0F;
         // Volume: the icon mutes / restores, the slider to its left sets the level.
         float volume = manager.volume();
         boolean muted = volume <= 0.001F;

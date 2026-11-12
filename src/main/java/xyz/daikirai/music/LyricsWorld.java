@@ -100,8 +100,13 @@ final class LyricsWorld {
         RenderManager renderManager = mc.getRenderManager();
         Typeface.Style lineStyle = Typeface.HEADLINE;
         Typeface.Style translationStyle = Typeface.LABEL;
-        float lineWidth = lineStyle.width(lineText);
-        float translationWidth = lineTranslation.isEmpty() ? 0.0F : translationStyle.width(lineTranslation);
+        // Style.width() is in scaled pixels but Style.draw() draws in font pixels (it expects the
+        // caller to apply style.scale()). Lay everything out in font pixels so glyphs don't overlap.
+        float lineScale = Math.max(0.0001F, lineStyle.scale());
+        float translationScale = Math.max(0.0001F, translationStyle.scale());
+        float lineWidth = lineStyle.width(lineText) / lineScale;
+        float translationWidth = lineTranslation.isEmpty() ? 0.0F
+                : translationStyle.width(lineTranslation) / translationScale;
         float translationY = lineStyle.font().size() + 2.0F;
         int shadowAlpha = Math.round(fade * 0.55F * 255.0F);
         // The translation fades in over the first 400 ms of the line, under the original text.
@@ -158,10 +163,11 @@ final class LyricsWorld {
         long duration = Math.max(400L, line.endMs - line.timeMs);
         long reveal = Math.min(Math.max(250L, text.length() * 55L), (long) (duration * 0.6D));
         float lineSung = line.progress(position);
+        float fontScale = Math.max(0.0001F, style.scale());
         StringBuilder prefix = new StringBuilder();
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
-            float x = left + style.width(prefix.toString());
+            float x = left + style.width(prefix.toString()) / fontScale;
             prefix.append(c);
             if (c == ' ') {
                 continue;
