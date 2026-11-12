@@ -36,7 +36,7 @@ public final class StartupAnimation {
     private static final float BIG = 210, SMALL = 116, GAP = 30;
 
     private static int raven, stageText, halo;
-    private static float wordWidth, imageSize = 128, shownProgress;
+    private static float wordWidth, imageSize = 128, shownProgress, offX, offY;
     private static long started, stageChangedAt;
     private static String lastStage = "";
     private static boolean finished;
@@ -103,9 +103,10 @@ public final class StartupAnimation {
             if (traced) burst(cx, cy, BIG * 0.70F / imageSize, t);
             if (reveal > 0.01F) {
                 float s = imageSize * unit * mix(0.92F, 1, reveal);
-                texture(raven, boxX - s / 2, cy - s / 2, s, s, reveal);
+                float k = s / imageSize;
+                texture(raven, boxX - s / 2 - offX * k, cy - s / 2 - offY * k, s, s, reveal);
             }
-            orbit(boxX, cy, size, t, idle);
+            brackets(boxX, cy, size, t, idle);
 
             // Wordmark rises in letter by letter once the container settles.
             float wordLeft = cx - groupWidth / 2 + SMALL + GAP;
@@ -202,13 +203,23 @@ public final class StartupAnimation {
             if (mask[i] && start < 0) start = i;
         }
         if (start < 0) return;
+        // The raven does not sit in the middle of its square image; centre on the visible shape.
+        int minX = w, minY = h, maxX = -1, maxY = -1;
+        for (int i = 0; i < mask.length; i++) {
+            if (!mask[i]) continue;
+            int mx = i % w, my = i / w;
+            minX = Math.min(minX, mx); maxX = Math.max(maxX, mx);
+            minY = Math.min(minY, my); maxY = Math.max(maxY, my);
+        }
+        offX = (minX + maxX + 1) / 2F - w / 2F;
+        offY = (minY + maxY + 1) / 2F - h / 2F;
 
         // Moore-neighbour boundary trace, clockwise on screen.
         int[] dx = {-1, -1, 0, 1, 1, 1, 0, -1}, dy = {0, -1, -1, -1, 0, 1, 1, 1};
         int sx = start % w, sy = start / w, x = sx, y = sy, dir = 0;
         List<float[]> outline = new ArrayList<>();
         for (int step = 0; step < w * h * 4; step++) {
-            outline.add(new float[]{x + 0.5F - w / 2F, y + 0.5F - h / 2F});
+            outline.add(new float[]{x + 0.5F - w / 2F - offX, y + 0.5F - h / 2F - offY});
             boolean moved = false;
             for (int k = 0; k < 8; k++) {
                 int d = (dir + k) % 8, nx = x + dx[d], ny = y + dy[d];
@@ -387,22 +398,36 @@ public final class StartupAnimation {
         GL11.glEnd();
     }
 
-    /** Three small satellites circling the container while the game keeps loading. */
-    private static void orbit(float x, float y, float size, float t, float idle) {
+    /**
+     * Viewfinder corner brackets around the square container. They breathe in and out, and a
+     * thin light line scans down the container now and then.
+     */
+    private static void brackets(float x, float y, float size, float t, float idle) {
         if (idle <= 0.01F) return;
-        float r = size * 0.68F;
+        float half = size / 2 + 9 + 2.5F * (float) Math.sin(t * 2.2), len = 13 * idle;
         GL11.glDisable(GL11.GL_TEXTURE_2D);
-        GL11.glPointSize(1.4F);
-        GL11.glBegin(GL11.GL_POINTS);
-        for (int i = 0; i < 72; i++) {
-            double a = i * Math.PI * 2 / 72;
-            GL11.glColor4f(1, 1, 1, 0.10F * idle);
-            GL11.glVertex2f(x + (float) Math.cos(a) * r, y + (float) Math.sin(a) * r);
+        GL11.glLineWidth(1.6F);
+        GL11.glColor4f(1, 1, 1, 0.55F * idle);
+        for (int sx = -1; sx <= 1; sx += 2) {
+            for (int sy = -1; sy <= 1; sy += 2) {
+                GL11.glBegin(GL11.GL_LINE_STRIP);
+                GL11.glVertex2f(x + sx * half, y + sy * (half - len));
+                GL11.glVertex2f(x + sx * half, y + sy * half);
+                GL11.glVertex2f(x + sx * (half - len), y + sy * half);
+                GL11.glEnd();
+            }
         }
-        GL11.glEnd();
-        for (int i = 0; i < 3; i++) {
-            double a = t * 1.1 + i * Math.PI * 2 / 3;
-            disc(x + (float) Math.cos(a) * r, y + (float) Math.sin(a) * r, i == 0 ? 2.6F : 1.7F, idle * (i == 0 ? 0.9F : 0.45F));
+        float s = ((t - 5.4F) % 4.0F) / 1.4F;
+        if (t > 5.4F && s < 1) {
+            float inner = size / 2 - 6, ly = y - inner + 2 * inner * standard(s);
+            float a = (float) Math.sin(Math.PI * s) * idle;
+            GL11.glLineWidth(1);
+            GL11.glBegin(GL11.GL_LINES);
+            GL11.glColor4f(1, 1, 1, 0); GL11.glVertex2f(x - inner, ly);
+            GL11.glColor4f(1, 1, 1, 0.35F * a); GL11.glVertex2f(x, ly);
+            GL11.glVertex2f(x, ly);
+            GL11.glColor4f(1, 1, 1, 0); GL11.glVertex2f(x + inner, ly);
+            GL11.glEnd();
         }
     }
 

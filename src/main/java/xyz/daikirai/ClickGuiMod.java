@@ -72,6 +72,11 @@ public class ClickGuiMod {
         event.gui = xyz.daikirai.gui.onyx.menu.MenuStyle.wrap(event.gui);
         event.gui = xyz.daikirai.gui.onyx.menu.SettingsStyle.wrap(event.gui);
         event.gui = xyz.daikirai.gui.onyx.menu.AndroidScreens.wrap(event.gui);
+        // First launch: go straight from the splash to the welcome flow, never flash the menu.
+        if (xyz.daikirai.client.FirstRun.pending()
+                && event.gui instanceof net.minecraft.client.gui.GuiMainMenu) {
+            event.gui = new xyz.daikirai.gui.onyx.menu.WelcomeScreen();
+        }
     }
 
     private static boolean firstTick = true;

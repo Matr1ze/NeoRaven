@@ -69,11 +69,23 @@ public final class WelcomeScreen extends GuiScreen {
         float t = (now - openedAt) / 1000F, local = (now - pageAt) / 1000F;
         float pe = Ease.EMPHASIZED.get(clamp(local / 0.45F));
         float cx = width / 2F, cy = height / 2F - 16;
+        float slideX = dir * 40 * (1 - pe);
+        if (step == 2) applyGlass();
+        // Backdrop first, then capture it so the glass card refracts what is really behind it.
         ui.begin();
         try {
             background(t);
+            if (step == 2) {
+                ui.push(); ui.translate(slideX, 0); ui.alphaPush(pe);
+                glassBackdrop(cx, cy, t);
+                ui.alphaPop(); ui.pop();
+            }
+        } finally { ui.end(); }
+        if (step == 2) xyz.daikirai.gui.onyx.render.Glass.prepare();
+        ui.begin();
+        try {
             ui.push();
-            ui.translate(dir * 40 * (1 - pe), 0);
+            ui.translate(slideX, 0);
             ui.alphaPush(pe);
             switch (step) {
                 case 0: welcome(cx, cy, t, local); break;
@@ -134,30 +146,17 @@ public final class WelcomeScreen extends GuiScreen {
 
     private void glass(float cx, float cy, float t, float local) {
         header(cx, cy - 92, tr("Glass materials", "玻璃材质"), tr("Liquid glass wins when both are on.", "两个都开时，用液态玻璃。"), local);
-        // Preview: stripes drift behind a card that slides across them.
         float x = cx - 196, y = cy - 40, w = 160, h = 120;
         float k = Ease.EMPHASIZED.get(clamp((local - 0.1F) / 0.6F));
         ui.alphaPush(k);
-        ui.rounded(x, y, w, h, 16, SURFACE);
         ui.scissorPush(x, y, w, h);
-        float shift = (t * 18) % 28;
-        for (float sx = x - 28 + shift; sx < x + w; sx += 28) ui.rect(sx, y, 12, h, 0xFF2E2E33);
-        ui.circle(x + w * 0.3F, y + h * 0.35F, 18, 0xFFE6E6E6);
-        ui.circle(x + w * 0.72F, y + h * 0.7F, 12, 0xFF8A8A90);
-        float slide = (float) Math.sin(t * 1.3) * 0.5F + 0.5F;
-        float gx = x + 14 + slide * (w - 28 - 84), gy = y + 26;
-        if (liquidOn) {
-            ui.rounded(gx, gy, 84, 68, 14, matteOn ? 0x66303034 : 0x22FFFFFF);
-            ui.outline(gx, gy, 84, 68, 14, 1, 0x88FFFFFF);
-            ui.rounded(gx + 10, gy + 6, 40, 2, 1, 0x99FFFFFF);
-        } else if (frostOn) {
-            ui.rounded(gx, gy, 84, 68, 14, Material.withAlpha(coloured ? 0x34343C : 0x2A2A2E, 0.55F + 0.4F * frost));
-            ui.outline(gx, gy, 84, 68, 14, 1, 0x33FFFFFF);
-        } else {
-            ui.rounded(gx, gy, 84, 68, 14, 0xFF202023);
-        }
-        ui.text(SMALL, liquidOn ? tr("Liquid", "液态") : frostOn ? tr("Frost", "毛玻璃") : tr("Solid", "实心"), gx + 42, gy + 50, ON, UI.ALIGN_CENTER);
+        float slide = (float) Math.sin(t * 1.1) * 0.5F + 0.5F;
+        float cw = 96, chh = 76, gx = x + 10 + slide * (w - 20 - cw), gy = y + (h - chh) / 2;
+        // The same renderer every menu and HUD uses: liquid lens, frost, or solid.
+        ui.glassSurface(gx, gy, cw, chh, 18, xyz.daikirai.gui.onyx.render.Glass.enabled() ? 0x55202024 : 0xFF202023);
+        ui.text(SMALL, liquidOn ? tr("Liquid", "液态") : frostOn ? tr("Frost", "毛玻璃") : tr("Solid", "实心"), gx + cw / 2, gy + chh - 14, ON, UI.ALIGN_CENTER);
         ui.scissorPop();
+        ui.outline(x, y, w, h, 16, 1, OUTLINE);
         ui.alphaPop();
 
         float rx = cx - 14, ry = cy - 40;
@@ -297,6 +296,29 @@ public final class WelcomeScreen extends GuiScreen {
             double a = start + i * Math.PI * 2 / dots;
             ui.circle(cx + (float) Math.cos(a) * r, cy + (float) Math.sin(a) * r, dot, color);
         }
+    }
+
+    /** Scene behind the glass preview: drifting stripes, a ring of text and two bright discs. */
+    private void glassBackdrop(float cx, float cy, float t) {
+        float x = cx - 196, y = cy - 40, w = 160, h = 120;
+        float k = Ease.EMPHASIZED.get(clamp(((System.currentTimeMillis() - pageAt) / 1000F - 0.1F) / 0.6F));
+        ui.alphaPush(k);
+        ui.rounded(x, y, w, h, 16, SURFACE);
+        ui.scissorPush(x, y, w, h);
+        float shift = (t * 14) % 24;
+        for (float sx = x - 24 + shift; sx < x + w; sx += 24) ui.rect(sx, y, 10, h, 0xFF3A3A40);
+        ui.circle(x + w * 0.28F + (float) Math.sin(t * 0.7) * 10, y + h * 0.36F, 20, 0xFFEDEDED);
+        ui.circle(x + w * 0.74F, y + h * 0.68F + (float) Math.cos(t * 0.9) * 8, 13, 0xFF8E8E95);
+        ui.text(LYRIC, "NeoRaven", x + w / 2, y + h * 0.55F, 0xFFD0D0D4, UI.ALIGN_CENTER);
+        ui.scissorPop();
+        ui.alphaPop();
+    }
+
+    /** The glass page previews for real, so its switches drive the theme while it is open. */
+    private void applyGlass() {
+        Theme.frost(frostOn); Theme.liquidGlass(liquidOn);
+        Theme.frostOpacity = frost; Theme.liquidOpacity = liquid;
+        Theme.colouredFrost = coloured; Theme.matteLiquid = matteOn;
     }
 
     private void toggle(float x, float y, String label, boolean on) {
