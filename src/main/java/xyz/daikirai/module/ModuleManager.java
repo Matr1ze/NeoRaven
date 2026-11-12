@@ -52,7 +52,8 @@ public final class ModuleManager {
             JsonObject o = e.getAsJsonObject();
             // Render > Lyrics is retired: the music player's own "3D 歌词" draws the same lines
             // (with translation). LyricsModule / LyricsWorld are kept in the source, unused.
-            if ("Lyrics".equals(o.get("name").getAsString()) && "render".equals(o.get("category").getAsString())) {
+            if (o.has("name") && !o.get("name").isJsonNull() && o.has("category") && !o.get("category").isJsonNull()
+                    && "Lyrics".equals(o.get("name").getAsString()) && "render".equals(o.get("category").getAsString())) {
                 continue;
             }
             Module m;
