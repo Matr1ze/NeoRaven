@@ -1050,14 +1050,15 @@ public final class MusicScreen extends GuiScreen {
                     }
                 });
         y = settingRowHeader(current, "外观", y);
-        LyricsModule lyrics = LyricsModule.instance;
-        if (lyrics != null) {
-            y = switchRow(current, "游戏内歌词", "在游戏世界中显示歌词；与渲染分类中的歌词开关同步", y,
-                    lyrics.isEnabled(), value -> {
-                        if (value) lyrics.enable(); else lyrics.disable();
-                        Profiles.markModified();
-                    });
-        }
+        // Render > Lyrics is retired; the "3D 歌词" section below is the in-game lyric display.
+        // LyricsModule lyrics = LyricsModule.instance;
+        // if (lyrics != null) {
+        //     y = switchRow(current, "游戏内歌词", "在游戏世界中显示歌词；与渲染分类中的歌词开关同步", y,
+        //             lyrics.isEnabled(), value -> {
+        //                 if (value) lyrics.enable(); else lyrics.disable();
+        //                 Profiles.markModified();
+        //             });
+        // }
         y = switchRow(current, "封面取色", "整个界面按专辑封面重新配色", y, m.coverTint(),
                 new BooleanSetter() {
                     @Override
@@ -1162,7 +1163,7 @@ public final class MusicScreen extends GuiScreen {
                             manager.saveSettings();
                         }
                     });
-            y = switchRow(current, "中文翻译", "关闭后只显示原语言歌词", y, l3.translation,
+            y = switchRow(current, "中文翻译", "在原歌词下方用小字显示翻译", y, l3.translation,
                     new BooleanSetter() {
                         @Override
                         public void set(boolean value) {

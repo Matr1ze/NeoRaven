@@ -50,6 +50,11 @@ public final class ModuleManager {
                 ModuleManager.class.getResourceAsStream("/assets/clickgui/modules.json"), StandardCharsets.UTF_8)).getAsJsonArray();
         for (JsonElement e : arr) {
             JsonObject o = e.getAsJsonObject();
+            // Render > Lyrics is retired: the music player's own "3D 歌词" draws the same lines
+            // (with translation). LyricsModule / LyricsWorld are kept in the source, unused.
+            if ("Lyrics".equals(o.get("name").getAsString()) && "render".equals(o.get("category").getAsString())) {
+                continue;
+            }
             Module m;
             if (!o.get("failed").isJsonNull()) {
                 m = new xyz.daikirai.module.render.ShadersModule(0);
@@ -250,7 +255,8 @@ public final class ModuleManager {
             case "AntiCheat": return new xyz.daikirai.module.other.AntiCheatModule(key);
             case "Onyx ClickGUI": return new xyz.daikirai.gui.onyx.OnyxClickGuiModule(key);
             case "Music Player": return new xyz.daikirai.music.MusicModule(key);
-            case "Lyrics": return new xyz.daikirai.music.LyricsModule(key);
+            // Retired, see init(): the music player's 3D lyrics replace it.
+            // case "Lyrics": return new xyz.daikirai.music.LyricsModule(key);
             case "Watermark": return new xyz.daikirai.module.render.WatermarkModule(key);
             case "Low Health": return new xyz.daikirai.module.render.LowHealthModule(key);
             case "Keybinds": return new xyz.daikirai.module.render.KeybindsModule(key);

@@ -938,7 +938,7 @@ public final class MusicManager {
         public volatile boolean wiggle = true;
         public volatile boolean wordPop = true;
         public volatile boolean rainbow;
-        public volatile boolean translation;
+        public volatile boolean translation = true;
         public volatile boolean followView = true;
     }
 
