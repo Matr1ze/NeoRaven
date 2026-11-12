@@ -839,6 +839,9 @@ public final class MusicManager {
             writer.write("lyrics3dTranslation: " + l3.translation + "\n");
             writer.write("lyrics3dFollowView: " + l3.followView + "\n");
             writer.write("lyrics3dFixed: " + l3.fixedInWorld + "\n");
+            writer.write("lyrics3dFixedDistance: " + l3.fixedDistance + "\n");
+            writer.write("lyrics3dFixedSide: " + l3.fixedSide + "\n");
+            writer.write("lyrics3dFixedHeight: " + l3.fixedHeight + "\n");
             writer.write("cookie: " + NeteaseHttp.cookieHeader() + "\n");
             writer.close();
         } catch (Throwable ignored) {
@@ -931,6 +934,12 @@ public final class MusicManager {
                 l3.followView = Boolean.parseBoolean(value);
             } else if (key.equals("lyrics3dFixed")) {
                 l3.fixedInWorld = Boolean.parseBoolean(value);
+            } else if (key.equals("lyrics3dFixedDistance")) {
+                l3.fixedDistance = Math.max(5.0F, Math.min(120.0F, Float.parseFloat(value)));
+            } else if (key.equals("lyrics3dFixedSide")) {
+                l3.fixedSide = Math.max(0.0F, Math.min(20.0F, Float.parseFloat(value)));
+            } else if (key.equals("lyrics3dFixedHeight")) {
+                l3.fixedHeight = Math.max(-2.0F, Math.min(10.0F, Float.parseFloat(value)));
             }
         } catch (NumberFormatException ignored) {
         }
@@ -959,6 +968,10 @@ public final class MusicManager {
         public volatile boolean followView = true;
         /** true: each line is pinned to a point in the world (LyricsWorld); false: follows the view (WorldLyrics). */
         public volatile boolean fixedInWorld = true;
+        /** Fixed-in-world placement, same defaults as the former Render > Lyrics module. */
+        public volatile float fixedDistance = 10.0F;
+        public volatile float fixedSide = 4.0F;
+        public volatile float fixedHeight = 1.5F;
     }
 
     private static String message(Throwable t) {

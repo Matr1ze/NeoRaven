@@ -26,6 +26,7 @@ final class LyricsWorld {
 
     private static final long FADE_MS = 180L;
     private static final float BASE_SCALE = 0.018F;
+    private static final java.util.Random SIDE_RANDOM = new java.util.Random();
 
     private static long songId = Long.MIN_VALUE;
     private static int lineIndex = -1;
@@ -114,7 +115,7 @@ final class LyricsWorld {
         int translationColor = Math.round(translationFade * 0.82F * 255.0F) << 24 | 0x00D6D8E0;
         int translationShadow = Math.round(translationFade * 0.55F * 255.0F) << 24;
 
-        float distance = clamp(l3.distance, 3.0F, 48.0F);
+        float distance = clamp(l3.fixedDistance, 5.0F, 120.0F);
         float scale = BASE_SCALE * clamp(l3.scale, 0.4F, 2.5F)
                 * (1.0F + distance / 90.0F);
 
@@ -210,10 +211,11 @@ final class LyricsWorld {
         double forwardZ = Math.cos(yaw);
         double rightX = -Math.cos(yaw);
         double rightZ = -Math.sin(yaw);
-        float distance = clamp(l3.distance, 3.0F, 48.0F);
-        float side = l3.offsetX;
-        side = (index & 1) == 0 ? side : -side;
-        float height = l3.offsetY + ((index % 3) - 1) * 0.35F;
+        float distance = clamp(l3.fixedDistance, 5.0F, 120.0F);
+        // Each new line lands on a random side of the view, as the former Render > Lyrics did.
+        float side = Math.abs(l3.fixedSide);
+        side = SIDE_RANDOM.nextBoolean() ? side : -side;
+        float height = l3.fixedHeight + ((index % 3) - 1) * 0.35F;
         double px = player.posX;
         double py = player.posY + player.getEyeHeight();
         double pz = player.posZ;

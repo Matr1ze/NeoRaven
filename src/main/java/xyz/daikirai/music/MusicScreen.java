@@ -1109,6 +1109,32 @@ public final class MusicScreen extends GuiScreen {
                             manager.saveSettings();
                         }
                     });
+            if (l3.fixedInWorld) {
+            y = sliderRow(current, "距离", Math.round(l3.fixedDistance) + " 格", y,
+                    (l3.fixedDistance - 5.0F) / 115.0F, 0.0F, 1.0F, new FloatSetter() {
+                        @Override
+                        public void set(float value) {
+                            l3.fixedDistance = 5.0F + value * 115.0F;
+                            manager.saveSettings();
+                        }
+                    });
+            y = sliderRow(current, "左右偏移", String.format("%.1f 格", l3.fixedSide), y,
+                    l3.fixedSide / 20.0F, 0.0F, 1.0F, new FloatSetter() {
+                        @Override
+                        public void set(float value) {
+                            l3.fixedSide = value * 20.0F;
+                            manager.saveSettings();
+                        }
+                    });
+            y = sliderRow(current, "高度", String.format("%.1f 格", l3.fixedHeight), y,
+                    (l3.fixedHeight + 2.0F) / 12.0F, 0.0F, 1.0F, new FloatSetter() {
+                        @Override
+                        public void set(float value) {
+                            l3.fixedHeight = -2.0F + value * 12.0F;
+                            manager.saveSettings();
+                        }
+                    });
+            } else {
             y = sliderRow(current, "距离", Math.round(l3.distance) + " 格", y,
                     (l3.distance - 3.0F) / 37.0F, 0.0F, 1.0F, new FloatSetter() {
                         @Override
@@ -1133,6 +1159,7 @@ public final class MusicScreen extends GuiScreen {
                             manager.saveSettings();
                         }
                     });
+            }
             if (!l3.fixedInWorld) {
             // Follow-view only: the fixed mode pins each line in place and streams it plainly.
             y = sliderRow(current, "散布角度", Math.round(l3.spread) + "°", y,
