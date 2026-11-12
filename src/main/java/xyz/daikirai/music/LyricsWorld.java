@@ -50,16 +50,17 @@ final class LyricsWorld {
         anchorZ = 0.0D;
     }
 
-    static void render(LyricsModule module, float partialTicks) {
+    static void render(MusicManager.Lyrics3DSettings l3, float partialTicks) {
         Minecraft mc = Minecraft.getMinecraft();
         MusicManager manager = MusicManager.get();
         Song song = manager.current();
-        if (module == null || song == null || mc.thePlayer == null || mc.theWorld == null) {
+        if (l3 == null || song == null || mc.thePlayer == null || mc.theWorld == null) {
             reset();
             return;
         }
         List<LyricLine> lines = manager.lyrics();
-        int index = LyricPanel.indexAt(lines, manager.positionMs());
+        long position = manager.positionMs();
+        int index = LyricPanel.indexAt(lines, position);
         if (index < 0 || index >= lines.size()) {
             reset();
             return;
@@ -70,21 +71,22 @@ final class LyricsWorld {
             reset();
             return;
         }
-        String translation = module.showTranslation() && line.translation != null
-                ? line.translation.trim() : "";
+        String translation = "";
+        if (l3.translation) {
+            String extra = line.translation == null || line.translation.trim().isEmpty()
+                    ? (line.romanisation == null ? "" : line.romanisation) : line.translation;
+            translation = extra.trim();
+        }
 
         long now = System.currentTimeMillis();
         if (song.id != songId || index != lineIndex) {
             songId = song.id;
             lineIndex = index;
-            lineText = text;
-            lineTranslation = translation;
-            spawnAnchor(module, mc.thePlayer, index);
+            spawnAnchor(l3, mc.thePlayer, index);
             spawnedAt = now;
-        } else {
-            lineText = text;
-            lineTranslation = translation;
         }
+        lineText = line.text;
+        lineTranslation = translation;
         float fade = spawnedAt == 0L ? 1.0F
                 : clamp((now - spawnedAt) / (float) FADE_MS, 0.0F, 1.0F);
         if (fade <= 0.01F) {
@@ -100,15 +102,15 @@ final class LyricsWorld {
         Typeface.Style translationStyle = Typeface.LABEL;
         float lineWidth = lineStyle.width(lineText);
         float translationWidth = lineTranslation.isEmpty() ? 0.0F : translationStyle.width(lineTranslation);
-        float textLeft = -Math.max(lineWidth, translationWidth) / 2.0F;
         float translationY = lineStyle.font().size() + 2.0F;
-        int alpha = Math.round(fade * 255.0F);
-        int lineColor = alpha << 24 | 0x00F2F3F7;
-        int translationColor = Math.round(fade * 0.82F * 255.0F) << 24 | 0x00D6D8E0;
-        int shadowColor = Math.round(fade * 0.55F * 255.0F) << 24;
+        int shadowAlpha = Math.round(fade * 0.55F * 255.0F);
+        // The translation fades in over the first 400 ms of the line, under the original text.
+        float translationFade = fade * clamp((position - line.timeMs) / 400.0F, 0.0F, 1.0F);
+        int translationColor = Math.round(translationFade * 0.82F * 255.0F) << 24 | 0x00D6D8E0;
+        int translationShadow = Math.round(translationFade * 0.55F * 255.0F) << 24;
 
-        float distance = clamp(module.distance(), 5.0F, 120.0F);
-        float scale = BASE_SCALE * clamp(module.scale(), 0.5F, 3.0F)
+        float distance = clamp(l3.distance, 3.0F, 48.0F);
+        float scale = BASE_SCALE * clamp(l3.scale, 0.4F, 2.5F)
                 * (1.0F + distance / 90.0F);
 
         try (State state = new State()) {
@@ -121,10 +123,10 @@ final class LyricsWorld {
                 GlStateManager.rotate(renderManager.playerViewX, 1.0F, 0.0F, 0.0F);
                 GlStateManager.scale(-scale, -scale, scale);
 
-                drawShadowed(lineStyle, lineText, textLeft, 0.0F, lineColor, shadowColor);
-                if (!lineTranslation.isEmpty()) {
-                    drawShadowed(translationStyle, lineTranslation, textLeft, translationY,
-                            translationColor, shadowColor);
+                drawStreaming(lineStyle, line, position, -lineWidth / 2.0F, fade, shadowAlpha);
+                if (!lineTranslation.isEmpty() && translationFade > 0.01F) {
+                    drawShadowed(translationStyle, lineTranslation, -translationWidth / 2.0F, translationY,
+                            translationColor, translationShadow);
                 }
             } finally {
                 GlStateManager.popMatrix();
@@ -133,19 +135,79 @@ final class LyricsWorld {
     }
 
     /**
+     * Streams the line in the same way the player window does: each character appears when it is
+     * sung (word timings), or evenly across the start of the line when the song has no word
+     * timings, and brightens from a dim ink to full white as it is sung.
+     */
+    private static void drawStreaming(Typeface.Style style, LyricLine line, long position, float left,
+                                      float fade, int shadowAlpha) {
+        String text = line.text;
+        int[] wordOf = new int[text.length()];
+        java.util.Arrays.fill(wordOf, -1);
+        int cursor = 0;
+        for (int w = 0; w < line.words.size() && cursor < text.length(); w++) {
+            String word = line.words.get(w).text;
+            while (cursor < text.length() && Character.isWhitespace(text.charAt(cursor))) {
+                cursor++;
+            }
+            for (int k = 0; k < word.length() && cursor < text.length(); k++) {
+                wordOf[cursor++] = w;
+            }
+        }
+        long elapsed = position - line.timeMs;
+        long duration = Math.max(400L, line.endMs - line.timeMs);
+        long reveal = Math.min(Math.max(250L, text.length() * 55L), (long) (duration * 0.6D));
+        float lineSung = line.progress(position);
+        StringBuilder prefix = new StringBuilder();
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            float x = left + style.width(prefix.toString());
+            prefix.append(c);
+            if (c == ' ') {
+                continue;
+            }
+            int word = wordOf[i];
+            long appear;
+            float sung;
+            if (word >= 0) {
+                LyricWord w = line.words.get(word);
+                appear = w.startMs - line.timeMs;
+                sung = w.progress(position);
+            } else {
+                appear = text.length() <= 1 ? 0L : (long) (i / (float) (text.length() - 1) * reveal);
+                sung = lineSung;
+            }
+            long t = elapsed - appear;
+            if (t < 0L) {
+                continue;
+            }
+            float appearK = clamp(t / 160.0F, 0.0F, 1.0F);
+            appearK = appearK * appearK * (3.0F - 2.0F * appearK);
+            float a = fade * appearK * (0.45F + 0.55F * clamp(sung, 0.0F, 1.0F));
+            if (a <= 0.01F) {
+                continue;
+            }
+            float lift = (1.0F - appearK) * 4.0F;
+            String glyph = String.valueOf(c);
+            int shadow = Math.round(shadowAlpha * appearK) << 24;
+            drawShadowed(style, glyph, x, -lift, Math.round(a * 255.0F) << 24 | 0x00F2F3F7, shadow);
+        }
+    }
+
+    /**
      * Capture a fixed point at this line's start. Side and height alternate slightly so two
      * consecutive lines never occupy the exact same place when the player stands still.
      */
-    private static void spawnAnchor(LyricsModule module, Entity player, int index) {
+    private static void spawnAnchor(MusicManager.Lyrics3DSettings l3, Entity player, int index) {
         double yaw = Math.toRadians(player.rotationYaw);
         double forwardX = -Math.sin(yaw);
         double forwardZ = Math.cos(yaw);
         double rightX = -Math.cos(yaw);
         double rightZ = -Math.sin(yaw);
-        float distance = clamp(module.distance(), 5.0F, 120.0F);
-        float side = module.sideOffset();
+        float distance = clamp(l3.distance, 3.0F, 48.0F);
+        float side = l3.offsetX;
         side = (index & 1) == 0 ? side : -side;
-        float height = module.height() + ((index % 3) - 1) * 0.35F;
+        float height = l3.offsetY + ((index % 3) - 1) * 0.35F;
         double px = player.posX;
         double py = player.posY + player.getEyeHeight();
         double pz = player.posZ;

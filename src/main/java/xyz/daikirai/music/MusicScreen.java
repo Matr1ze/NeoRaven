@@ -1091,6 +1091,15 @@ public final class MusicScreen extends GuiScreen {
                     }
                 });
         if (l3.enabled) {
+            y = chipRow(current, "显示方式", new String[]{"固定在世界", "跟随视角"},
+                    new String[]{"fixed", "follow"},
+                    new String[]{l3.fixedInWorld ? "fixed" : "follow"}, 1, y, new StringSetter() {
+                        @Override
+                        public void set(String value) {
+                            l3.fixedInWorld = "fixed".equals(value);
+                            manager.saveSettings();
+                        }
+                    });
             y = sliderRow(current, "字号", Math.round(l3.scale * 100.0F) + "%", y,
                     (l3.scale - 0.5F) / 1.5F, 0.0F, 1.0F, new FloatSetter() {
                         @Override
@@ -1123,6 +1132,8 @@ public final class MusicScreen extends GuiScreen {
                             manager.saveSettings();
                         }
                     });
+            if (!l3.fixedInWorld) {
+            // Follow-view only: the fixed mode pins each line in place and streams it plainly.
             y = sliderRow(current, "散布角度", Math.round(l3.spread) + "°", y,
                     l3.spread / 60.0F, 0.0F, 1.0F, new FloatSetter() {
                         @Override
@@ -1163,19 +1174,20 @@ public final class MusicScreen extends GuiScreen {
                             manager.saveSettings();
                         }
                     });
-            y = switchRow(current, "中文翻译", "在原歌词下方用小字显示翻译", y, l3.translation,
-                    new BooleanSetter() {
-                        @Override
-                        public void set(boolean value) {
-                            l3.translation = value;
-                            manager.saveSettings();
-                        }
-                    });
             y = switchRow(current, "跟随视角", "关闭后固定在原处，出视野时自动拉回", y, l3.followView,
                     new BooleanSetter() {
                         @Override
                         public void set(boolean value) {
                             l3.followView = value;
+                            manager.saveSettings();
+                        }
+                    });
+            }
+            y = switchRow(current, "中文翻译", "在原歌词下方用小字显示翻译", y, l3.translation,
+                    new BooleanSetter() {
+                        @Override
+                        public void set(boolean value) {
+                            l3.translation = value;
                             manager.saveSettings();
                         }
                     });

@@ -66,7 +66,7 @@ public final class LyricsModule extends Module {
                 if (instance == null || !instance.isEnabled()) {
                     return;
                 }
-                WORLD.render(instance, event.partialTicks);
+                WORLD.render(MusicManager.get().lyrics3d, event.partialTicks);
             }
         };
         MinecraftForge.EVENT_BUS.register(listener);

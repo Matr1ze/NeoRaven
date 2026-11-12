@@ -72,8 +72,16 @@ public final class WorldLyrics {
         MusicManager.Lyrics3DSettings l3 = manager.lyrics3d;
         if (!l3.enabled || mc.thePlayer == null || mc.theWorld == null) {
             reset();
+            LyricsWorld.reset();
             return;
         }
+        if (l3.fixedInWorld) {
+            // "固定在世界": the line is pinned where it appeared (the former Render > Lyrics).
+            reset();
+            LyricsWorld.render(l3, partialTicks);
+            return;
+        }
+        LyricsWorld.reset();
         long now = System.nanoTime();
         float delta = lastFrameNanos == 0L ? 16.0F : Math.min((now - lastFrameNanos) / 1000000.0F, 100.0F);
         lastFrameNanos = now;

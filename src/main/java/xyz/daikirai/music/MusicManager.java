@@ -824,6 +824,7 @@ public final class MusicManager {
             writer.write("lyrics3dRainbow: " + l3.rainbow + "\n");
             writer.write("lyrics3dTranslation: " + l3.translation + "\n");
             writer.write("lyrics3dFollowView: " + l3.followView + "\n");
+            writer.write("lyrics3dFixed: " + l3.fixedInWorld + "\n");
             writer.write("cookie: " + NeteaseHttp.cookieHeader() + "\n");
             writer.close();
         } catch (Throwable ignored) {
@@ -914,6 +915,8 @@ public final class MusicManager {
                 l3.translation = Boolean.parseBoolean(value);
             } else if (key.equals("lyrics3dFollowView")) {
                 l3.followView = Boolean.parseBoolean(value);
+            } else if (key.equals("lyrics3dFixed")) {
+                l3.fixedInWorld = Boolean.parseBoolean(value);
             }
         } catch (NumberFormatException ignored) {
         }
@@ -940,6 +943,8 @@ public final class MusicManager {
         public volatile boolean rainbow;
         public volatile boolean translation = true;
         public volatile boolean followView = true;
+        /** true: each line is pinned to a point in the world (LyricsWorld); false: follows the view (WorldLyrics). */
+        public volatile boolean fixedInWorld = true;
     }
 
     private static String message(Throwable t) {
