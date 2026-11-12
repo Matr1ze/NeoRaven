@@ -1160,6 +1160,15 @@ public final class MusicScreen extends GuiScreen {
                         }
                     });
             }
+            // Both modes: per-glyph low-frequency shake.
+            y = switchRow(current, "手绘抖动", "逐字低频抖动", y, l3.wiggle,
+                    new BooleanSetter() {
+                        @Override
+                        public void set(boolean value) {
+                            l3.wiggle = value;
+                            manager.saveSettings();
+                        }
+                    });
             if (!l3.fixedInWorld) {
             // Follow-view only: the fixed mode pins each line in place and streams it plainly.
             y = sliderRow(current, "散布角度", Math.round(l3.spread) + "°", y,
@@ -1175,14 +1184,6 @@ public final class MusicScreen extends GuiScreen {
                         @Override
                         public void set(boolean value) {
                             l3.glow = value;
-                            manager.saveSettings();
-                        }
-                    });
-            y = switchRow(current, "手绘抖动", "逐字低频抖动", y, l3.wiggle,
-                    new BooleanSetter() {
-                        @Override
-                        public void set(boolean value) {
-                            l3.wiggle = value;
                             manager.saveSettings();
                         }
                     });

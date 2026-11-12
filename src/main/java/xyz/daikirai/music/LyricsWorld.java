@@ -129,7 +129,7 @@ final class LyricsWorld {
                 GlStateManager.rotate(renderManager.playerViewX, 1.0F, 0.0F, 0.0F);
                 GlStateManager.scale(-scale, -scale, scale);
 
-                drawStreaming(lineStyle, line, position, -lineWidth / 2.0F, fade, shadowAlpha);
+                drawStreaming(lineStyle, line, position, -lineWidth / 2.0F, fade, shadowAlpha, l3.wiggle);
                 if (!lineTranslation.isEmpty() && translationFade > 0.01F) {
                     drawShadowed(translationStyle, lineTranslation, -translationWidth / 2.0F, translationY,
                             translationColor, translationShadow);
@@ -146,7 +146,9 @@ final class LyricsWorld {
      * timings, and brightens from a dim ink to full white as it is sung.
      */
     private static void drawStreaming(Typeface.Style style, LyricLine line, long position, float left,
-                                      float fade, int shadowAlpha) {
+                                      float fade, int shadowAlpha, boolean wiggle) {
+        // Same low-frequency per-glyph shake as the follow-view mode (8 frames a second).
+        long frame = System.currentTimeMillis() * 8L / 1000L;
         String text = line.text;
         int[] wordOf = new int[text.length()];
         java.util.Arrays.fill(wordOf, -1);
@@ -195,10 +197,21 @@ final class LyricsWorld {
                 continue;
             }
             float lift = (1.0F - appearK) * 4.0F;
+            float jitterX = wiggle ? hash(i, frame, 2) * 0.8F : 0.0F;
+            float jitterY = wiggle ? hash(i, frame, 3) * 1.6F : 0.0F;
             String glyph = String.valueOf(c);
             int shadow = Math.round(shadowAlpha * appearK) << 24;
-            drawShadowed(style, glyph, x, -lift, Math.round(a * 255.0F) << 24 | 0x00F2F3F7, shadow);
+            drawShadowed(style, glyph, x + jitterX, jitterY - lift, Math.round(a * 255.0F) << 24 | 0x00F2F3F7, shadow);
         }
+    }
+
+    /** Deterministic jitter in [-1, 1] for one glyph on one wiggle frame. */
+    private static float hash(int index, long frame, int salt) {
+        long h = index * 0x9E3779B97F4A7C15L ^ frame * 0xBF58476D1CE4E5B9L ^ salt * 0x94D049BB133111EBL;
+        h ^= h >>> 33;
+        h *= 0xFF51AFD7ED558CCDL;
+        h ^= h >>> 33;
+        return ((int) (h & 0xFFFF) / 32768.0F) - 1.0F;
     }
 
     /**
