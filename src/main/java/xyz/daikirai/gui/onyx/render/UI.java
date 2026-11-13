@@ -562,7 +562,9 @@ public final class UI {
         rounded(x, y, w, h, radius, tint);
         // HUD surfaces pass rimStrength == 0. Keep their lower coverage so the blurred
         // backdrop actually shows through; ClickGUI controls keep the panel tint.
-        float frostCoverage = rimStrength <= 0.001F ? coverage : Theme.frostOpacity;
+        // frostCorners applies Theme.frostOpacity once. Passing it as coverage as well
+        // would square the slider value and clamp its upper range prematurely.
+        float frostCoverage = rimStrength <= 0.001F ? coverage : DEFAULT_TINT_COVERAGE;
         frost(x, y, w, h, radius, tint, frostCoverage);
     }
 

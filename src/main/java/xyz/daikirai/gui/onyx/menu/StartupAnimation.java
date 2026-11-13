@@ -35,12 +35,11 @@ public final class StartupAnimation {
     private static final int TERMS = 110, SAMPLES = 512, PATH = 720;
     private static final float BIG = 210, SMALL = 116, GAP = 30;
 
-    private static int raven, stageText, halo;
+    private static int raven, halo;
     private static float wordWidth, imageSize = 128, shownProgress, offX, offY;
-    private static long started, stageChangedAt;
-    private static String lastStage = "";
-    private static boolean finished;
-    private static Font statusFont;
+    private static long started;
+    private static final StartupProgress PROGRESS = new StartupProgress();
+    private static boolean finished, completing;
 
     // Fourier series of the outline, sorted by amplitude: frequency and complex coefficient.
     private static int[] freq = new int[0];
@@ -49,6 +48,7 @@ public final class StartupAnimation {
 
     private StartupAnimation() { }
     public static boolean completed() { return finished; }
+    public static void loadingStage(String state) { PROGRESS.advance(state); }
 
     public static void draw() {
         if (finished || !Display.isCreated()) return;
@@ -129,7 +129,6 @@ public final class StartupAnimation {
     // ------------------------------------------------------------------ setup
 
     private static void initialize() {
-        statusFont = new Font("Microsoft YaHei", Font.PLAIN, 18);
         Font letterFont = new Font("SansSerif", Font.BOLD, 84);
         try (InputStream in = StartupAnimation.class.getResourceAsStream("/assets/onyx/font/ttf/googlesansflex_24pt-medium.ttf")) {
             if (in != null) letterFont = Font.createFont(Font.TRUETYPE_FONT, in).deriveFont(84F);
@@ -461,41 +460,32 @@ public final class StartupAnimation {
 
     /** Material 3 linear progress: rounded track, 4 px gap, active indicator and stop dot. */
     private static void drawProgress(float w, float h, float t) {
-        ProgressManager.ProgressBar bar = null; Iterator<ProgressManager.ProgressBar> it = ProgressManager.barIterator();
-        while (it.hasNext()) bar = it.next();
-        String stage = bar == null ? "正在准备客户端" : bar.getTitle() + "  ·  " + bar.getMessage()
-                + "    " + bar.getStep() + " / " + bar.getSteps();
-        float target = bar == null ? -1 : clamp(bar.getStep() / (float) Math.max(1, bar.getSteps()));
-        long now = System.nanoTime();
-        if (!stage.equals(lastStage) && now - stageChangedAt > 90_000_000L) {
-            lastStage = stage; stageChangedAt = now;
-            BufferedImage image = new BufferedImage(1024, 64, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = image.createGraphics(); quality(g); g.setFont(statusFont); g.setColor(new java.awt.Color(150, 150, 155));
-            String label = stage;
-            while (g.getFontMetrics().stringWidth(label) > 990 && label.length() > 4) label = label.substring(0, label.length() - 3) + "…";
-            g.drawString(label, (1024 - g.getFontMetrics().stringWidth(label)) / 2, 39); g.dispose();
-            if (stageText != 0) GL11.glDeleteTextures(stageText); stageText = upload(image);
+        ProgressManager.ProgressBar root = null, bar = null;
+        Iterator<ProgressManager.ProgressBar> it = ProgressManager.barIterator();
+        while (it.hasNext()) {
+            bar = it.next();
+            if (root == null) root = bar;
         }
-        float appear = emphasized((t - 0.3F) / 0.8F);
+        float local = 0.0F;
+        if (root != null) {
+            float nested = bar == root ? 0.0F
+                    : clamp(bar.getStep() / (float) Math.max(1, bar.getSteps()));
+            local = clamp((root.getStep() + nested) / Math.max(1, root.getSteps()));
+        }
+        float target = completing ? 1.0F : PROGRESS.sample(local, System.nanoTime());
+        float appear = completing ? 1.0F : emphasized((t - 0.3F) / 0.8F);
         if (appear <= 0.01F) return;
         float width = 360, height = 4, left = w / 2 - width / 2, y = h - 88 + 8 * (1 - appear), gap = 4;
-        if (target >= 0) {
-            shownProgress += (target - shownProgress) * 0.12F;
+        {
+            // Never lower the target when Forge switches to another sub-bar.
+            target = Math.max(target, shownProgress);
+            shownProgress = completing ? 1.0F : shownProgress + (target - shownProgress) * 0.12F;
             float active = width * shownProgress;
             if (active > 0.5F) roundRect(left, y, Math.max(height, active), height, height / 2, 0.95F, appear);
             float trackX = left + active + gap;
             if (trackX < left + width) roundRect(trackX, y, left + width - trackX, height, height / 2, 0.22F, appear);
             disc(left + width - height / 2, y + height / 2, height / 2, appear * 0.95F);
-        } else {
-            // Indeterminate: a segment that sweeps across with an eased head and tail.
-            float cycle = (t * 0.55F) % 1;
-            float head = standard(cycle * 1.3F), tail = standard(cycle * 1.3F - 0.3F);
-            float a = left + width * tail, b = left + width * head;
-            if (a > left + gap) roundRect(left, y, a - left - gap, height, height / 2, 0.22F, appear);
-            if (b - a > 0.5F) roundRect(a, y, Math.max(height, b - a), height, height / 2, 0.95F, appear);
-            if (b + gap < left + width) roundRect(b + gap, y, left + width - b - gap, height, height / 2, 0.22F, appear);
         }
-        if (stageText != 0) texture(stageText, w / 2 - 360, y + 10, 720, 45, appear);
     }
 
     // ------------------------------------------------------------------ drawing helpers
@@ -569,10 +559,17 @@ public final class StartupAnimation {
         return id;
     }
     public static void finish() {
+        // Forge has joined its worker and restored the main GL context here. Present the
+        // completed bar once before handing the window to the title screen.
+        if (!finished && started != 0 && Display.isCreated()) {
+            completing = true;
+            try { draw(); Display.update(); }
+            finally { completing = false; }
+        }
         finished = true; for (int texture : LETTERS) if (texture != 0) GL11.glDeleteTextures(texture);
         Arrays.fill(LETTERS, 0);
-        for (int texture : new int[]{raven, stageText, halo}) if (texture != 0) GL11.glDeleteTextures(texture);
-        raven = stageText = halo = 0;
+        for (int texture : new int[]{raven, halo}) if (texture != 0) GL11.glDeleteTextures(texture);
+        raven = halo = 0;
     }
 
     // ------------------------------------------------------------------ easing

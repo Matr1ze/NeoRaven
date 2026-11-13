@@ -21,6 +21,7 @@
     "MixinMinecraft",
     "MixinSplashProgress",
     "MixinSplashRenderer",
+    "MixinLoadController",
     "MixinItemRenderer",
     "MixinRenderGlobal",
     "MixinRenderPlayer",

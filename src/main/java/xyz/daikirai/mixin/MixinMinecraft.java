@@ -218,7 +218,9 @@ public class MixinMinecraft {
             cir.setReturnValue(Integer.valueOf(HIDDEN_FPS));
             return;
         }
-        cir.setReturnValue(Integer.valueOf(minecraft.gameSettings == null
-                ? 260 : minecraft.gameSettings.limitFramerate));
+        int limit = minecraft.gameSettings == null ? 120 : minecraft.gameSettings.limitFramerate;
+        // Keep menus responsive without an unlimited GPU loop while no world is running.
+        if (minecraft.theWorld == null && minecraft.currentScreen != null) limit = Math.min(limit, 120);
+        cir.setReturnValue(Integer.valueOf(limit));
     }
 }

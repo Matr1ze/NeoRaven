@@ -5,7 +5,6 @@ import net.minecraft.client.gui.GuiLanguage;
 import net.minecraft.client.gui.GuiOptions;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.input.Keyboard;
 import xyz.daikirai.client.FirstRun;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Theme;
@@ -153,7 +152,9 @@ public final class WelcomeScreen extends GuiScreen {
         float slide = (float) Math.sin(t * 1.1) * 0.5F + 0.5F;
         float cw = 96, chh = 76, gx = x + 10 + slide * (w - 20 - cw), gy = y + (h - chh) / 2;
         // The same renderer every menu and HUD uses: liquid lens, frost, or solid.
-        ui.glassSurface(gx, gy, cw, chh, 18, xyz.daikirai.gui.onyx.render.Glass.enabled() ? 0x55202024 : 0xFF202023);
+        // The opacity sliders already control the material's tint. An additional translucent
+        // tint here would attenuate both the slider range and the refracted backdrop again.
+        ui.glassSurface(gx, gy, cw, chh, 18, 0xFF202024);
         ui.text(SMALL, liquidOn ? tr("Liquid", "液态") : frostOn ? tr("Frost", "毛玻璃") : tr("Solid", "实心"), gx + cw / 2, gy + chh - 14, ON, UI.ALIGN_CENTER);
         ui.scissorPop();
         ui.outline(x, y, w, h, 16, 1, OUTLINE);
@@ -222,7 +223,7 @@ public final class WelcomeScreen extends GuiScreen {
             float x = left + i * gap, y = cy - 22 + 24 * (1 - e) + bob;
             ui.alphaPush(e);
             ui.circle(x, y, 22, SURFACE_HI);
-            ui.icon(CATEGORIES[i][0], x, y + 7, 20, ON);
+            ui.icon(CATEGORIES[i][0], x, y, 20, ON);
             ui.text(SMALL, tr(CATEGORIES[i][1], CATEGORIES[i][2]), x, y + 36, ON_VAR, UI.ALIGN_CENTER);
             ui.alphaPop();
         }
@@ -351,7 +352,7 @@ public final class WelcomeScreen extends GuiScreen {
     private void tonal(float x, float y, float w, float h, String icon, String text, int id) {
         boolean hover = hover(x, y, w, h);
         ui.rounded(x, y, w, h, h / 2, hover ? 0xFF33333A : SURFACE_HI);
-        ui.icon(icon, x + 18, y + h / 2 + 5, 14, ON);
+        ui.icon(icon, x + 18, y + h / 2, 14, ON);
         ui.text(BUTTON, text, x + 30, y + h / 2, ON, UI.ALIGN_LEFT);
         hit(id, x, y, w, h);
     }
@@ -411,9 +412,8 @@ public final class WelcomeScreen extends GuiScreen {
     @Override protected void mouseClickMove(int x, int y, int button, long elapsed) { if (dragging >= 0) drag(x); }
     @Override protected void mouseReleased(int x, int y, int state) { dragging = -1; }
     @Override protected void keyTyped(char c, int key) {
-        if (key == Keyboard.KEY_ESCAPE) finish();
-        else if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_RIGHT) { if (step == PAGES - 1) finish(); else go(step + 1); }
-        else if (key == Keyboard.KEY_LEFT) go(step - 1);
+        // Setup navigation is explicit: only the visible buttons may advance or finish it.
+        // In particular, do not delegate Escape to GuiScreen, which would close the guide.
     }
 
     private void go(int to) {
