@@ -51,6 +51,7 @@ public class MixinMinecraft {
     @Inject(method = "createDisplay", at = @At("RETURN"))
     private void neoraven$initialWindowBranding(CallbackInfo ci) {
         neoraven$applyWindowBranding();
+        xyz.daikirai.gui.onyx.menu.StartupAnimation.prepare();
     }
 
     @Inject(method = "startGame", at = @At("RETURN"))

@@ -50,6 +50,11 @@ public final class StartupAnimation {
     public static boolean completed() { return finished; }
     public static void loadingStage(String state) { PROGRESS.advance(state); }
 
+    /** Run after Minecraft creates the display, before Forge starts its splash worker. */
+    public static void prepare() {
+        if (raven == 0 && Display.isCreated()) initialize();
+    }
+
     public static void draw() {
         if (finished || !Display.isCreated()) return;
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
@@ -71,12 +76,8 @@ public final class StartupAnimation {
             // Build fonts, textures and the Fourier series before starting the visible clock.
             // Otherwise the first frame is timed before this expensive one-time work and the
             // trace appears to hitch or skip its opening segment.
-            if (raven == 0) {
-                initialize();
-                started = System.nanoTime();
-            } else if (started == 0) {
-                started = System.nanoTime();
-            }
+            if (raven == 0) initialize();
+            if (started == 0) started = System.nanoTime();
             float t = (System.nanoTime() - started) / 1.0e9F;
             GL11.glClearColor(0.035F, 0.035F, 0.04F, 1);
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
