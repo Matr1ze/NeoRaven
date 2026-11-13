@@ -68,8 +68,15 @@ public final class StartupAnimation {
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
             GL11.glEnable(GL11.GL_LINE_SMOOTH);
             GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
-            if (started == 0) started = System.nanoTime();
-            if (raven == 0) initialize();
+            // Build fonts, textures and the Fourier series before starting the visible clock.
+            // Otherwise the first frame is timed before this expensive one-time work and the
+            // trace appears to hitch or skip its opening segment.
+            if (raven == 0) {
+                initialize();
+                started = System.nanoTime();
+            } else if (started == 0) {
+                started = System.nanoTime();
+            }
             float t = (System.nanoTime() - started) / 1.0e9F;
             GL11.glClearColor(0.035F, 0.035F, 0.04F, 1);
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
