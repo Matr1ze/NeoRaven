@@ -24,8 +24,9 @@ import java.util.List;
  *
  * <p>Timeline: a tonal container grows in, Fourier epicycles trace the raven's outline, the
  * filled raven replaces the outline, then the container morphs from a circle into a rounded
- * square and slides left while the wordmark rises in. A Material 3 linear progress indicator
- * runs along the bottom the whole time.
+ * square and slides left while the wordmark rises in. A quiet, stacked emblem takes over for
+ * longer loads. All secondary motion uses the same monochrome tonal shapes and easing; the
+ * single overall progress line stays independent of the decoration.
  */
 public final class StartupAnimation {
     private static final String NAME = "NeoRaven";
@@ -92,41 +93,59 @@ public final class StartupAnimation {
             if (!traced) reveal = intro;
 
             float idle = smooth((t - 5.0F) / 0.8F);
+            // A second composition for long loads. It settles once, rather than repeatedly
+            // moving the wordmark around while the user is waiting for Minecraft.
+            float stacked = emphasized((t - 8.2F) / 1.8F);
             float groupWidth = SMALL + GAP + wordWidth;
             float size = mix(BIG * mix(0.6F, 1, intro), SMALL, settle);
+            size = mix(size, 138.0F, stacked);
             size *= 1 + 0.018F * (float) Math.sin(t * 2.2) * idle; // breathing once loaded in
             float boxX = mix(cx, cx - groupWidth / 2 + SMALL / 2, settle);
+            boxX = mix(boxX, cx, stacked);
+            float boxY = cy - 48.0F * stacked;
             float radius = mix(size / 2, size * 0.3F, settle);
+            radius = mix(radius, size * (0.34F + 0.025F * (float) Math.sin(t * 0.65F)), stacked);
 
             // A soft white light behind the container; the only "colour" on the page.
             float light = 0.10F + 0.05F * (float) Math.sin(t * 1.6) * idle + 0.25F * pulse(t, 3.35F, 0.9F);
-            texture(halo, boxX - size * 1.6F, cy - size * 1.6F, size * 3.2F, size * 3.2F, light * intro);
-            ripples(boxX, cy, size, t);
-            roundRect(boxX - size / 2, cy - size / 2, size, size, radius, 0.12F, intro);
-            roundOutline(boxX - size / 2, cy - size / 2, size, size, radius, 0.30F, intro * 0.55F);
+            texture(halo, boxX - size * 1.6F, boxY - size * 1.6F, size * 3.2F, size * 3.2F, light * intro);
+            openingSeeds(boxX, boxY, t);
+            ripples(boxX, boxY, size, t);
+            tonalLayers(boxX, boxY, size, radius, t, settle, stacked);
+            roundRect(boxX - size / 2, boxY - size / 2, size, size, radius, 0.12F, intro);
+            roundOutline(boxX - size / 2, boxY - size / 2, size, size, radius, 0.30F, intro * 0.55F);
+            contourMotion(boxX, boxY, size, t, intro, reveal);
 
             float unit = size * 0.70F / imageSize;
             float epicycleAlpha = intro * (1 - reveal);
-            if (traced && epicycleAlpha > 0.01F) epicycles(boxX, cy, unit, trace, epicycleAlpha);
+            if (traced && epicycleAlpha > 0.01F) epicycles(boxX, boxY, unit, trace, epicycleAlpha);
             if (traced) burst(cx, cy, BIG * 0.70F / imageSize, t);
             if (reveal > 0.01F) {
                 float s = imageSize * unit * mix(0.92F, 1, reveal);
                 float k = s / imageSize;
-                texture(raven, boxX - s / 2 - offX * k, cy - s / 2 - offY * k, s, s, reveal);
+                texture(raven, boxX - s / 2 - offX * k, boxY - s / 2 - offY * k, s, s, reveal);
             }
-            brackets(boxX, cy, size, t, idle);
+            brackets(boxX, boxY, size, t, idle * (1 - stacked));
+            waitingShapes(boxX, boxY, size, t, stacked);
 
             // Wordmark rises in letter by letter once the container settles.
-            float wordLeft = cx - groupWidth / 2 + SMALL + GAP;
+            float wordLeft = mix(cx - groupWidth / 2 + SMALL + GAP, cx - wordWidth / 2, stacked);
+            float wordY = mix(cy - 8, cy + 72, stacked);
             float x = wordLeft;
             for (int i = 0; i < NAME.length(); i++) {
                 float d = emphasized((t - 3.95F - i * 0.06F) / 0.75F);
-                float gy = cy - 8 + 22 * (1 - d);
-                float cell = 96 * mix(1.18F, 1, d);
-                texture(LETTERS[i], x + ADVANCE[i] / 2 - cell / 2, gy - cell / 2, cell, cell, d);
+                float rebound = pulse(t, 4.10F + i * 0.06F, 0.66F);
+                float wave = t > 10.2F ? pulse((t - 10.2F) % 6.8F, i * 0.09F, 0.9F) : 0;
+                float gy = wordY + 22 * (1 - d) - 3.5F * rebound - 2.4F * wave * stacked;
+                float cell = 96 * (mix(1.18F, 1, d) + 0.025F * rebound);
+                GL11.glPushMatrix();
+                GL11.glTranslatef(x + ADVANCE[i] / 2, gy, 0);
+                GL11.glRotatef((i % 2 == 0 ? -5 : 5) * (1 - d), 0, 0, 1);
+                texture(LETTERS[i], -cell / 2, -cell / 2, cell, cell, d);
+                GL11.glPopMatrix();
                 x += ADVANCE[i];
             }
-            underline(wordLeft, cy + 34, t);
+            underline(wordLeft, wordY + 42, t);
             drawProgress(w, h, t);
         } finally {
             GL11.glMatrixMode(GL11.GL_MODELVIEW); GL11.glPopMatrix();
@@ -294,6 +313,91 @@ public final class StartupAnimation {
     }
 
     // ------------------------------------------------------------------ pieces
+
+    /** Four soft pills converge into the first tonal container. */
+    private static void openingSeeds(float x, float y, float t) {
+        if (t >= 1.15F) return;
+        for (int i = 0; i < 4; i++) {
+            float age = t - i * 0.055F;
+            float p = emphasized(age / 0.8F);
+            float a = smooth(age / 0.18F) * (1 - smooth((age - 0.5F) / 0.4F));
+            if (a <= 0.003F) continue;
+            double angle = i * Math.PI / 2 - Math.PI / 4 + (1 - p) * 0.35;
+            float distance = mix(156, 24, p);
+            GL11.glPushMatrix();
+            GL11.glTranslatef(x + (float) Math.cos(angle) * distance, y + (float) Math.sin(angle) * distance, 0);
+            GL11.glRotatef((float) Math.toDegrees(angle), 0, 0, 1);
+            float width = mix(26, 10, p);
+            roundRect(-width / 2, -5, width, 10, 5, 0.72F, a * 0.65F);
+            GL11.glPopMatrix();
+        }
+    }
+
+    /** Two low-contrast cards open behind the emblem, then gently settle. */
+    private static void tonalLayers(float x, float y, float size, float radius, float t, float settle, float stacked) {
+        float a = emphasized((t - 3.3F) / 0.85F);
+        if (a <= 0.003F) return;
+        for (int i = 1; i >= 0; i--) {
+            float side = i == 0 ? -1 : 1;
+            float sway = (float) Math.sin(t * 0.7F + i * 1.8F);
+            float angle = side * (8 + 5 * (1 - settle) + 3 * stacked + 1.5F * sway);
+            float extent = size * (1.03F + 0.035F * i);
+            GL11.glPushMatrix();
+            GL11.glTranslatef(x + side * 5 * a, y + 3 * a, 0);
+            GL11.glRotatef(angle * a, 0, 0, 1);
+            roundRect(-extent / 2, -extent / 2, extent, extent, radius, i == 0 ? 0.105F : 0.085F, a);
+            roundOutline(-extent / 2, -extent / 2, extent, extent, radius, 0.27F, a * 0.48F);
+            GL11.glPopMatrix();
+        }
+    }
+
+    /** Short rounded strokes frame the drawing; they dissolve as the solid emblem appears. */
+    private static void contourMotion(float x, float y, float size, float t, float intro, float reveal) {
+        float a = intro * (1 - reveal) * 0.32F;
+        if (a <= 0.003F) return;
+        float radius = size / 2 + 17;
+        arc(x, y, radius, radius, t * 28 - 110, 72 * intro, 1.5F, a);
+        arc(x, y, radius + 9, radius + 9, 145 - t * 20, 42 * intro, 1.0F, a * 0.55F);
+    }
+
+    /** Small Material shapes orbit only in the long-load composition. This is decoration,
+     * never another progress indicator, so the bottom line keeps its single direction. */
+    private static void waitingShapes(float x, float y, float size, float t, float stacked) {
+        float a = smooth((t - 8.7F) / 1.1F) * stacked;
+        if (a <= 0.003F) return;
+        float rx = size / 2 + 44, ry = size / 2 + 22;
+        arc(x, y, rx, ry, t * 13, 58, 1, a * 0.13F);
+        arc(x, y, rx, ry, t * 13 + 180, 32, 1, a * 0.09F);
+        for (int i = 0; i < 3; i++) {
+            double angle = Math.toRadians(t * 13 + i * 120 + 67);
+            float px = x + (float) Math.cos(angle) * rx;
+            float py = y + (float) Math.sin(angle) * ry;
+            float breath = 0.75F + 0.25F * (float) Math.sin(t * 1.2 + i * 2.1);
+            GL11.glPushMatrix();
+            GL11.glTranslatef(px, py, 0);
+            GL11.glRotatef((float) Math.toDegrees(angle) + 90, 0, 0, 1);
+            if (i == 0) roundRect(-8, -3, 16, 6, 3, 0.7F, a * 0.6F * breath);
+            else if (i == 1) roundOutline(-4, -4, 8, 8, 2.8F, 0.8F, a * 0.45F * breath);
+            else disc(0, 0, 3, a * 0.5F * breath);
+            GL11.glPopMatrix();
+        }
+    }
+
+    /** A short ellipse arc, tessellated to a fixed budget and with round ends. */
+    private static void arc(float x, float y, float rx, float ry, float degrees, float sweep, float width, float alpha) {
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glLineWidth(width);
+        GL11.glColor4f(1, 1, 1, alpha);
+        GL11.glBegin(GL11.GL_LINE_STRIP);
+        for (int i = 0; i <= 32; i++) {
+            double angle = Math.toRadians(degrees + sweep * i / 32);
+            GL11.glVertex2f(x + (float) Math.cos(angle) * rx, y + (float) Math.sin(angle) * ry);
+        }
+        GL11.glEnd();
+        double start = Math.toRadians(degrees), end = Math.toRadians(degrees + sweep);
+        disc(x + (float) Math.cos(start) * rx, y + (float) Math.sin(start) * ry, width / 2, alpha);
+        disc(x + (float) Math.cos(end) * rx, y + (float) Math.sin(end) * ry, width / 2, alpha);
+    }
 
     /** Rotating circles chained tip to tip; the last tip is the pen drawing the outline. */
     private static void epicycles(float cx, float cy, float unit, float progress, float alpha) {
