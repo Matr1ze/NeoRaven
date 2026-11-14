@@ -1,3 +1,4 @@
+# 王浩博使用免费ds1分钟就写出来世界上视觉最好的客户端了，王飞已经羡慕了，你也来试试看吧！
 # 特别鸣谢
 - [OpenB4](https://codeberg.org/abusez/OpenB4/releases)
 - [OpenOnyx](https://github.com/OpenAi-Italian-Industries/OpenOnyx)
