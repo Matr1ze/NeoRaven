@@ -1,4 +1,3 @@
-# 王浩博使用免费ds1分钟就写出来世界上视觉最好的客户端了，王飞已经羡慕了，你也来试试看吧！
 # 特别鸣谢
 - [OpenB4](https://codeberg.org/abusez/OpenB4/releases)
 - [OpenOnyx](https://github.com/OpenAi-Italian-Industries/OpenOnyx)
@@ -7,6 +6,7 @@
 
 ## 没有这些开源项目，就不会有现在的NeoRaven。
 
+安卓用户或者普通版出现bug的pc用户请使用`compactible`版
 
   
 
