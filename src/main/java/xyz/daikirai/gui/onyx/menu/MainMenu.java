@@ -38,7 +38,7 @@ public final class MainMenu extends GuiMainMenu {
         if(next!=scale) layout();
         long now=System.nanoTime(); float dt=last==0 ? 16 : Math.min(100,(now-last)/1E6F); last=now;
         ui.begin(); MenuBackground.draw(ui,width,height); ui.end();
-        xyz.daikirai.gui.onyx.render.Glass.prepare();
+        xyz.daikirai.gui.onyx.render.Glass.prepareAfterBackground();
         ui.begin(); ui.push(); ui.scale(scale,0,0);
         Scheme s=Theme.scheme();
         ui.push(); float cx=width/scale/2, cy=Math.min(height/scale/5,top-66);

@@ -60,4 +60,19 @@ public final class Glass {
             Blur.prepare();
         }
     }
+
+    /**
+     * Captures the backdrop again after a title/menu screen has drawn its own wallpaper.
+     *
+     * <p>{@code MenuBackground} blurs the raw still to build the background itself, but that first
+     * capture is the untouched artwork: the dock, sheets and cards drawn on top of it must sample
+     * the <em>composed</em> background (blurred and tinted) instead, otherwise they show a sharp,
+     * untinted wallpaper while the rest of the screen is soft and tinted.</p>
+     */
+    public static void prepareAfterBackground() {
+        if (enabled()) {
+            Blur.request();
+            Blur.prepare();
+        }
+    }
 }

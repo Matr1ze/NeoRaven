@@ -88,8 +88,13 @@ abstract class MenuScreen extends GuiScreen {
                 if(lightBackdrop) ui.rect(0,0,width,height,0x8C000000);
             }
             ui.end();
-        } else drawDefaultBackground();
-        xyz.daikirai.gui.onyx.render.Glass.prepare();
+            // Panels sit on the composed wallpaper, so their glass must sample that, not the raw
+            // still MenuBackground captured to blur it.
+            xyz.daikirai.gui.onyx.render.Glass.prepareAfterBackground();
+        } else {
+            drawDefaultBackground();
+            xyz.daikirai.gui.onyx.render.Glass.prepare();
+        }
         ui.begin(); ui.rect(0,0,width,height,Theme.scrim(0.2F+0.8F*enter));
         ui.push(); ui.scale(scale,0,0); ui.translate(ox,oy);
         // The sheet starts a full screen below and rises; the ghost sheets above it are the stack
