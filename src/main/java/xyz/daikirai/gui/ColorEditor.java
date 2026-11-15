@@ -292,7 +292,7 @@ public final class ColorEditor extends GuiScreen {
         }
         ui.rect(0.0F, 0.0F, width, height, Theme.scrim(1.0F));
     }
-    
+
     private void drawHeader(Scheme s, float mx, float my) {
         ui.rounded(MARGIN, HEADER_Y, BADGE, BADGE, BADGE / 2.0F, s.primaryContainer);
         ui.icon(Icons.PALETTE, MARGIN + BADGE / 2.0F, HEADER_Y + BADGE / 2.0F, 21.0F, s.onPrimaryContainer);

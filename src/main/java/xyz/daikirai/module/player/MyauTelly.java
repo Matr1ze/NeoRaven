@@ -1,7 +1,7 @@
 package xyz.daikirai.module.player;
 
 // Telly controller port from ltmy233/Myau-Poorcatgirl (ed9f237).
-// GPL-3.0; see THIRD_PARTY_NOTICES.md.
+// Upstream attribution and licensing notes: see THIRD_PARTY_NOTICES.md.
 import xyz.daikirai.module.Module;
 import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.module.Category;
