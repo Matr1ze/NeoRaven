@@ -50,6 +50,26 @@ public final class Theme {
 
     public static int surfaceTheme() { return surfaceTheme; }
 
+    /** How far the accent seed is mixed into a surface theme's backdrop tint. */
+    private static final float BACKDROP_ACCENT_MIX = 0.4F;
+
+    /**
+     * Colour the menu wallpaper's blur fades into.
+     *
+     * <p>A surface theme ships its own palette, but the accent seed is mixed in as well: a custom
+     * accent picked in the colour sheet has to retint the blurred backdrop, not only the icons,
+     * exactly like the accent presets do. Without a surface theme the scheme's surface is already
+     * generated from the accent, and the translucent appearance generates its own glass palette,
+     * so both are used as-is.</p>
+     */
+    public static int backdropTint() {
+        Scheme scheme = scheme();
+        if (surfaceTheme <= 0 || translucent) {
+            return scheme.surface;
+        }
+        return Material.mix(scheme.surface, scheme.primary, BACKDROP_ACCENT_MIX);
+    }
+
     public static int glassTint(int tint) {
         return colouredFrost ? Material.mix(tint, scheme().primary, 0.32F) : tint;
     }

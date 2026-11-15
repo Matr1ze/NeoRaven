@@ -330,8 +330,8 @@ public final class MenuBackground {
             // wallpaper into, then composite the tint over it exactly like the panels do.
             drawQuad(id, u0, v0, u1, v1, w, h);
             xyz.daikirai.gui.onyx.render.Blur.prepare();
-            xyz.daikirai.gui.onyx.material.Scheme scheme = xyz.daikirai.gui.onyx.material.Theme.scheme();
-            ui.frost(0.0F, 0.0F, w, h, 0.0F, scheme.surface, 0.55F);
+            ui.frost(0.0F, 0.0F, w, h, 0.0F,
+                    xyz.daikirai.gui.onyx.material.Theme.backdropTint(), 0.55F);
             return;
         }
         if (mode != 0 && mica()) {
@@ -381,8 +381,7 @@ public final class MenuBackground {
      */
     private static void drawMica(int id, float u0, float v0, float u1, float v1,
                                  float w, float h) {
-        xyz.daikirai.gui.onyx.material.Scheme scheme = xyz.daikirai.gui.onyx.material.Theme.scheme();
-        int tint = MenuTheme.dark() ? scheme.surface : scheme.surfaceBright;
+        int tint = xyz.daikirai.gui.onyx.material.Theme.backdropTint();
         mica.use();
         mica.uniform1i("Sampler0", 0);
         mica.uniform2f("uTexel", 1.0F / 1920.0F, 1.0F / 1080.0F);

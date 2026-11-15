@@ -38,6 +38,7 @@ public final class WelcomeGlassSmoke {
     private GuiScreen welcome;
     private int stage;
     private int retries;
+    private int pinkBackdropTint;
     private long next;
     private long startedAt;
     private long worldAt;
@@ -173,6 +174,34 @@ public final class WelcomeGlassSmoke {
                 require(prefs().contains("theme=7"), "persisted preferences lost theme=7");
                 require(prefs().contains("accent=" + Theme.ACCENTS[6]),
                         "persisted preferences lost the Sakura accent");
+                // A custom accent picked in the colour sheet must retint the menu backdrop, not
+                // only the icons: record the Sakura/pink tint, then switch to a custom green.
+                pinkBackdropTint = Theme.backdropTint();
+                OnyxClickGuiModule.accent.setAppearance(0xFF33623C, false);
+                OnyxClickGuiModule.sync();
+                stage = 10;
+                next = now + GAP;
+                return;
+            }
+            case 10: {
+                int greenTint = Theme.backdropTint();
+                require(Theme.scheme().surface == 0xFFFFBFB2,
+                        "the custom accent changed the Sakura surface palette: #"
+                                + hex(Theme.scheme().surface));
+                require(greenTint != pinkBackdropTint,
+                        "a custom accent did not retint the menu backdrop");
+                log("menu backdrop tint: sakura/pink=#" + hex(pinkBackdropTint)
+                        + " custom green=#" + hex(greenTint));
+                screenshot("05b-custom-accent-backdrop");
+                OnyxClickGuiModule.accent.setAppearance(Theme.ACCENTS[6], false);
+                OnyxClickGuiModule.sync();
+                stage = 11;
+                next = now + GAP;
+                return;
+            }
+            case 11: {
+                require(Theme.backdropTint() == pinkBackdropTint,
+                        "restoring the Sakura accent did not restore the menu backdrop tint");
                 mc.displayGuiScreen(new xyz.daikirai.gui.onyx.OnyxClickGui());
                 stage = 7;
                 next = now + 1_500_000_000L;
