@@ -2,6 +2,7 @@ package xyz.daikirai.gui.onyx.menu;
 
 import net.minecraftforge.fml.common.ProgressManager;
 import org.lwjgl.BufferUtils;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 
@@ -40,6 +41,8 @@ public final class StartupAnimation {
     private static float wordWidth, imageSize = 128, shownProgress, offX, offY;
     private static long started;
     private static final StartupProgress PROGRESS = new StartupProgress();
+    private static final WaitingParticles PARTICLES = new WaitingParticles();
+    private static float particleFrame = -1;
     private static boolean finished, completing;
 
     // Fourier series of the outline, sorted by amplitude: frequency and complex coefficient.
@@ -57,6 +60,15 @@ public final class StartupAnimation {
     }
 
     public static void draw() {
+        drawFrame(-1, Float.NaN, Float.NaN);
+    }
+
+    /** Deterministic preview input; never moves the operating system's cursor. */
+    static void drawPreview(float time, float pointerX, float pointerY) {
+        drawFrame(time, pointerX, pointerY);
+    }
+
+    private static void drawFrame(float previewTime, float pointerX, float pointerY) {
         if (finished || !Display.isCreated()) return;
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         GL11.glMatrixMode(GL11.GL_PROJECTION);
@@ -79,7 +91,7 @@ public final class StartupAnimation {
             // trace appears to hitch or skip its opening segment.
             if (raven == 0) initialize();
             if (started == 0) started = System.nanoTime();
-            float t = (System.nanoTime() - started) / 1.0e9F;
+            float t = previewTime >= 0 ? previewTime : (System.nanoTime() - started) / 1.0e9F;
             GL11.glClearColor(0.035F, 0.035F, 0.04F, 1);
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
             background(w, h, t);
@@ -102,7 +114,7 @@ public final class StartupAnimation {
             size *= 1 + 0.018F * (float) Math.sin(t * 2.2) * idle; // breathing once loaded in
             float boxX = mix(cx, cx - groupWidth / 2 + SMALL / 2, settle);
             boxX = mix(boxX, cx, stacked);
-            float boxY = cy - 48.0F * stacked;
+            float boxY = mix(cy, h / 2, stacked);
             float radius = mix(size / 2, size * 0.3F, settle);
             radius = mix(radius, size * (0.34F + 0.025F * (float) Math.sin(t * 0.65F)), stacked);
 
@@ -126,11 +138,11 @@ public final class StartupAnimation {
                 texture(raven, boxX - s / 2 - offX * k, boxY - s / 2 - offY * k, s, s, reveal);
             }
             brackets(boxX, boxY, size, t, idle * (1 - stacked));
-            waitingShapes(boxX, boxY, size, t, stacked);
+            waitingParticles(boxX, boxY, w, h, scale, t, pointerX, pointerY);
 
             // Wordmark rises in letter by letter once the container settles.
             float wordLeft = mix(cx - groupWidth / 2 + SMALL + GAP, cx - wordWidth / 2, stacked);
-            float wordY = mix(cy - 8, cy + 72, stacked);
+            float wordY = mix(cy - 8, h / 2 + 112, stacked);
             float x = wordLeft;
             for (int i = 0; i < NAME.length(); i++) {
                 float d = emphasized((t - 3.95F - i * 0.06F) / 0.75F);
@@ -360,29 +372,75 @@ public final class StartupAnimation {
         arc(x, y, radius + 9, radius + 9, 145 - t * 20, 42 * intro, 1.0F, a * 0.55F);
     }
 
-    /** Small Material shapes orbit only in the long-load composition. This is decoration,
-     * never another progress indicator, so the bottom line keeps its single direction. */
-    private static void waitingShapes(float x, float y, float size, float t, float stacked) {
-        float a = smooth((t - 8.7F) / 1.1F) * stacked;
-        if (a <= 0.003F) return;
-        float rx = size / 2 + 44, ry = size / 2 + 22;
-        arc(x, y, rx, ry, t * 13, 58, 1, a * 0.13F);
-        arc(x, y, rx, ry, t * 13 + 180, 32, 1, a * 0.09F);
-        for (int i = 0; i < 3; i++) {
-            double angle = Math.toRadians(t * 13 + i * 120 + 67);
-            float px = x + (float) Math.cos(angle) * rx;
-            float py = y + (float) Math.sin(angle) * ry;
-            float breath = 0.75F + 0.25F * (float) Math.sin(t * 1.2 + i * 2.1);
-            GL11.glPushMatrix();
-            GL11.glTranslatef(px, py, 0);
-            GL11.glRotatef((float) Math.toDegrees(angle) + 90, 0, 0, 1);
-            if (i == 0) roundRect(-8, -3, 16, 6, 3, 0.7F, a * 0.6F * breath);
-            else if (i == 1) roundOutline(-4, -4, 8, 8, 2.8F, 0.8F, a * 0.45F * breath);
-            else disc(0, 0, 3, a * 0.5F * breath);
-            GL11.glPopMatrix();
+    /** One inertial burst as the emblem arrives at the actual centre of the screen. */
+    private static void waitingParticles(float x, float y, float width, float height, float scale, float t,
+                                         float pointerX, float pointerY) {
+        if (t < 10.0F) {
+            PARTICLES.reset();
+            particleFrame = -1;
+            return;
         }
+        if (!PARTICLES.active() || t < particleFrame) {
+            PARTICLES.emit(x, y, width, height);
+            particleFrame = t;
+        }
+        float targetX = x, targetY = y;
+        // Display.update polls LWJGL input on Forge's existing splash loop. Merely read the
+        // latest position: no global hooks, grabbing, cursor warping, or consuming events.
+        if (!Float.isNaN(pointerX) && !Float.isNaN(pointerY)) {
+            targetX = pointerX;
+            targetY = pointerY;
+        } else if (Mouse.isCreated() && Display.isActive() && Mouse.isInsideWindow()) {
+            targetX = Mouse.getX() / scale;
+            targetY = (Display.getHeight() - 1 - Mouse.getY()) / scale;
+        }
+        PARTICLES.update(t - particleFrame, targetX, targetY, width, height);
+        particleFrame = t;
+        float fade = smooth(PARTICLES.age() / 0.15F);
+        // A single low-contrast expanding pulse marks the emission, without flashing the screen.
+        float emission = PARTICLES.age() / 1.2F;
+        if (emission < 1) circle(x, y, 10 + emphasized(emission) * 125, 1, (1 - emission) * 0.2F);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glLineWidth(1);
+        GL11.glBegin(GL11.GL_LINES);
+        for (int i = 0; i < WaitingParticles.COUNT; i++) {
+            float vx = PARTICLES.vx[i], vy = PARTICLES.vy[i];
+            float speed = (float) Math.sqrt(vx * vx + vy * vy);
+            float tail = Math.min(0.035F, 11 / Math.max(1, speed));
+            GL11.glColor4f(1, 1, 1, 0);
+            GL11.glVertex2f(PARTICLES.x[i] - vx * tail, PARTICLES.y[i] - vy * tail);
+            GL11.glColor4f(1, 1, 1, PARTICLES.brightness[i] * fade * 0.26F);
+            GL11.glVertex2f(PARTICLES.x[i], PARTICLES.y[i]);
+        }
+        GL11.glEnd();
+        // Batch the existing soft halo texture into one draw call. No new per-frame textures.
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, halo);
+        GL11.glBegin(GL11.GL_QUADS);
+        for (int i = 0; i < WaitingParticles.COUNT; i++) {
+            float px = PARTICLES.x[i], py = PARTICLES.y[i], r = PARTICLES.radius[i] * 4;
+            GL11.glColor4f(1, 1, 1, PARTICLES.brightness[i] * fade * 0.28F);
+            GL11.glTexCoord2f(0, 0); GL11.glVertex2f(px - r, py - r);
+            GL11.glTexCoord2f(0, 1); GL11.glVertex2f(px - r, py + r);
+            GL11.glTexCoord2f(1, 1); GL11.glVertex2f(px + r, py + r);
+            GL11.glTexCoord2f(1, 0); GL11.glVertex2f(px + r, py - r);
+        }
+        GL11.glEnd();
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glBegin(GL11.GL_TRIANGLES);
+        for (int i = 0; i < WaitingParticles.COUNT; i++) {
+            float px = PARTICLES.x[i], py = PARTICLES.y[i], r = PARTICLES.radius[i];
+            float twinkle = 0.88F + 0.12F * (float) Math.sin(PARTICLES.age() * 1.8F + i);
+            GL11.glColor4f(1, 1, 1, PARTICLES.brightness[i] * fade * twinkle);
+            for (int j = 0; j < 8; j++) {
+                double a = j * Math.PI / 4, b = (j + 1) * Math.PI / 4;
+                GL11.glVertex2f(px, py);
+                GL11.glVertex2f(px + (float) Math.cos(a) * r, py + (float) Math.sin(a) * r);
+                GL11.glVertex2f(px + (float) Math.cos(b) * r, py + (float) Math.sin(b) * r);
+            }
+        }
+        GL11.glEnd();
     }
-
     /** A short ellipse arc, tessellated to a fixed budget and with round ends. */
     private static void arc(float x, float y, float rx, float ry, float degrees, float sweep, float width, float alpha) {
         GL11.glDisable(GL11.GL_TEXTURE_2D);

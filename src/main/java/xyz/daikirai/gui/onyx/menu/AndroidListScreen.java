@@ -117,6 +117,11 @@ public abstract class AndroidListScreen extends GuiScreen {
     /** Double click / Enter on a row. */
     protected abstract void activate(int index);
 
+    /** Preference lists act on one click; world/server lists retain double-click activation. */
+    protected void rowClicked(int index, boolean doubleClick) {
+        if (doubleClick) activate(index);
+    }
+
     /** Rebuilds the footer buttons; called every frame before drawing. */
     protected abstract void buildActions(List<Action> actions);
 
@@ -493,9 +498,7 @@ public abstract class AndroidListScreen extends GuiScreen {
             lastClickAt = now;
             selected = row;
             click();
-            if (again) {
-                activate(row);
-            }
+            rowClicked(row, again);
         }
     }
 
@@ -545,7 +548,7 @@ public abstract class AndroidListScreen extends GuiScreen {
         }
     }
 
-    private void ensureVisible(int index) {
+    protected final void ensureVisible(int index) {
         if (index < 0) {
             return;
         }

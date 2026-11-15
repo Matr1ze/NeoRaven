@@ -33,6 +33,7 @@ public class ClickGuiMod {
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent e) {
+        if (Boolean.getBoolean("neoraven.inputDiagnostics")) xyz.daikirai.client.InputDiagnostics.install();
         // Sample the config folder before anything creates it: a fresh install has no
         // "keystrokes" directory and gets the welcome screen.
         xyz.daikirai.client.FirstRun.capture();
@@ -42,6 +43,8 @@ public class ClickGuiMod {
         xyz.daikirai.script.ScriptEvents.bind(xyz.daikirai.script.ScriptDelegated.class);
         ClickGui.instance = new ClickGui();
         ClientConfig.load();
+        // Binds the client language and the game language together in both directions.
+        MinecraftForge.EVENT_BUS.register(new xyz.daikirai.client.ClientLanguage());
         xyz.daikirai.account.AccountManager.instance().load();
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(new RenderDispatcher());

@@ -38,9 +38,12 @@ public final class GuiFont {
         SCOPE.set(Integer.valueOf(Math.max(0, SCOPE.get().intValue() - 1)));
     }
 
+    public static boolean scoped() { return SCOPE.get().intValue() > 0; }
+
     public static boolean active() {
         // Forge's splash renderer has its own GL context and must keep the bitmap font.
-        return SCOPE.get().intValue() > 0 && bypass == 0 && !failed && CustomGuiModule.replacesFont();
+        return SCOPE.get().intValue() > 0 && bypass == 0 && !failed
+                && (CustomGuiModule.replacesFont() || xyz.daikirai.gui.onyx.menu.AndroidUi.active());
     }
 
     public static void reset() {

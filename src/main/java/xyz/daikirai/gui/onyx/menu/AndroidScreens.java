@@ -9,11 +9,11 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiSelectWorld;
 
 /**
- * Routes the vanilla world / server selection screens to the Android rewrites.
+ * Routes vanilla menu and preference screens to the Android rewrites.
  *
  * <p>Only while the title screen is in the Android style: picking "Minecraft" for the menu should
- * still give the untouched game screens. Only the exact vanilla classes are replaced - the
- * create-world and add-server flows are separate screens and stay vanilla.</p>
+ * still give the untouched game screens. Only exact vanilla classes are replaced. Other menu
+ * flows retain their game logic and receive the shared {@link AndroidUi} widgets.</p>
  *
  * <p>It also owns the "no world, no pause menu" rule: a pause menu requested while no world is
  * loaded cannot work (its quit button dereferences {@code theWorld}), so it is replaced by the
@@ -42,6 +42,15 @@ public final class AndroidScreens {
             return requested;
         }
         GuiScreen parent = parentFor(mc);
+        if (requested.getClass() == net.minecraft.client.gui.GuiLanguage.class) {
+            return new AndroidLanguageScreen(((xyz.daikirai.mixin.AccessorGuiLanguage) requested).onyx$parent());
+        }
+        if (requested.getClass() == net.minecraft.client.gui.GuiControls.class) {
+            return new AndroidControlsScreen(((xyz.daikirai.mixin.AccessorGuiControls) requested).onyx$parent());
+        }
+        if (requested.getClass() == net.minecraft.client.gui.GuiCustomizeSkin.class) {
+            return new AndroidSkinScreen(((xyz.daikirai.mixin.AccessorGuiSkin) requested).onyx$parent());
+        }
         if (requested.getClass() == GuiSelectWorld.class) {
             return new AndroidSelectWorldScreen(parent);
         }

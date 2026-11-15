@@ -29,8 +29,8 @@ import java.util.List;
  *
  * <p>Every row is bound to {@link GameSettings} through {@code GameSettings.Options}, so values,
  * ranges, snapping and localisation all come from the game itself - the screen only replaces the
- * chrome. Structural screens (key binds, resource packs, skin, language) are one chevron row each
- * and open the originals.</p>
+ * chrome. Structural screens (key binds, resource packs, skin, language) open through the shared
+ * Android routing and widget layer.</p>
  */
 public final class AndroidSettingsScreen extends GuiScreen {
 
@@ -217,6 +217,11 @@ public final class AndroidSettingsScreen extends GuiScreen {
                 rows.add(cycle(GameSettings.Options.PARTICLES));
                 rows.add(toggle(GameSettings.Options.VIEW_BOBBING));
                 rows.add(toggle(GameSettings.Options.ENTITY_SHADOWS));
+                rows.add(toggle(GameSettings.Options.ENABLE_VSYNC));
+                rows.add(toggle(GameSettings.Options.ANAGLYPH));
+                rows.add(toggle(GameSettings.Options.FBO_ENABLE));
+                rows.add(toggle(GameSettings.Options.BLOCK_ALTERNATIVES));
+                rows.add(slider(GameSettings.Options.MIPMAP_LEVELS));
                 rows.add(action(xyz.daikirai.util.Lang.text("Fullscreen"), xyz.daikirai.util.Lang.text(settings.fullScreen ? "On" : "Off"), mc::toggleFullscreen));
                 break;
             case 1:
@@ -256,6 +261,25 @@ public final class AndroidSettingsScreen extends GuiScreen {
                         () -> mc.displayGuiScreen(new GuiLanguage(this, gs(), mc.getLanguageManager()))));
                 rows.add(toggle(GameSettings.Options.FORCE_UNICODE_FONT));
                 rows.add(toggle(GameSettings.Options.USE_VBO));
+                rows.add(link(I18n.format("options.snooper.view"), "", () -> mc.displayGuiScreen(new net.minecraft.client.gui.GuiSnooper(this, gs()))));
+                rows.add(link(I18n.format("options.stream"), "", () -> mc.displayGuiScreen(new net.minecraft.client.gui.stream.GuiStreamOptions(this, gs()))));
+                rows.add(toggle(GameSettings.Options.REALMS_NOTIFICATIONS));
+                if (mc.theWorld != null) {
+                    final net.minecraft.world.storage.WorldInfo info = mc.theWorld.getWorldInfo();
+                    rows.add(action(I18n.format("options.difficulty"), I18n.format(info.getDifficulty().getDifficultyResourceKey()), () -> {
+                        if (info.isHardcoreModeEnabled() || info.isDifficultyLocked()) return;
+                        info.setDifficulty(net.minecraft.world.EnumDifficulty.getDifficultyEnum(info.getDifficulty().getDifficultyId() + 1));
+                        buildRows(this.category);
+                    }));
+                    if (mc.isSingleplayer() && !info.isHardcoreModeEnabled() && !info.isDifficultyLocked()) {
+                        rows.add(action(I18n.format("difficulty.lock.title"), "", () -> mc.displayGuiScreen(new net.minecraft.client.gui.GuiYesNo(
+                                (confirmed, id) -> {
+                                    if (confirmed && mc.theWorld != null && mc.theWorld.getWorldInfo() == info) info.setDifficultyLocked(true);
+                                    mc.displayGuiScreen(this);
+                                }, I18n.format("difficulty.lock.title"), I18n.format("difficulty.lock.question",
+                                I18n.format(info.getDifficulty().getDifficultyResourceKey())), 109))));
+                    }
+                }
                 break;
         }
     }

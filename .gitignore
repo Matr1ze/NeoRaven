@@ -9,6 +9,7 @@ run/
 run-*/
 loom-cache/
 .loom/
+.mixin.out/
 
 # Built jars (the bundled mixin jar in libs/ is a dependency and stays)
 *.jar
@@ -24,6 +25,9 @@ loom-cache/
 .settings/
 .project
 .classpath
+
+# Eclipse build output
+bin/
 
 # Java
 *.class

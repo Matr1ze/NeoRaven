@@ -18,6 +18,8 @@ public final class Profiles {
     public static Profile current;
     public static final HashMap<Profile, Module> profiles = new HashMap<Profile, Module>();
     public static boolean modified;
+    /** True while a profile is being applied; intermediate theme states must not be persisted. */
+    public static boolean loading;
     public static final String MANAGER_NAME = "Manager";
     public static final String EXT = ".json";
     private static int revision;

@@ -206,12 +206,12 @@ public final class OnyxClickGui extends GuiScreen {
 
     private void drawMorph(Scheme scheme) {
         int color = Material.mix(scheme.surfaceContainerHigh, scheme.surfaceContainer, morph);
-        ui.shadow(shellX, shellY, shellW, shellH, shellRadius, Math.round(3.0F + morph));
         float coverage = 0.58F + 0.35F * morph;
         if (Theme.translucent()) {
             coverage = Math.max(coverage, Theme.TRANSLUCENT_FROST);
         }
         // The shell is the ClickGUI window while open, so it must follow the glass switch.
+        ui.shadow(shellX, shellY, shellW, shellH, shellRadius, Math.round(3.0F + morph));
         ui.windowGlass(shellX, shellY, shellW, shellH, shellRadius, color, coverage);
         drawIsland(scheme);
         float alpha = Material.clamp((morph - 0.15F) / 0.65F, 0.0F, 1.0F);
@@ -284,6 +284,13 @@ public final class OnyxClickGui extends GuiScreen {
         // its body and the sharp copy for refraction, so it must prepare the same scene even when
         // Frosted glass is disabled.
         boolean glassEnabled = Glass.enabled();
+        if (menu && (!backdropFrozen || !Blur.ready() || !glassEnabled)) {
+            // resize() recreates and clears Minecraft's scene FBO. The old menu is not drawn
+            // behind this screen, so sampling that FBO directly would freeze a black backdrop.
+            xyz.daikirai.gui.onyx.menu.MenuBackground.draw(ui, width, height,
+                    xyz.daikirai.gui.onyx.menu.MenuStyle.current() == xyz.daikirai.gui.onyx.menu.MenuStyle.ANDROID);
+            backdropFrozen = false;
+        }
         if (glassEnabled && !backdropFrozen) {
             // The render-overlay hook consumes the frame capture only for glass HUDs. If none
             // are enabled, it marks the frame as already handled; the ClickGUI still needs its

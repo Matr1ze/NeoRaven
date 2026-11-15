@@ -63,6 +63,22 @@ public final class OnyxClickGuiModule extends Module {
         liquidFrost = slider("Liquid frost amount");
         colouredFrost = button("Coloured frost");
         matteLiquid = button("Matte liquid glass");
+        reloadPreferences();
+    }
+
+    /**
+     * Re-reads the shared appearance preferences into the module switches and the live theme.
+     *
+     * <p>The glass switches and theme seeds are shared by every screen and HUD and persisted in
+     * {@code glass-theme.properties}, so they outrank a profile: the default profile loads on the
+     * first world tick, i.e. <em>after</em> the welcome guide, and without this it put the old look
+     * straight back. Loading a profile by hand keeps the same rule, like the Appearance row and
+     * the language, which are already stored outside profiles.</p>
+     */
+    public static void reloadPreferences() {
+        if (accent == null) {
+            return;
+        }
         Theme.loadPreferences();
         accent.setAppearance(Theme.accent(), false);
         surfaceTheme.setValue(Theme.surfaceTheme());
@@ -121,6 +137,9 @@ public final class OnyxClickGuiModule extends Module {
                     ? xyz.daikirai.util.Lang.CHINESE : xyz.daikirai.util.Lang.ENGLISH;
             if (!wanted.equals(xyz.daikirai.util.Lang.locale())) {
                 xyz.daikirai.util.Lang.setLocale(wanted);
+                // The two languages are bound both ways: move the vanilla game language with the
+                // client one instead of letting the two switches drift apart.
+                xyz.daikirai.client.ClientLanguage.requestGame(wanted);
                 xyz.daikirai.client.ClientConfig.save();
             }
         }

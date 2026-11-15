@@ -15,7 +15,10 @@ public final class Lang {
     public static final String CHINESE = "zh";
     private static final Map<String, String> CHINESE_TEXT = new HashMap<String, String>();
     private static final Map<String, String> ENGLISH_TEXT = new HashMap<String, String>();
-    /** English ships as the default; the Theme page switches to Chinese. */
+    /**
+     * Mirrors the vanilla game language; {@code xyz.daikirai.client.ClientLanguage} keeps the two
+     * bound together in both directions. English until the config/game language has been read.
+     */
     private static String locale = ENGLISH;
     private static int revision;
 

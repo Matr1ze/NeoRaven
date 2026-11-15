@@ -29,6 +29,21 @@ public class MixinMinecraft {
     private static final int HIDDEN_FPS = 20;
 
     @Shadow public GuiScreen currentScreen;
+    @Shadow private boolean fullscreen;
+    private boolean neoraven$startBorderless;
+
+    @Inject(method = "setInitialDisplayMode", at = @At("HEAD"))
+    private void neoraven$windowedNativeStartup(CallbackInfo ci) {
+        if (xyz.daikirai.client.BorderlessWindow.supported()) {
+            neoraven$startBorderless = fullscreen;
+            fullscreen = false;
+        }
+    }
+
+    @Inject(method = "dispatchKeypresses", at = @At("HEAD"))
+    private void neoraven$traceKeyboard(CallbackInfo ci) {
+        xyz.daikirai.client.InputDiagnostics.keyboard("Minecraft.dispatchKeypresses");
+    }
 
     @Inject(method = "clickMouse", at = @At("HEAD"), cancellable = true)
     private void neoraven$automatedTellyLeftClick(CallbackInfo ci) {
@@ -57,6 +72,10 @@ public class MixinMinecraft {
     @Inject(method = "startGame", at = @At("RETURN"))
     private void neoraven$windowBranding(CallbackInfo ci) {
         neoraven$applyWindowBranding();
+        if (neoraven$startBorderless) {
+            neoraven$startBorderless = false;
+            xyz.daikirai.client.BorderlessWindow.toggle((Minecraft) (Object) this);
+        }
     }
 
     private static void neoraven$applyWindowBranding() {
@@ -99,34 +118,30 @@ public class MixinMinecraft {
         GuiOpenAnimation.opened(currentScreen);
     }
 
-    /**
-     * LWJGL can leave the old mouse-grab state behind when Windows recreates the display during
-     * F11 fullscreen changes. Reconcile input ownership with the active screen after Minecraft has
-     * completed its resize: gameplay owns the grabbed mouse, while an open GUI keeps it released.
-     */
+    @Inject(method = "toggleFullscreen", at = @At("HEAD"), cancellable = true)
+    private void neoraven$prepareFullscreenInput(CallbackInfo ci) {
+        if (xyz.daikirai.client.BorderlessWindow.supported()) {
+            xyz.daikirai.client.BorderlessWindow.toggle((Minecraft) (Object) this);
+            ci.cancel();
+            return;
+        }
+        xyz.daikirai.client.FullscreenInput.beforeSwitch((Minecraft) (Object) this);
+    }
+
     @Inject(method = "toggleFullscreen", at = @At("RETURN"))
     private void onyx$fullscreenInput(CallbackInfo ci) {
-
-        Minecraft minecraft = (Minecraft) (Object) this;
-        if (currentScreen == null && minecraft.theWorld != null && minecraft.thePlayer != null
-                && Display.isActive()) {
-            minecraft.setIngameFocus();
-        } else {
-            minecraft.setIngameNotInFocus();
-        }
+        if (xyz.daikirai.client.BorderlessWindow.supported()) return;
+        xyz.daikirai.client.FullscreenInput.afterSwitch((Minecraft) (Object) this);
     }
 
     @Inject(method = "runTick", at = @At("HEAD"))
     private void neoraven$recoverFullscreenInput(CallbackInfo ci) {
-        Minecraft minecraft = (Minecraft) (Object) this;
-        if (currentScreen == null && minecraft.theWorld != null && minecraft.thePlayer != null
-                && Display.isActive() && !minecraft.inGameHasFocus) {
-            minecraft.setIngameFocus();
-        }
+        xyz.daikirai.client.FullscreenInput.tick((Minecraft) (Object) this);
     }
 
     private static boolean onyx$customScreen(GuiScreen screen) {
-        return screen != null && screen.getClass().getName().startsWith("xyz.daikirai.");
+        return screen != null && (screen.getClass().getName().startsWith("xyz.daikirai.")
+                || xyz.daikirai.gui.onyx.menu.AndroidUi.active(screen));
     }
 
     @Redirect(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiScreen;handleInput()V"))

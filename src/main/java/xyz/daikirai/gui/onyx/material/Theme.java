@@ -95,6 +95,13 @@ public final class Theme {
     }
 
     public static void savePreferencesIfChanged() {
+        // A profile load walks every module through its settings, which leaves the theme in the
+        // profile's intermediate state for a moment; the shared preferences outrank profiles, so
+        // that state must not overwrite the file. The final state is applied afterwards by
+        // OnyxClickGuiModule.reloadPreferences().
+        if (xyz.daikirai.client.Profiles.loading) {
+            return;
+        }
         String key = preferenceKey();
         if (!key.equals(savedPreferences)) savePreferences();
     }

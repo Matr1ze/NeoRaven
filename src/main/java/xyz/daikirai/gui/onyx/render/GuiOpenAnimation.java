@@ -58,7 +58,8 @@ public final class GuiOpenAnimation {
 
     /** Includes Forge's GUI hooks, and always restores the font scope when drawing throws. */
     public static void drawScreen(GuiScreen gui, int mouseX, int mouseY, float partialTicks) {
-        boolean customFont = gui != null && gui.getClass().getName().startsWith("xyz.daikirai.");
+        boolean customFont = gui != null && (gui.getClass().getName().startsWith("xyz.daikirai.")
+                || xyz.daikirai.gui.onyx.menu.AndroidUi.active(gui));
         if (customFont) GuiFont.begin();
         try {
             if (screen != gui) opened(gui);

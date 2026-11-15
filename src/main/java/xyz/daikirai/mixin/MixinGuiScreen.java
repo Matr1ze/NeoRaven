@@ -14,9 +14,32 @@ import xyz.daikirai.gui.onyx.render.GuiOpenAnimation;
 
 @Mixin(GuiScreen.class)
 public class MixinGuiScreen {
+    @Inject(method = "handleKeyboardInput", at = @At("HEAD"))
+    private void neoraven$traceKeys(CallbackInfo ci) {
+        xyz.daikirai.client.InputDiagnostics.keyboard("GuiScreen.handleKeyboardInput");
+    }
+
+    @Inject(method = "handleMouseInput", at = @At("HEAD"))
+    private void neoraven$traceMouse(CallbackInfo ci) {
+        xyz.daikirai.client.InputDiagnostics.mouse("GuiScreen.handleMouseInput");
+    }
     @Inject(method = "drawWorldBackground", at = @At("HEAD"), cancellable = true)
     private void onyx$separateBackground(int tint, CallbackInfo ci) {
-        if (GuiOpenAnimation.skipsBackground((GuiScreen) (Object) this)) ci.cancel();
+        GuiScreen screen = (GuiScreen) (Object) this;
+        if (GuiOpenAnimation.skipsBackground(screen)) { ci.cancel(); return; }
+        if (xyz.daikirai.gui.onyx.menu.AndroidUi.active(screen)) {
+            xyz.daikirai.gui.onyx.menu.AndroidUi.background(screen.width, screen.height);
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "drawBackground", at = @At("HEAD"), cancellable = true)
+    private void onyx$materialBackground(int tint, CallbackInfo ci) {
+        GuiScreen screen = (GuiScreen) (Object) this;
+        if (xyz.daikirai.gui.onyx.menu.AndroidUi.active(screen)) {
+            xyz.daikirai.gui.onyx.menu.AndroidUi.background(screen.width, screen.height);
+            ci.cancel();
+        }
     }
 
     @ModifyArgs(method = "drawWorldBackground", at = @At(value = "INVOKE",

@@ -43,6 +43,7 @@ public class Profile {
         Profiles.current = null;
         Profiles.modified = false;
         ChatCommands.panic();
+        Profiles.loading = true;
         try (FileReader r = new FileReader(file)) {
             JsonObject root = new JsonParser().parse(r).getAsJsonObject();
             JsonArray arr = root.getAsJsonArray("modules");
@@ -127,9 +128,16 @@ public class Profile {
                 }
             }
             Profiles.current = this;
+            // The glass switches and theme seeds live in the shared appearance preferences, not in
+            // profiles (the Appearance and Language rows are already stored that way). Re-applying
+            // them after the profile keeps the look the welcome guide or Theme page just picked:
+            // the default profile loads on the first world tick, after the guide has finished.
+            xyz.daikirai.gui.onyx.OnyxClickGuiModule.reloadPreferences();
             return true;
         } catch (Exception e) {
             return false;
+        } finally {
+            Profiles.loading = false;
         }
     }
 

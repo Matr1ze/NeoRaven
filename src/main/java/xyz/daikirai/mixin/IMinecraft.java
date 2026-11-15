@@ -9,6 +9,11 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(Minecraft.class)
 public interface IMinecraft {
+    @Accessor("fullscreen")
+    void setFullscreenFlag(boolean value);
+
+    @Invoker("resize")
+    void resizeWindow(int width, int height);
     @Accessor("session")
     void setSession(Session session);
 

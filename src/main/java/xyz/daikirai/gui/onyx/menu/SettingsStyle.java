@@ -52,6 +52,8 @@ public enum SettingsStyle {
     }
 
     public static SettingsStyle current() {
+        if (MenuStyle.current() == MenuStyle.ANDROID) return ANDROID;
+        if (MenuStyle.current() == MenuStyle.MINECRAFT) return MINECRAFT;
         if (value == null) {
             value = read();
         }
@@ -64,6 +66,7 @@ public enum SettingsStyle {
         }
         value = style;
         write(style);
+        MenuStyle.select(style == ANDROID ? MenuStyle.ANDROID : MenuStyle.MINECRAFT);
     }
 
     public static SettingsStyle other() {
@@ -84,11 +87,7 @@ public enum SettingsStyle {
         if (requested == null || requested.getClass() != GuiOptions.class) {
             return requested;
         }
-        GuiScreen previous = Minecraft.getMinecraft().currentScreen;
-        if (previous != null && previous.getClass() != GuiOptions.class
-                && !(previous instanceof AndroidSettingsScreen)) {
-            returnTo = previous;
-        }
+        returnTo = ((xyz.daikirai.mixin.AccessorGuiOptions) requested).onyx$parent();
         if (current() != ANDROID) {
             return requested;
         }
@@ -112,6 +111,10 @@ public enum SettingsStyle {
             returnTo = parent;
         }
         select(other());
+        if (parent instanceof net.minecraft.client.gui.GuiMainMenu) {
+            parent = MenuStyle.current().screen();
+            returnTo = parent;
+        }
         mc.getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("gui.button.press"), 1.0F));
         mc.displayGuiScreen(new GuiOptions(parent, mc.gameSettings));
     }

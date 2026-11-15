@@ -52,10 +52,12 @@ public final class UI {
     private static final FloatBuffer SCREEN_BUFFER = BufferUtils.createFloatBuffer(3);
 
     private static Shader shapeShader;
+    private static Shader shadowShader;
     private static Shader frostShader;
     private static Shader liquidShader;
     private static Shader imageShader;
     private static boolean shapeFailed;
+    private static boolean shadowFailed;
     private static boolean frostFailed;
     private static boolean liquidFailed;
     private static boolean imageFailed;
@@ -73,6 +75,10 @@ public final class UI {
         if (shapeShader == null && !shapeFailed) {
             shapeShader = Shader.load("onyx_shape");
             shapeFailed = !shapeShader.valid();
+        }
+        if (shadowShader == null && !shadowFailed) {
+            shadowShader = Shader.load("onyx_shadow", "onyx_shape");
+            shadowFailed = !shadowShader.valid();
         }
         if (frostShader == null && !frostFailed) {
             frostShader = Shader.load("onyx_frost");
@@ -448,22 +454,39 @@ public final class UI {
         rounded(centerX - radius, centerY - radius, radius * 2.0F, radius * 2.0F, radius, color);
     }
 
-    /** Material drop shadow: two stacked, slightly offset rounded rectangles. */
+    /** Soft outer shadow, with a transparent interior for glass surfaces. */
     public void shadow(float x, float y, float w, float h, float radius, int elevation) {
         float spread = Theme.shadowForLevel(elevation);
-        if (spread <= 0.0F) {
+        if (spread <= 0.0F || w <= 0.0F || h <= 0.0F
+                || shadowShader == null || !shadowShader.valid()) {
             return;
         }
-        int shadow = Theme.scheme().shadow;
-        shape(x - spread, y - spread, w + spread * 2.0F, h + spread * 2.0F,
-                radius + spread, radius + spread, radius + spread, radius + spread,
-                spread, 0.0F, Material.withAlpha(shadow, 0.055F), Material.withAlpha(shadow, 0.055F),
-                Material.withAlpha(shadow, 0.055F), Material.withAlpha(shadow, 0.055F));
-        float second = spread * 1.5F;
-        shape(x - second, y - second + spread * 0.5F, w + second * 2.0F, h + second * 2.0F,
-                radius + second, radius + second, radius + second, radius + second,
-                second, 0.0F, Material.withAlpha(shadow, 0.075F), Material.withAlpha(shadow, 0.075F),
-                Material.withAlpha(shadow, 0.075F), Material.withAlpha(shadow, 0.075F));
+        int color = applySurfaceAlpha(Material.scaleAlpha(Theme.scheme().shadow, 0.16F));
+        if (color >>> 24 == 0) {
+            return;
+        }
+        float sigma = 2.0F + spread * 0.75F;
+        float offset = spread * 0.35F;
+        // Four standard deviations leave less than a pixel's visible alpha at the quad edge.
+        float padding = sigma * 4.0F + offset + pixel * 2.0F;
+        float centerX = x + w / 2.0F;
+        float centerY = y + h / 2.0F;
+        GlStateManager.disableTexture2D();
+        shadowShader.use();
+        shadowShader.uniform2f("uHalfExtents", w / 2.0F, h / 2.0F);
+        shadowShader.uniform1f("uRadius", Theme.radius(radius, w, h));
+        shadowShader.uniform1f("uSigma", sigma);
+        shadowShader.uniform1f("uOffset", offset);
+        shadowShader.uniform1f("uPixel", pixel);
+        GL11.glBegin(GL11.GL_QUADS);
+        vertex(x - padding, y - padding, centerX, centerY, color);
+        vertex(x - padding, y + h + padding, centerX, centerY, color);
+        vertex(x + w + padding, y + h + padding, centerX, centerY, color);
+        vertex(x + w + padding, y - padding, centerX, centerY, color);
+        GL11.glEnd();
+        Shader.unbind();
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.resetColor();
     }
 
     /** Fills a rounded rectangle with the (already blurred) backdrop, tinted by {@code tint}. */

@@ -30,8 +30,6 @@ import java.nio.ByteBuffer;
 public final class Blur {
 
     private static final float[] QUAD = {0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F};
-    /** GL_FRAMEBUFFER_BINDING. */
-    private static final int FRAMEBUFFER_BINDING = 0x8CA6;
 
     private static Shader shader;
     private static boolean available = true;
@@ -149,7 +147,9 @@ public final class Blur {
     }
 
     public static boolean ready() {
-        return prepared && textureB != -1;
+        Framebuffer source = Minecraft.getMinecraft().getFramebuffer();
+        return prepared && textureB != -1 && source != null
+                && sharpWidth == source.framebufferWidth && sharpHeight == source.framebufferHeight;
     }
 
     public static int texture() {
@@ -214,7 +214,8 @@ public final class Blur {
             Minecraft mc = Minecraft.getMinecraft();
             Framebuffer framebuffer = mc.getFramebuffer();
             if (framebuffer == null || framebuffer.framebufferTexture <= 0) {
-                available = false;
+                // The main target may be temporarily absent while resizing. Retry next frame.
+                prepared = false;
                 return;
             }
 
@@ -223,7 +224,6 @@ public final class Blur {
             int scale = Math.max(1, divisor);
             int targetWidth = Math.max(1, screenWidth / scale);
             int targetHeight = Math.max(1, screenHeight / scale);
-            int previousFramebuffer = GL11.glGetInteger(FRAMEBUFFER_BINDING);
             int matrixMode = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
 
             GlStateManager.matrixMode(GL11.GL_PROJECTION);
@@ -233,7 +233,7 @@ public final class Blur {
             GlStateManager.matrixMode(matrixMode);
             try {
                 ensureTargets(targetWidth, targetHeight);
-                copySharp(previousFramebuffer, screenWidth, screenHeight);
+                copySharp(framebuffer.framebufferObject, screenWidth, screenHeight);
 
                 pass(framebuffer.framebufferTexture, framebufferA, screenWidth, screenHeight, 1.0F, 0.0F);
                 int total = Math.max(1, rounds);

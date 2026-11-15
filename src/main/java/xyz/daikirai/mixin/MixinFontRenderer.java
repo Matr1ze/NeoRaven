@@ -11,6 +11,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(FontRenderer.class)
 public class MixinFontRenderer {
+    @ModifyVariable(method = "drawString(Ljava/lang/String;FFIZ)I", at = @At("HEAD"), argsOnly = true, ordinal = 0)
+    private int onyx$materialInk(int color) { return xyz.daikirai.gui.onyx.menu.AndroidUi.textColor(color); }
+
     @ModifyVariable(method = "renderStringAtPos", at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private String clickgui$render(String s) {
         return Hooks.renderString(s);
