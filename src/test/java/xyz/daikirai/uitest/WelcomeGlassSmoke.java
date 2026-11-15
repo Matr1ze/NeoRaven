@@ -92,6 +92,9 @@ public final class WelcomeGlassSmoke {
             case 2:
                 require(screenStep() == 1, "expected theme page, step=" + screenStep());
                 screenshot("02-theme-page");
+                clickTheme(7);
+                log("selected theme card 7 (Sakura); welcome field theme=" + field("theme"));
+                require(((Integer) field("theme")) == 7, "theme card click did not select Sakura");
                 clickNext();
                 stage = 3;
                 next = now + GAP;
@@ -151,18 +154,51 @@ public final class WelcomeGlassSmoke {
                 require(Glass.enabled() && Glass.liquid(), "glass mode is not LIQUID after the welcome flow");
                 require(prefs().contains("liquidEnabled=true"), "persisted preferences lost liquidEnabled=true");
                 require(prefs().contains("frostEnabled=false"), "persisted preferences changed frosted glass");
+                log("theme after Start: surfaceTheme=" + OnyxClickGuiModule.surfaceTheme.getInput()
+                        + " live=" + Theme.surfaceTheme()
+                        + " accent=#" + hex(Theme.accent())
+                        + " settingAccent=#" + hex(OnyxClickGuiModule.accent.color())
+                        + " scheme.surface=#" + hex(Theme.scheme().surface)
+                        + " scheme.primary=#" + hex(Theme.scheme().primary));
+                require(OnyxClickGuiModule.surfaceTheme.getInput() == 7,
+                        "the welcome theme did not reach the Surface theme setting");
+                require(Theme.surfaceTheme() == 7, "the welcome theme did not reach the live theme");
+                require(Theme.scheme().surface == 0xFFFFBFB2,
+                        "Sakura palette not applied: surface=#" + hex(Theme.scheme().surface));
+                require(Theme.accent() == Theme.ACCENTS[6],
+                        "Sakura accent not applied to the live theme: #" + hex(Theme.accent()));
+                require(OnyxClickGuiModule.accent.color() == Theme.ACCENTS[6],
+                        "Sakura accent did not reach the Accent setting: #"
+                                + hex(OnyxClickGuiModule.accent.color()));
+                require(prefs().contains("theme=7"), "persisted preferences lost theme=7");
+                require(prefs().contains("accent=" + Theme.ACCENTS[6]),
+                        "persisted preferences lost the Sakura accent");
+                mc.displayGuiScreen(new xyz.daikirai.gui.onyx.OnyxClickGui());
                 stage = 7;
-                next = now + GAP;
+                next = now + 1_500_000_000L;
                 return;
             }
             case 7: {
+                require(mc.currentScreen instanceof xyz.daikirai.gui.onyx.OnyxClickGui,
+                        "the RShift ClickGUI did not open: " + simple(mc.currentScreen));
+                log("reshift gui: surfaceTheme=" + Theme.surfaceTheme()
+                        + " scheme.surface=#" + hex(Theme.scheme().surface)
+                        + " scheme.surfaceContainer=#" + hex(Theme.scheme().surfaceContainer));
+                screenshot("06-reshift-theme");
+                require(Theme.surfaceTheme() == 7 && Theme.scheme().surface == 0xFFFFBFB2
+                                && Theme.accent() == Theme.ACCENTS[6],
+                        "the RShift ClickGUI is not using the welcome theme");
+                mc.displayGuiScreen(null);
                 // The first in-world client tick runs the default profile load path.
                 Profiles.loadDefault();
                 OnyxClickGuiModule.sync();
                 log("after world-join loadDefault/sync: liquid=" + OnyxClickGuiModule.liquidGlass.isToggled()
-                        + " themeLiquid=" + Theme.liquidGlass() + " mode=" + Glass.mode());
+                        + " themeLiquid=" + Theme.liquidGlass()
+                        + " surfaceTheme=" + Theme.surfaceTheme() + " mode=" + Glass.mode());
                 require(OnyxClickGuiModule.liquidGlass.isToggled() && Theme.liquidGlass(),
                         "the world-join path wiped the welcome glass choice");
+                require(Theme.surfaceTheme() == 7, "the world-join path wiped the welcome theme");
+                require(Theme.accent() == Theme.ACCENTS[6], "the world-join path wiped the welcome accent");
                 // Enter a real world so the in-game HUD glass path runs end to end.
                 mc.gameSettings.pauseOnLostFocus = false;
                 worldAt = now;
@@ -205,12 +241,14 @@ public final class WelcomeGlassSmoke {
                         + " mode=" + Glass.mode()
                         + " hudGlassActive=" + xyz.daikirai.gui.onyx.render.Blur.hudGlassActive()
                         + " blurReady=" + xyz.daikirai.gui.onyx.render.Blur.ready());
-                screenshot("06-in-world-hud");
+                screenshot("07-in-world-hud");
                 require(Overlay.canRender(), "in-world HUD is not renderable");
                 require(Theme.liquidGlass() && Glass.mode() == Glass.Mode.LIQUID,
                         "in-world theme lost liquid glass");
+                require(Theme.surfaceTheme() == 7 && Theme.scheme().surface == 0xFFFFBFB2,
+                        "in-world theme lost the welcome Sakura palette");
                 require(ready, "in-world glass HUD never rendered its liquid backdrop");
-                finishTest(true, "welcome glass choices reach the ClickGUI, theme and the in-world HUD");
+                finishTest(true, "welcome theme and glass choices reach the ClickGUI and the in-world HUD");
                 return;
             }
             default:
@@ -239,6 +277,19 @@ public final class WelcomeGlassSmoke {
         float rx = cx - 14, ry = cy - 40;
         // Switch index 1 ("Liquid glass") on the glass page.
         click((int) (rx + 108 + 52), (int) (ry + 9));
+    }
+
+    private void clickTheme(int index) throws Exception {
+        float cx = welcome.width / 2F, cy = welcome.height / 2F - 16;
+        float cw = 66, ch = 54, gap = 12;
+        float left = cx - (4 * cw + 3 * gap) / 2, top = cy - 32;
+        float bx = left + (index % 4) * (cw + gap);
+        float by = top + (index / 4) * (ch + 28);
+        click((int) (bx + cw / 2), (int) (by + ch / 2));
+    }
+
+    private static String hex(int argb) {
+        return String.format("%08X", argb);
     }
 
     private void click(int x, int y) throws Exception {

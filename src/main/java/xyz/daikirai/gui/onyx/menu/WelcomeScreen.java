@@ -27,6 +27,8 @@ public final class WelcomeScreen extends GuiScreen {
     private static final int PAGES = 6;
     private static final ResourceLocation RAVEN = new ResourceLocation("clickgui", "textures/raven.png");
     private static final String[] THEMES = {"Material", "Dark", "Light", "Dark Blue", "Midnight", "Dark Purple", "Sea", "Sakura"};
+    /** Accent preset (index into {@link Theme#ACCENTS}) that belongs to each theme card. */
+    private static final int[] THEME_ACCENT = {0, 7, 0, 1, 1, 0, 2, 6};
     private static final int[][] PREVIEW = {{0xFF282A30,0xFF41444C,0xFFECEBF1,0xFFB8BBC4},{0xFF131314,0xFF222327,0xFFFFFFFF,0xFFEBEBEB},{0xFFFEFEFE,0xFFEEEEEE,0xFF363636,0xFF6B7581},{0xFF161C29,0xFF1B2434,0xFF9DAFD3,0xFF7483A4},{0xFF2F363D,0xFF24292E,0xFFFFFFFF,0xFFEBEBEB},{0xFF2C0E48,0xFF35185A,0xFFEAE2FC,0xFFC2BAD4},{0xFFCBE0FF,0xFFBED8EE,0xFF24354C,0xFF405570},{0xFFFFBFB2,0xFFFFDFE2,0xFF542F37,0xFF73525C}};
     private static final String[][] CATEGORIES = {{"\ue3e7", "Combat", "战斗"}, {"\ue566", "Movement", "移动"},
             {"\ue7fd", "Player", "玩家"}, {"\ue8f4", "Render", "渲染"}, {"\ue80b", "World", "世界"}};
@@ -47,6 +49,8 @@ public final class WelcomeScreen extends GuiScreen {
     private final UI ui = new UI();
     private final List<Hit> hits = new ArrayList<>();
     private int step, dir = 1, theme = Theme.surfaceTheme(), dragging = -1;
+    /** Accent picked with the theme card; 0 keeps the existing accent untouched. */
+    private int accent;
     private float frost = Theme.frostOpacity, liquid = Theme.liquidOpacity;
     private boolean frostOn = Theme.frost(), liquidOn = Theme.liquidGlass();
     private boolean coloured = Theme.colouredFrost, matteOn = Theme.matteLiquid;
@@ -395,7 +399,13 @@ public final class WelcomeScreen extends GuiScreen {
                 int k = h.id - TOGGLE;
                 if (k == 0) frostOn = !frostOn; else if (k == 1) liquidOn = !liquidOn;
                 else if (k == 2) coloured = !coloured; else matteOn = !matteOn;
-            } else if (h.id >= THEME) theme = h.id - THEME;
+            } else if (h.id >= THEME) {
+                theme = h.id - THEME;
+                // The cards are full colour themes, not only surface palettes: give the card its
+                // matching accent seed so the menu, HUD and ClickGUI are not left with the default
+                // purple once the guide is done.
+                accent = Theme.ACCENTS[THEME_ACCENT[theme]];
+            }
             sound();
             return;
         }
@@ -425,6 +435,12 @@ public final class WelcomeScreen extends GuiScreen {
 
     private void finish() {
         Theme.surfaceTheme(theme);
+        if (accent != 0) {
+            Theme.accent(accent);
+            if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.accent != null) {
+                xyz.daikirai.gui.onyx.OnyxClickGuiModule.accent.setAppearance(accent, false);
+            }
+        }
         Theme.frost(frostOn); Theme.liquidGlass(liquidOn);
         Theme.frostOpacity = frost; Theme.liquidOpacity = liquid; Theme.colouredFrost = coloured; Theme.matteLiquid = matteOn;
         if (xyz.daikirai.gui.onyx.OnyxClickGuiModule.surfaceTheme != null) xyz.daikirai.gui.onyx.OnyxClickGuiModule.surfaceTheme.setValue(theme);
