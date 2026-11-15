@@ -121,6 +121,7 @@ tasks.register<JavaExec>("androidUiSmoke") {
             } else if (section == "commonArgs" || section == "clientArgs") launchArgs.add(line.trim())
         }
         systemProperty("neoraven.uiSmoke", "true")
+        systemProperty("neoraven.keepWindow", "true")
         args(launchArgs)
         args("--tweakClass", "org.spongepowered.asm.launch.MixinTweaker", "--version", "1.8.9", "--width", "1280", "--height", "720")
         workingDir = file("build/android-ui-smoke")
@@ -156,6 +157,7 @@ tasks.register<JavaExec>("fullscreenInputSmoke") {
             } else if (section == "commonArgs" || section == "clientArgs") launchArgs.add(line.trim())
         }
         systemProperty("neoraven.fullscreenSmoke", "true")
+        systemProperty("neoraven.keepWindow", "true")
         args(launchArgs)
         args("--tweakClass", "org.spongepowered.asm.launch.MixinTweaker", "--version", "1.8.9", "--width", "1280", "--height", "720")
         workingDir = file("build/fullscreen-input-smoke")
@@ -190,6 +192,7 @@ tasks.register<JavaExec>("glassResizeSmoke") {
             } else if (section == "commonArgs" || section == "clientArgs") launchArgs.add(line.trim())
         }
         systemProperty("neoraven.glassSmoke", "true")
+        systemProperty("neoraven.keepWindow", "true")
         args(launchArgs)
         args("--tweakClass", "org.spongepowered.asm.launch.MixinTweaker", "--version", "1.8.9", "--width", "1280", "--height", "720")
         workingDir = file("build/glass-resize-smoke")
@@ -226,6 +229,7 @@ tasks.register<JavaExec>("welcomeGlassSmoke") {
             } else if (section == "commonArgs" || section == "clientArgs") launchArgs.add(line.trim())
         }
         systemProperty("neoraven.welcomeSmoke", "true")
+        systemProperty("neoraven.keepWindow", "true")
         args(launchArgs)
         args("--tweakClass", "org.spongepowered.asm.launch.MixinTweaker", "--version", "1.8.9", "--width", "1280", "--height", "720")
         workingDir = file("build/welcome-glass-smoke")
@@ -269,6 +273,7 @@ tasks.register<JavaExec>("welcomeProfileSmoke") {
             } else if (section == "commonArgs" || section == "clientArgs") launchArgs.add(line.trim())
         }
         systemProperty("neoraven.welcomeSmoke", "true")
+        systemProperty("neoraven.keepWindow", "true")
         args(launchArgs)
         args("--tweakClass", "org.spongepowered.asm.launch.MixinTweaker", "--version", "1.8.9", "--width", "1280", "--height", "720")
         workingDir = file("build/welcome-profile-smoke")
@@ -297,6 +302,49 @@ tasks.register<JavaExec>("welcomeProfileSmoke") {
     doLast {
         check(file("build/welcome-profile-smoke/PASS.txt").isFile && !file("build/welcome-profile-smoke/FAIL.txt").exists()) {
             "Welcome/profile smoke test failed; see build/welcome-profile-smoke/logs/latest.log"
+        }
+    }
+}
+
+// Checks the ordinary launch window policy: the client opens larger than the launcher's fixed
+// 854x480, the title screen switches into borderless fullscreen on its own, and F11 returns to the
+// large window. Unlike the other smoke tests this one deliberately leaves the window policy on.
+tasks.register<JavaExec>("startupWindowSmoke") {
+    maxHeapSize = "768m"
+    jvmArgs("-XX:ParallelGCThreads=2", "-XX:CICompilerCount=2")
+    dependsOn(tasks.testClasses, "downloadAssets")
+    mainClass.set("net.minecraft.launchwrapper.Launch")
+    classpath = sourceSets.test.get().runtimeClasspath
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(8)) })
+    doFirst {
+        var section = ""
+        val launchArgs = mutableListOf<String>()
+        file(".gradle/loom-cache/launch.cfg").forEachLine { line ->
+            if (!line.startsWith("\t")) section = line.trim()
+            else if (section == "commonProperties" || section == "clientProperties") {
+                val entry = line.trim().split('=', limit = 2)
+                if (entry.size == 2) systemProperty(entry[0], entry[1])
+            } else if (section == "commonArgs" || section == "clientArgs") launchArgs.add(line.trim())
+        }
+        systemProperty("neoraven.startupWindowSmoke", "true")
+        args(launchArgs)
+        // A launcher-sized window on purpose: the client is expected to grow it itself.
+        args("--tweakClass", "org.spongepowered.asm.launch.MixinTweaker", "--version", "1.8.9", "--width", "854", "--height", "480")
+        workingDir = file("build/startup-window-smoke")
+        workingDir.deleteRecursively()
+        workingDir.mkdirs()
+        file("build/startup-window-smoke/keystrokes").mkdirs()
+        file("build/startup-window-smoke/keystrokes/soar-setup-v1.done").writeText("")
+        file("build/startup-window-smoke/keystrokes/config.txt").writeText(
+            "default_profile: \nlanguage: en\nauto_fullscreen: true\nsave_categories: false\n" +
+            "friends: \nenemies: \nonyx_panel_x: 0.0\nonyx_panel_y: 0.0\n"
+        )
+        file("build/startup-window-smoke/PASS.txt").delete()
+        file("build/startup-window-smoke/FAIL.txt").delete()
+    }
+    doLast {
+        check(file("build/startup-window-smoke/PASS.txt").isFile && !file("build/startup-window-smoke/FAIL.txt").exists()) {
+            "Startup window smoke test failed; see build/startup-window-smoke/logs/latest.log"
         }
     }
 }

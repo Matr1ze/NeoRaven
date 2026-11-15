@@ -13,6 +13,8 @@ import java.io.FileWriter;
 public final class ClientConfig {
     public static final String DIR = Minecraft.getMinecraft().mcDataDir + File.separator + "keystrokes";
     public static String defaultProfile;
+    /** Enter borderless fullscreen automatically once the title screen is up (default on). */
+    public static boolean autoFullscreen = true;
     private static float onyxPanelX;
     private static float onyxPanelY;
     private static boolean onyxPanelXLoaded;
@@ -35,6 +37,7 @@ public final class ClientConfig {
             FileWriter w = new FileWriter(file, false);
             write(w, "default_profile", defaultProfile == null ? "" : defaultProfile);
             write(w, "language", xyz.daikirai.util.Lang.locale());
+            write(w, "auto_fullscreen", autoFullscreen);
             write(w, "save_categories", GuiModule.saveCategoryPositions.isToggled());
             if (ClickGui.categories != null) {
                 for (CategoryComponent c : ClickGui.categories) {
@@ -72,6 +75,8 @@ public final class ClientConfig {
                         defaultProfile = value;
                     } else if (key.equals("language")) {
                         xyz.daikirai.util.Lang.setLocale(value);
+                    } else if (key.equals("auto_fullscreen")) {
+                        autoFullscreen = value.equals("true");
                     } else if (key.equals("save_categories")) {
                         GuiModule.saveCategoryPositions.setEnabled(value.equals("true"));
                         GuiModule.saveCategoryPositions.updateLabel();

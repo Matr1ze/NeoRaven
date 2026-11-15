@@ -30,6 +30,8 @@ public class MixinMinecraft {
 
     @Shadow public GuiScreen currentScreen;
     @Shadow private boolean fullscreen;
+    @Shadow public int displayWidth;
+    @Shadow public int displayHeight;
     private boolean neoraven$startBorderless;
 
     @Inject(method = "setInitialDisplayMode", at = @At("HEAD"))
@@ -37,6 +39,26 @@ public class MixinMinecraft {
         if (xyz.daikirai.client.BorderlessWindow.supported()) {
             neoraven$startBorderless = fullscreen;
             fullscreen = false;
+        }
+    }
+
+    /**
+     * Launchers start 1.8.9 at a fixed 854x480, which makes the splash and the first menus tiny.
+     * When the client is not running under the smoke-test harness, open larger than that; the
+     * F11/borderless switch then happens once the title screen exists (see {@code startGame}).
+     */
+    @Inject(method = "setInitialDisplayMode", at = @At("TAIL"))
+    private void neoraven$startupWindowSize(CallbackInfo ci) {
+        int[] size = xyz.daikirai.client.StartupWindow.preferredWindowSize();
+        if (size == null) {
+            return;
+        }
+        try {
+            this.displayWidth = size[0];
+            this.displayHeight = size[1];
+            Display.setDisplayMode(new org.lwjgl.opengl.DisplayMode(size[0], size[1]));
+        } catch (Throwable ignored) {
+            // Keep the launcher geometry when the display mode is rejected.
         }
     }
 
@@ -72,7 +94,13 @@ public class MixinMinecraft {
     @Inject(method = "startGame", at = @At("RETURN"))
     private void neoraven$windowBranding(CallbackInfo ci) {
         neoraven$applyWindowBranding();
-        if (neoraven$startBorderless) {
+        boolean auto = false;
+        try {
+            auto = xyz.daikirai.client.StartupWindow.autoFullscreen();
+        } catch (Throwable ignored) {
+            // Never keep the client windowed because config loading failed.
+        }
+        if (neoraven$startBorderless || auto) {
             neoraven$startBorderless = false;
             xyz.daikirai.client.BorderlessWindow.toggle((Minecraft) (Object) this);
         }
