@@ -6,6 +6,7 @@
 
 ## 没有这些开源项目，就不会有现在的NeoRaven。
 
+安卓用户或者普通版出现bug的pc用户请使用`compatible`版
 
   
 
