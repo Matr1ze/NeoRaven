@@ -61,6 +61,7 @@ public final class RotationManager {
             new Provider("InvMove", true, RotationSource.INVMANAGER),
             new Provider("45 Jump", true, RotationSource.JUMP45),
             new Provider("Bridge Assist", true, RotationSource.BRIDGEASSIST),
+            new Provider("ChestAura", true, RotationSource.CHESTAURA),
     };
 
     public static float[] request(float yaw, float pitch) {
@@ -96,7 +97,16 @@ public final class RotationManager {
     public static boolean scaffold2NoMovementFix;
     public static boolean killAura2NoMovementFix;
 
+    public static boolean remapMovementInput() {
+        return movementFix() && (source != RotationSource.CHESTAURA
+                || xyz.daikirai.module.player.ChestAuraModule.instance.movementMode() != 1);
+    }
+
     public static boolean movementFix() {
+        if (source == RotationSource.CHESTAURA) {
+            xyz.daikirai.module.player.ChestAuraModule aura = xyz.daikirai.module.player.ChestAuraModule.instance;
+            return Hooks.movementFixSetting() && rotating && aura != null && aura.movementMode() != 2;
+        }
         if (scaffold2NoMovementFix || killAura2NoMovementFix) {
             return false;
         }

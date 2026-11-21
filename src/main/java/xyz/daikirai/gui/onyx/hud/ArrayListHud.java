@@ -17,6 +17,7 @@ import xyz.daikirai.module.InfoSuffix;
 import xyz.daikirai.module.Module;
 import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.module.render.ArrayListModule;
+import xyz.daikirai.module.render.SilenceFixModule;
 import xyz.daikirai.module.setting.Setting;
 import xyz.daikirai.module.setting.SliderSetting;
 
@@ -149,7 +150,6 @@ public final class ArrayListHud {
 
         boolean rightAnchored = module.positionX() > 50.0F;
         boolean frost = module.background() && module.blur();
-        ui.begin();
         try {
             if (!preview) {
                 GlStateManager.pushMatrix();
@@ -158,6 +158,7 @@ public final class ArrayListHud {
             if (frost && fade > 0.01F) {
                 Blur.prepare();
             }
+            ui.begin();
             ui.alphaPush(fade);
             ui.push();
             ui.translate(x, y);
@@ -168,10 +169,10 @@ public final class ArrayListHud {
             ui.pop();
             ui.alphaPop();
         } finally {
+            ui.end();
             if (!preview) {
                 GlStateManager.popMatrix();
             }
-            ui.end();
             restoreHudState();
         }
     }
@@ -182,9 +183,11 @@ public final class ArrayListHud {
 
     private void refresh(ArrayListModule module, float delta) {
         order.clear();
+        Module pinned = null;
         float speed = Math.max(0.25F, module.animationSpeed());
         for (Module candidate : ModuleManager.modules) {
-            if (!module.includes(candidate) || !candidate.isEnabled()) {
+            boolean pin = candidate instanceof SilenceFixModule;
+            if (!candidate.isEnabled() || (!pin && !module.includes(candidate))) {
                 continue;
             }
             Row row = rows.get(candidate);
@@ -192,12 +195,12 @@ public final class ArrayListHud {
                 row = new Row(candidate);
                 rows.put(candidate, row);
             }
-            String base = candidate.localizedName();
+            String base = pin ? SilenceFixModule.ARRAY_LIST_LABEL : candidate.getName();
             if (base == null) {
                 continue;
             }
-            row.name = ui.truncate(Typeface.HEADLINE, base, MAX_NAME);
-            String suffix = module.suffix() ? suffix(candidate) : null;
+            row.name = pin ? base : ui.truncate(Typeface.HEADLINE, base, MAX_NAME);
+            String suffix = !pin && module.suffix() ? suffix(candidate) : null;
             if (suffix != null && module.lowercase()) {
                 suffix = suffix.toLowerCase(Locale.ROOT);
             }
@@ -205,11 +208,15 @@ public final class ArrayListHud {
             row.textWidth = Typeface.HEADLINE.width(row.name)
                     + (row.suffix == null ? 0.0F : SUFFIX_GAP + Typeface.BODY.width(row.suffix));
             row.visible.to(1.0F, ENTER_MS / speed, Ease.EMPHASIZED_DECELERATE);
-            order.add(candidate);
+            if (pin) {
+                pinned = candidate;
+            } else {
+                order.add(candidate);
+            }
         }
 
         for (Module candidate : new ArrayList<Module>(rows.keySet())) {
-            if (!order.contains(candidate)) {
+            if (candidate != pinned && !order.contains(candidate)) {
                 rows.remove(candidate);
             }
         }
@@ -219,6 +226,9 @@ public final class ArrayListHud {
         for (int i = 0; i < order.size(); i++) {
             Row row = rows.get(order.get(i));
             row.offset.to(i * rowH, MOVE_MS / speed, Ease.DECELERATE);
+        }
+        if (pinned != null) {
+            order.add(0, pinned);
         }
         for (Row row : rows.values()) {
             row.visible.update(delta);
@@ -231,7 +241,7 @@ public final class ArrayListHud {
         if (mode == 1) {
             order.sort((a, b) -> Float.compare(rows.get(a).textWidth, rows.get(b).textWidth));
         } else if (mode == 2) {
-            order.sort((a, b) -> a.localizedName().compareToIgnoreCase(b.localizedName()));
+            order.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
         } else {
             order.sort((a, b) -> Float.compare(rows.get(b).textWidth, rows.get(a).textWidth));
         }
@@ -264,27 +274,31 @@ public final class ArrayListHud {
         // on a slab that is as wide as the longest module name.
         boolean rowBlocks = background && style == STYLE_ACCENT_BAR && module.backgroundStyle() == 1;
 
+        boolean joinRows = module.rowSpacing() == 0.0F;
+
         if (background && style == STYLE_ACCENT_BAR && !rowBlocks) {
             if (blurred) {
                 // An opaque tint plus a coverage, the same recipe the HUD cards use: a translucent
                 // tint would let the sharp world through and read as no blur at all.
-                ui.frost(0.0F, 0.0F, layoutWidth, layoutHeight, BLOCK_RADIUS,
+                ui.frostCorners(0.0F, 0.0F, layoutWidth, layoutHeight, 0.0F, 0.0F, BLOCK_RADIUS, BLOCK_RADIUS,
                         Material.withAlpha(scheme.surface, 1.0F), BLUR_COVERAGE);
             } else {
-                ui.rounded(0.0F, 0.0F, layoutWidth, layoutHeight, BLOCK_RADIUS,
+                ui.roundedCorners(0.0F, 0.0F, layoutWidth, layoutHeight, 0.0F, 0.0F, BLOCK_RADIUS, BLOCK_RADIUS,
                         Material.withAlpha(scheme.surface, 0.55F));
             }
         }
 
         boolean shadowText = module.textShadow() && !background;
         int count = order.size();
+        float pinnedHeight = count > 0 && order.get(0) instanceof SilenceFixModule
+                ? ROW_H + module.rowSpacing() : 0.0F;
         for (int i = 0; i < count; i++) {
             Row row = rows.get(order.get(i));
             float alpha = Material.clamp(row.visible.value(), 0.0F, 1.0F);
             if (alpha <= 0.004F) {
                 continue;
             }
-            float top = row.offset.value();
+            float top = row.offset.value() + (i == 0 ? 0.0F : pinnedHeight);
             float rowWidth = row.textWidth + inset * 2.0F;
             float left = rightAnchored ? layoutWidth - rowWidth : 0.0F;
             int accent = accentColor(module, scheme, row, i, count);
@@ -324,32 +338,25 @@ public final class ArrayListHud {
                 }
             }
 
-            if (background && style == STYLE_ACCENT_BAR && rowBlocks) {
-                // Same frosted recipe as the other HUD cards, drawn per row so it hugs this row's
-                // text. Rows stay flush with each other: only the outer corners of the column are
-                // rounded, so the list reads as one continuous frosted shape, not stacked pills.
-                float tl = i == 0 ? BLOCK_RADIUS : 0.0F;
-                float tr = i == 0 ? BLOCK_RADIUS : 0.0F;
-                float br = i == count - 1 ? BLOCK_RADIUS : 0.0F;
-                float bl = i == count - 1 ? BLOCK_RADIUS : 0.0F;
+            boolean joinTop = joinRows && i > 0;
+            boolean joinBottom = joinRows && i < count - 1;
+            if (rowBlocks) {
+                float bottomRadius = i == count - 1 ? BLOCK_RADIUS : 0.0F;
                 if (blurred) {
-                    ui.frostCorners(left, top, rowWidth, ROW_H, tl, tr, br, bl,
-                            Material.withAlpha(scheme.surface, 1.0F), BLUR_COVERAGE);
+                    ui.frostCorners(left, top, rowWidth, ROW_H, 0.0F, 0.0F, bottomRadius, bottomRadius,
+                            Material.withAlpha(scheme.surface, 1.0F), BLUR_COVERAGE, joinTop, joinBottom);
                 } else {
-                    ui.roundedCorners(left, top, rowWidth, ROW_H, tl, tr, br, bl,
-                            Material.withAlpha(scheme.surface, 0.55F));
+                    ui.roundedCorners(left, top, rowWidth, ROW_H, 0.0F, 0.0F, bottomRadius, bottomRadius,
+                            Material.withAlpha(scheme.surface, 0.55F), joinTop, joinBottom);
                 }
             }
 
             if (background && style == STYLE_ACCENT_BAR) {
-                // A plain rect, not a rounded one: consecutive rows must join into one continuous
-                // stripe, and a per-row pill would leave a wedge notch at every row boundary. The
-                // first and last bars are inset so their square ends stay inside the block's
-                // rounded corners (the stripe variant runs edge to edge like Onyx's did).
                 float barX = rightAnchored ? layoutWidth - BAR : 0.0F;
-                float topInset = rowBlocks ? 0.0F : (i == 0 ? 3.0F : 0.0F);
-                float bottomInset = rowBlocks ? 0.0F : (i == count - 1 ? 3.0F : 0.0F);
-                ui.rect(barX, top + topInset, BAR, ROW_H - topInset - bottomInset, accent);
+                // Keep the card's last bar inside its rounded bottom corner.
+                float bottomInset = !rowBlocks && i == count - 1 ? 3.0F : 0.0F;
+                ui.roundedCorners(barX, top, BAR, ROW_H - bottomInset,
+                        0.0F, 0.0F, 0.0F, 0.0F, accent, joinTop, joinBottom);
             }
 
             float textRight = layoutWidth - inset;

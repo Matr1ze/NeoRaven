@@ -6,6 +6,11 @@ import xyz.daikirai.module.Module;
 import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.module.setting.ButtonSetting;
 import xyz.daikirai.module.setting.SliderSetting;
+import xyz.daikirai.module.setting.Setting;
+import xyz.daikirai.gui.onyx.material.Material;
+import xyz.daikirai.gui.onyx.material.Theme;
+import xyz.daikirai.gui.onyx.render.M3MiningProgress;
+import java.util.ArrayList;
 import xyz.daikirai.util.BlockUtils;
 import xyz.daikirai.util.RenderUtils;
 import xyz.daikirai.util.Strings;
@@ -24,12 +29,15 @@ import java.text.DecimalFormat;
 
 public class BreakProgressModule extends Module {
     public enum Mode {
-        Percentage, Seconds, Raw
+        Percentage, Seconds, Raw, Circle
     }
 
     public static Mode mode = Mode.Percentage;
     public static SliderSetting modeSetting;
     public static ButtonSetting showManual, showBedAura, fadeIn;
+    private final M3MiningProgress circle = new M3MiningProgress();
+    private SliderSetting circleStyle;
+    private ArrayList<Setting> textSettings;
     private String text;
     private float progress;
     private final Field curBlockDamage;
@@ -42,19 +50,38 @@ public class BreakProgressModule extends Module {
     }
 
     public void link() {
-        modeSetting = (SliderSetting) ModuleManager.setting(this, "Mode");
-        showManual = (ButtonSetting) ModuleManager.setting(this, "Show Manual");
-        showBedAura = (ButtonSetting) ModuleManager.setting(this, "Show BedAura");
-        fadeIn = (ButtonSetting) ModuleManager.setting(this, "Fade in");
+        modeSetting = (SliderSetting) setting( "Mode");
+        showManual = (ButtonSetting) setting( "Show Manual");
+        showBedAura = (ButtonSetting) setting( "Show BedAura");
+        fadeIn = (ButtonSetting) setting( "Fade in");
+        circleStyle = (SliderSetting) setting("Circle style");
+        textSettings = new ArrayList<Setting>(settings);
+        textSettings.remove(circleStyle);
     }
+
+    private Setting setting(String name) {
+        for (Setting s : settings) if (s.getName().equals(name)) return s;
+        throw new IllegalStateException("BreakProgress has no setting " + name);
+    }
+
+    @Override public ArrayList<Setting> getSettings() {
+        return textSettings == null || modeSetting != null && (int)modeSetting.getInput() == Mode.Circle.ordinal()
+                ? settings : textSettings;
+    }
+    @Override public ArrayList<Setting> persistedSettings() { return settings; }
 
     @Override
     public void guiUpdate() {
-        mode = Mode.values()[(int) modeSetting.getInput()];
+        Mode next=Mode.values()[Math.max(0,Math.min(Mode.values().length-1,(int)modeSetting.getInput()))];
+        if(mode==Mode.Circle && next!=mode)circle.close();
+        mode=next;
     }
 
     private void updateText() {
         switch (mode) {
+            case Circle:
+                this.text = (int)(100.0 * Material.clamp(this.progress,0,1)) + "%";
+                break;
             case Percentage:
                 this.text = (int) (100.0 * (double) this.progress) + "%";
                 break;
@@ -71,6 +98,7 @@ public class BreakProgressModule extends Module {
 
     @Override
     public void onUpdate() {
+        guiUpdate();
         if (mc.thePlayer.capabilities.isCreativeMode || !mc.thePlayer.capabilities.allowEdit) {
             this.reset();
             return;
@@ -103,6 +131,7 @@ public class BreakProgressModule extends Module {
     }
 
     private void reset() {
+        circle.close();
         this.progress = 0.0f;
         this.pos = null;
         this.text = "";
@@ -110,6 +139,7 @@ public class BreakProgressModule extends Module {
 
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent e) {
+        guiUpdate();
         if (this.progress == 0.0f || this.pos == null || !Chat.inWorld()) {
             return;
         }
@@ -124,10 +154,15 @@ public class BreakProgressModule extends Module {
         GlStateManager.scale(-0.02266667f, -0.02266667f, -0.02266667f);
         GlStateManager.depthMask(false);
         GlStateManager.disableDepth();
+        if(mode==Mode.Circle)this.text=(int)(100.0*Material.clamp(progress,0,1))+"%";
         int n = mc.fontRendererObj.getStringWidth(this.text) / -2;
         GlStateManager.disableAlpha();
         GlStateManager.enableBlend();
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        if(mode==Mode.Circle) {
+            float opacity=(fadeIn.isToggled()?26+214*Material.clamp(progress,0,1):240)/255.0F;
+            circle.draw(0,0,32,(int)circleStyle.getInput(),Material.clamp(progress,0,1),Theme.scheme().primary,opacity);
+        }
         if (fadeIn.isToggled()) {
             int alpha = 26 + (int) ((float) (240 - 26) * this.progress);
             mc.fontRendererObj.drawString(this.text, (float) n, (float) -3, RenderUtils.withAlpha(-1, alpha), true);

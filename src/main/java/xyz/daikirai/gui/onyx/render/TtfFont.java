@@ -1,7 +1,6 @@
 package xyz.daikirai.gui.onyx.render;
 
 import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.texture.TextureUtil;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -23,22 +22,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * TrueType font renderer with a mip-mapped RGBA atlas, ported from Onyx's {@code render.font.Ayg}.
+ * TrueType font renderer with a mip-mapped alpha atlas, ported from Onyx's {@code render.font.Ayg}.
  *
  * <p>Glyphs are rasterised at up to 192px through java.awt, packed into an atlas with the same
- * 8px margin the original used and simply downscaled by a matrix for smaller sizes. The atlas
- * stores white RGB with the glyph coverage in alpha, matching EdMoonlight's rasteriser: an
- * alpha-only or intensity texture exposes black RGB on drivers that do not fold intensity into
- * the colour channels, which turns every glyph into a solid block.</p>
+ * 8px margin the original used and simply downscaled by a matrix for smaller sizes. Keeping the
+ * rasteriser, margin and scale identical is what makes the Material type metrics line up with
+ * the reference client.</p>
  */
 public final class TtfFont {
-
-    /**
-     * Android drivers do not fold intensity into colour, so the atlas there stores white RGB with the
-     * coverage in alpha. Every other driver keeps the 1 byte/px GL_ALPHA atlas, which is four times
-     * smaller and cheaper to sample - the RGBA layout was the main rendering cost of the PR #6 port.
-     */
-    private static final boolean RGBA_ATLAS = xyz.daikirai.music.AudioRuntime.isAndroid();
 
     private static final int PADDING = 8;
     private static final int MIP_LEVELS = 4;
@@ -296,22 +287,8 @@ public final class TtfFont {
         GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
         for (int level = 0; level < MIP_LEVELS; level++) {
             int dimension = atlasSize >> level;
-            if (RGBA_ATLAS) {
-                ByteBuffer clear = BufferUtils.createByteBuffer(dimension * dimension * 4);
-                for (int i = 0; i < dimension * dimension; i++) {
-                    clear.put((byte) 0xFF);
-                    clear.put((byte) 0xFF);
-                    clear.put((byte) 0xFF);
-                    clear.put((byte) 0x00);
-                }
-                clear.clear();
-                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, level, GL11.GL_RGBA, dimension, dimension, 0,
-                        GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, clear);
-            } else {
-                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, level, GL11.GL_ALPHA, dimension, dimension, 0,
-                        GL11.GL_ALPHA, GL11.GL_UNSIGNED_BYTE,
-                        BufferUtils.createByteBuffer(dimension * dimension));
-            }
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, level, GL11.GL_ALPHA, dimension, dimension, 0,
+                    GL11.GL_ALPHA, GL11.GL_UNSIGNED_BYTE, BufferUtils.createByteBuffer(dimension * dimension));
         }
         GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
     }
@@ -345,25 +322,11 @@ public final class TtfFont {
         GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
     }
 
-    private void uploadLevel(int level, int x, int y, int width, int height, byte[] coverage) {
-        int pixels = width * height;
-        if (RGBA_ATLAS) {
-            ByteBuffer buffer = BufferUtils.createByteBuffer(pixels * 4);
-            for (int i = 0; i < pixels; i++) {
-                buffer.put((byte) 0xFF);
-                buffer.put((byte) 0xFF);
-                buffer.put((byte) 0xFF);
-                buffer.put(coverage[i]);
-            }
-            buffer.flip();
-            GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, level, x, y, width, height,
-                    GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
-        } else {
-            ByteBuffer buffer = BufferUtils.createByteBuffer(pixels);
-            buffer.put(coverage, 0, pixels).flip();
-            GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, level, x, y, width, height,
-                    GL11.GL_ALPHA, GL11.GL_UNSIGNED_BYTE, buffer);
-        }
+    private void uploadLevel(int level, int x, int y, int width, int height, byte[] data) {
+        ByteBuffer buffer = BufferUtils.createByteBuffer(width * height);
+        buffer.put(data, 0, width * height).flip();
+        GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, level, x, y, width, height,
+                GL11.GL_ALPHA, GL11.GL_UNSIGNED_BYTE, buffer);
     }
 
     private static byte[] downsample(byte[] source, int width, int height, int targetWidth, int targetHeight) {
@@ -398,11 +361,9 @@ public final class TtfFont {
             }
             // Toggle through GlStateManager so a cap left behind by raw glEnable/glDisable calls
             // cannot leave the glyphs untextured (which draws solid blocks instead of letters).
-            GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
             GlStateManager.disableTexture2D();
             GlStateManager.enableTexture2D();
             GlStateManager.bindTexture(texture);
-            GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
             GL11.glColor4f((color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F,
                     (color & 0xFF) / 255.0F, (color >>> 24) / 255.0F);
             GL11.glBegin(GL11.GL_QUADS);
@@ -439,11 +400,9 @@ public final class TtfFont {
         if (glyph.isEmpty() || texture == -1) {
             return;
         }
-        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         GlStateManager.disableTexture2D();
         GlStateManager.enableTexture2D();
         GlStateManager.bindTexture(texture);
-        GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
         GlStateManager.color((color >> 16 & 255) / 255.0F, (color >> 8 & 255) / 255.0F,
                 (color & 255) / 255.0F, (color >>> 24) / 255.0F);
         float x0 = x + glyph.bearingX * factor;
@@ -465,6 +424,38 @@ public final class TtfFont {
         // Leave the ambient colour neutral: callers mix glyphs with quads of their own, and a
         // leftover glyph colour is exactly how untinted shapes end up dark.
         GlStateManager.resetColor();
+    }
+
+    private static Shader digitBlurShader;
+
+    /** Gaussian coverage for the island's numeric animation, using this face's existing atlas. */
+    public void drawBlurredDigit(char digit, int color, float sigma) {
+        Glyph g = glyph(digit);
+        if (g.isEmpty() || texture == -1 || color >>> 24 == 0) return;
+        if (digitBlurShader == null) digitBlurShader = Shader.load("onyx_digit_blur", "onyx_image");
+        if (!digitBlurShader.valid() || sigma <= .03F) { draw(String.valueOf(digit), color); return; }
+        int program = GL11.glGetInteger(0x8B8D);
+        net.minecraft.client.renderer.GlStateManager.setActiveTexture(net.minecraft.client.renderer.OpenGlHelper.defaultTexUnit);
+        GlStateManager.disableTexture2D(); GlStateManager.enableTexture2D(); GlStateManager.bindTexture(texture);
+        float unit = 1 / (scale * atlasSize), pad = sigma * 3;
+        float x0 = g.bearingX - pad, y0 = PADDING - 1 + g.bearingY - pad;
+        float x1 = g.bearingX + g.width + pad, y1 = PADDING - 1 + g.bearingY + g.height + pad;
+        try {
+            digitBlurShader.use(); digitBlurShader.uniform1i("uTexture", 0);
+            digitBlurShader.uniform2f("uSigma", sigma * unit, sigma * unit);
+            digitBlurShader.uniform4f("uBounds", g.u0, g.v0, g.u1, g.v1);
+            GL11.glColor4f((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F,
+                    (color & 255) / 255F, (color >>> 24) / 255F);
+            GL11.glBegin(GL11.GL_QUADS);
+            GL11.glTexCoord2f(g.u0-pad*unit, g.v0-pad*unit); GL11.glVertex2f(x0,y0);
+            GL11.glTexCoord2f(g.u0-pad*unit, g.v1+pad*unit); GL11.glVertex2f(x0,y1);
+            GL11.glTexCoord2f(g.u1+pad*unit, g.v1+pad*unit); GL11.glVertex2f(x1,y1);
+            GL11.glTexCoord2f(g.u1+pad*unit, g.v0-pad*unit); GL11.glVertex2f(x1,y0);
+            GL11.glEnd();
+        } finally {
+            net.minecraft.client.renderer.OpenGlHelper.glUseProgram(program);
+            GL11.glColor4f(1,1,1,1); GlStateManager.resetColor();
+        }
     }
 
     /** A single atlas entry. */

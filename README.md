@@ -11,7 +11,7 @@
   
 
 
-- **构建**：`gradlew build` → `build/libs/NeoRaven.jar`，丢进 `.minecraft/mods/` 即可。
+- **构建**：`gradlew build` → `build/libs/RavenB4.jar`，丢进 `.minecraft/mods/` 即可。
 - **配置目录**：`.minecraft/keystrokes/`
 - **命令**：游戏里输入 `.help` 
 - 仅用于学习研究，与 Mojang / Microsoft / Hypixel 无关，使用风险自负。

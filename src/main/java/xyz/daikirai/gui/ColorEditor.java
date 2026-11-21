@@ -14,13 +14,14 @@ import xyz.daikirai.gui.onyx.render.Spring;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
 import xyz.daikirai.module.setting.ColorSetting;
+import xyz.daikirai.module.Module;
 
 /**
  * Material 3 Expressive colour picker for a {@link ColorSetting}, opened from a module row.
  *
  * <p>The sheet is built from the same parts as the ClickGUI and the HUD cards: a frosted surface
  * ({@link UI#frost} over {@link Blur}, exactly the material the panel and the cards use), the
- * scheme's own colour roles, the MiSans type scale and the SDF shape pipeline. The dialog
+ * scheme's own colour roles, the Google Sans type scale and the SDF shape pipeline. The dialog
  * sits on the usual scrim, so opening it reads as the panel turning into a colour sheet rather
  * than a second, differently styled window.</p>
  *
@@ -28,7 +29,8 @@ import xyz.daikirai.module.setting.ColorSetting;
  * with a circular icon badge, a segmented button whose thumb slides on a {@link Spring} (the
  * under-damped one from {@code render.Spring}, so it lands with a small bounce), gradient HSV
  * plane and hue ramp with spring-grown handles, swatch chips that scale under the pointer, and
- * "Cancel"/"Save" as a text button and a filled button that both compress while held.</p>
+ * "Cancel"/"Save" as a text button and a filled button that both compress while held. The sheet
+ * enters with a spring-driven scale and a corner-radius morph instead of appearing on one frame.</p>
  *
  * <p>Behaviour is unchanged from the previous picker: all edits stay local until Save, the HSV
  * fields drive both the plane and the hue strip, following the theme previews
@@ -89,7 +91,11 @@ public final class ColorEditor extends GuiScreen {
     private final GuiScreen parent;
     private final ColorSetting setting;
     private final UI ui = new UI();
+    private final VisualPreview preview = new VisualPreview();
+    private final Module previewModule;
 
+    /** Entrance progress; the sheet scales and fades in, then settles at 1. */
+    private final Spring open = new Spring(0.0F);
     /** 0 = follow theme, 1 = custom. Drives the segmented thumb. */
     private final Spring segment = new Spring(0.0F);
     /** 0..1 while a picker control is held; grows the handles so they read as grabbed. */
@@ -108,6 +114,7 @@ public final class ColorEditor extends GuiScreen {
     private float delta = 16.0F;
     private long lastFrame;
     private boolean firstFrame = true;
+    private boolean entered;
 
     private boolean theme;
     /** 0 = nothing, 1 = the HSV plane, 2 = the hue ramp. */
@@ -118,6 +125,7 @@ public final class ColorEditor extends GuiScreen {
     public ColorEditor(GuiScreen parent, ColorSetting setting) {
         this.parent = parent;
         this.setting = setting;
+        this.previewModule = VisualPreview.editing(parent);
         this.theme = setting.followsTheme();
         for (int i = 0; i < swatches.length; i++) {
             swatches[i] = new Spring(0.0F);
@@ -135,7 +143,8 @@ public final class ColorEditor extends GuiScreen {
 
     @Override
     public void initGui() {
-        scale = Math.min(1.0F, Math.min((width - 16.0F) / W, (height - 16.0F) / H));
+        float desiredWidth = VisualPreview.supports(previewModule) ? W + 265 : W;
+        scale = Math.min(1.0F, Math.min((width - 16.0F) / desiredWidth, (height - 16.0F) / H));
         scale = Math.max(0.1F, scale);
         left = (width - W * scale) / 2.0F;
         top = (height - H * scale) / 2.0F;
@@ -144,6 +153,13 @@ public final class ColorEditor extends GuiScreen {
         Blur.request();
         lastFrame = System.nanoTime();
         firstFrame = true;
+        if (!entered) {
+            // Only the first open animates; `initGui` runs again on every window resize and the
+            // sheet must not replay its entrance under the cursor while it is being dragged.
+            entered = true;
+            open.set(0.0F);
+            open.target(1.0F);
+        }
     }
 
     // ------------------------------------------------------------------ //
@@ -158,16 +174,23 @@ public final class ColorEditor extends GuiScreen {
 
         segment.target(theme ? 0.0F : 1.0F);
         grab.target(dragging != 0 ? 1.0F : 0.0F);
+        open.update(delta);
         segment.update(delta);
         grab.update(delta);
     }
 
+    /** Entrance scale, 1 once the spring has settled. */
     private float entrance() {
-        return 1.0F;
+        return 0.94F + 0.06F * open.value();
     }
 
+    /**
+     * Sheet corner radius while entering. Expressive motion morphs the shape as it settles: the
+     * sheet starts nearly round and tightens to {@link #RADIUS}. The extra 22px never reaches the
+     * content, which is inset by {@link #MARGIN}, so nothing gets clipped mid-transition.
+     */
     private float sheetRadius() {
-        return RADIUS;
+        return RADIUS + 22.0F * (1.0F - clamp(open.value()));
     }
 
     /** Advances a pointer-driven spring and returns its value. */
@@ -280,6 +303,17 @@ public final class ColorEditor extends GuiScreen {
             drawFooter(s, mx, my);
 
             ui.pop();
+            if (VisualPreview.supports(previewModule)) {
+                ui.push();
+                ui.scale(scale, 0, 0);
+                try {
+                    setting.drawPreview(theme ? setting.themeColor() : custom(),
+                            () -> preview.draw(ui, s, previewModule, left / scale, top / scale, W, H,
+                                    width / scale, height / scale, delta));
+                } finally {
+                    ui.pop();
+                }
+            }
         } finally {
             ui.end();
         }
@@ -292,14 +326,14 @@ public final class ColorEditor extends GuiScreen {
             ui.gradient(0.0F, 0.0F, width, height, s.surfaceContainerLow, s.surface);
             return;
         }
-        ui.rect(0.0F, 0.0F, width, height, Theme.scrim(1.0F));
+        ui.rect(0.0F, 0.0F, width, height, Theme.scrim(clamp(open.value())));
     }
 
     private void drawHeader(Scheme s, float mx, float my) {
         ui.rounded(MARGIN, HEADER_Y, BADGE, BADGE, BADGE / 2.0F, s.primaryContainer);
         ui.icon(Icons.PALETTE, MARGIN + BADGE / 2.0F, HEADER_Y + BADGE / 2.0F, 21.0F, s.onPrimaryContainer);
 
-        String title = Text.strip(setting.localizedName());
+        String title = Text.strip(setting.getName());
         float titleWidth = CLOSE_X - 12.0F - (MARGIN + 52.0F);
         ui.text(Typeface.HEADLINE, ui.truncate(Typeface.HEADLINE, title, titleWidth),
                 MARGIN + 52.0F, HEADER_Y + BADGE / 2.0F, s.onSurface, UI.ALIGN_LEFT);
@@ -343,8 +377,8 @@ public final class ColorEditor extends GuiScreen {
                     Material.withAlpha(s.onSurface, 0.07F));
         }
 
-        segmentLabel(Icons.TONALITY, xyz.daikirai.util.Lang.text("Follow theme"), themeCenter, centerY, theme, s);
-        segmentLabel(Icons.BRUSH, xyz.daikirai.util.Lang.text("Custom"), customCenter, centerY, !theme, s);
+        segmentLabel(Icons.TONALITY, setting.followLabel(), themeCenter, centerY, theme, s);
+        segmentLabel(Icons.BRUSH, "Custom", customCenter, centerY, !theme, s);
     }
 
     private void segmentLabel(String icon, String label, float centerX, float y, boolean active, Scheme s) {
@@ -565,6 +599,7 @@ public final class ColorEditor extends GuiScreen {
 
     @Override
     public void onGuiClosed() {
+        preview.close();
         Blur.request();
     }
 

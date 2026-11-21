@@ -27,6 +27,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import java.awt.Color;
 
 public class MobESPModule extends Module {
+    private ButtonSetting renderSelf;
     public static ButtonSetting healthBar, outline, shaded, blaze, creeper, enderman, ghast, ironGolem, silverfish, skeleton, slime, spider, witch, wolf, zombie, zombiePigman;
 
     public MobESPModule(int key) {
@@ -34,6 +35,7 @@ public class MobESPModule extends Module {
     }
 
     public void link() {
+        renderSelf = (ButtonSetting) xyz.daikirai.module.ModuleManager.setting(this, "Render self");
         ButtonSetting[] s = new ButtonSetting[16];
         for (int i = 0; i < s.length; ++i) {
             s[i] = (ButtonSetting) this.settings.get(i);
@@ -73,6 +75,7 @@ public class MobESPModule extends Module {
         if (!Chat.inWorld()) {
             return;
         }
+        if (Render3D.showSelf(renderSelf)) render(mc.thePlayer, -1, e.partialTicks);
         for (Entity entity : mc.theWorld.loadedEntityList) {
             if (!(entity instanceof EntityLivingBase) || entity == mc.thePlayer || ((EntityLivingBase) entity).deathTime != 0) continue;
             this.renderMob(entity, e.partialTicks);

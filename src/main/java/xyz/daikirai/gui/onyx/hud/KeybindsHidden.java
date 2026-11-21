@@ -1,17 +1,20 @@
 package xyz.daikirai.gui.onyx.hud;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import xyz.daikirai.client.ClientConfig;
+import xyz.daikirai.client.Profile;
+import xyz.daikirai.client.Profiles;
 import xyz.daikirai.module.Module;
 import xyz.daikirai.module.ModuleManager;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -26,14 +29,15 @@ import java.util.Set;
  * {@link Module#hidden} and removes the module from the HUD element list. A module can be hidden
  * from one list while staying visible in the other, and profiles never sync the two.</p>
  *
- * <p>The list is stored as lowercase module names in {@code keystrokes/keybinds-hidden.txt}, so it
- * survives restarts and re-ordering without touching the profile format.</p>
+ * <p>Each profile stores lowercase module names. Client defaults also cover sessions with
+ * no selected profile and seed profiles created before the list was part of their JSON.</p>
  */
 public final class KeybindsHidden {
 
-    private static final String FILE_NAME = "keybinds-hidden.txt";
-    private static final Set<String> HIDDEN = new LinkedHashSet<String>();
-    private static boolean loaded;
+    public static final String CONFIG_KEY = "hiddenKeybinds";
+    private static final String LEGACY_FILE = "keybinds-hidden.txt";
+    private static Set<String> defaults;
+    private static Set<String> hidden;
 
     private KeybindsHidden() {
     }
@@ -44,126 +48,150 @@ public final class KeybindsHidden {
     }
 
     public static synchronized boolean isHidden(String moduleName) {
-        load();
-        return moduleName != null && HIDDEN.contains(moduleName.toLowerCase(Locale.ROOT));
+        return moduleName != null && entries().contains(normalize(moduleName));
     }
 
     /** Adds the module; returns {@code true} when it was not hidden before. */
-    public static synchronized boolean hide(Module module) {
-        load();
-        if (module == null) {
+    public static synchronized boolean hide(Module module) throws IOException {
+        if (module == null || isHidden(module)) {
             return false;
         }
-        boolean changed = HIDDEN.add(module.getName().toLowerCase(Locale.ROOT));
-        if (changed) {
-            save();
-        }
-        return changed;
-    }
-
-    /** Removes the module; returns {@code true} when it was hidden before. */
-    public static synchronized boolean show(Module module) {
-        load();
-        if (module == null) {
-            return false;
-        }
-        boolean changed = HIDDEN.remove(module.getName().toLowerCase(Locale.ROOT));
-        if (changed) {
-            save();
-        }
-        return changed;
-    }
-
-    /** Flips the module; returns the new hidden state. */
-    public static synchronized boolean toggle(Module module) {
-        if (module == null) {
-            return false;
-        }
-        if (show(module)) {
-            return false;
-        }
-        hide(module);
+        Set<String> updated = new LinkedHashSet<>(entries());
+        updated.add(normalize(module.getName()));
+        store(updated);
         return true;
     }
 
+    /** Removes the module; returns {@code true} when it was hidden before. */
+    public static synchronized boolean show(Module module) throws IOException {
+        if (!isHidden(module)) {
+            return false;
+        }
+        Set<String> updated = new LinkedHashSet<>(entries());
+        updated.remove(normalize(module.getName()));
+        store(updated);
+        return true;
+    }
+
+    /** Flips the module; returns the new hidden state. */
+    public static synchronized boolean toggle(Module module) throws IOException {
+        return !show(module) && hide(module);
+    }
+
     /** Unhides everything; returns how many entries were removed. */
-    public static synchronized int clear() {
-        load();
-        int count = HIDDEN.size();
+    public static synchronized int clear() throws IOException {
+        int count = entries().size();
         if (count > 0) {
-            HIDDEN.clear();
-            save();
+            store(Collections.<String>emptySet());
         }
         return count;
     }
 
     public static synchronized int size() {
-        load();
-        return HIDDEN.size();
+        return entries().size();
     }
 
     /** Hidden module names in their current spelling (unknown/stale names are kept verbatim). */
     public static synchronized List<String> names() {
-        load();
-        List<String> names = new ArrayList<String>(HIDDEN.size());
-        for (String key : HIDDEN) {
+        List<String> names = new ArrayList<String>(entries().size());
+        for (String key : entries()) {
             Module module = ModuleManager.getIgnoreCase(key);
-            names.add(module == null ? key : module.localizedName());
+            names.add(module == null ? key : module.getName());
         }
         Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
         return names;
     }
 
-    // ------------------------------------------------------------------ //
-    // Persistence
-    // ------------------------------------------------------------------ //
+    /** An explicitly empty array overrides the client defaults. */
+    public static synchronized void useProfile(JsonElement saved) {
+        hidden = saved != null && saved.isJsonArray() ? decode(saved.getAsJsonArray()) : defaults();
+    }
 
-    private static void load() {
-        if (loaded) {
-            return;
+    public static synchronized JsonArray toJson() {
+        return encode(entries());
+    }
+
+    private static Set<String> entries() {
+        if (hidden == null) {
+            useProfile(null);
         }
-        loaded = true;
-        File file = file();
-        if (!file.isFile()) {
-            return;
+        return hidden;
+    }
+
+    private static Set<String> defaults() {
+        if (defaults != null) return defaults;
+        defaults = new LinkedHashSet<>();
+        File config = clientFile();
+        if (config.exists()) {
+            try (BufferedReader reader = Files.newBufferedReader(config.toPath(), StandardCharsets.UTF_8)) {
+                JsonElement saved = new JsonParser().parse(reader).getAsJsonObject().get(CONFIG_KEY);
+                if (saved != null && saved.isJsonArray()) {
+                    defaults = decode(saved.getAsJsonArray());
+                    return defaults;
+                }
+            } catch (IOException | RuntimeException e) {
+                System.err.println("[onyx] could not read the client hidden keybinds: " + e);
+                return defaults;
+            }
         }
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new FileInputStream(file), StandardCharsets.UTF_8))) {
+        File legacy = new File(ClientConfig.DIR, LEGACY_FILE);
+        if (!legacy.isFile()) return defaults;
+        Set<String> migrated = new LinkedHashSet<>();
+        try (BufferedReader reader = Files.newBufferedReader(legacy.toPath(), StandardCharsets.UTF_8)) {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
                 if (!line.isEmpty() && !line.startsWith("#")) {
-                    HIDDEN.add(line.toLowerCase(Locale.ROOT));
+                    migrated.add(normalize(line));
                 }
             }
-        } catch (Exception e) {
-            System.err.println("[onyx] could not read " + FILE_NAME + ": " + e);
+        } catch (IOException e) {
+            System.err.println("[onyx] could not read " + LEGACY_FILE + ": " + e);
+            return defaults;
         }
-    }
-
-    private static void save() {
-        File file = file();
+        defaults = migrated;
         try {
-            File parent = file.getParentFile();
-            if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
-                throw new IllegalStateException("could not create " + parent);
-            }
-            List<String> sorted = new ArrayList<String>(HIDDEN);
-            Collections.sort(sorted);
-            try (Writer writer = new OutputStreamWriter(
-                    new FileOutputStream(file), StandardCharsets.UTF_8)) {
-                writer.write("# modules hidden from the Keybinds HUD (.hidekey)\n");
-                for (String name : sorted) {
-                    writer.write(name);
-                    writer.write('\n');
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("[onyx] could not write " + FILE_NAME + ": " + e);
+            Profile.writeHiddenKeybinds(config, encode(defaults), true);
+        } catch (IOException e) {
+            System.err.println("[onyx] could not migrate " + LEGACY_FILE + ": " + e);
         }
+        return defaults;
     }
 
-    private static File file() {
-        return new File(ClientConfig.DIR, FILE_NAME);
+    private static Set<String> decode(JsonArray saved) {
+        Set<String> result = new LinkedHashSet<>();
+        for (JsonElement item : saved) {
+            if (item.isJsonPrimitive() && item.getAsJsonPrimitive().isString()) {
+                String name = normalize(item.getAsString());
+                if (!name.isEmpty()) {
+                    result.add(name);
+                }
+            }
+        }
+        return result;
+    }
+
+    private static JsonArray encode(Set<String> names) {
+        List<String> sorted = new ArrayList<>(names);
+        Collections.sort(sorted);
+        JsonArray result = new JsonArray();
+        for (String name : sorted) result.add(new JsonPrimitive(name));
+        return result;
+    }
+
+    private static void store(Set<String> updated) throws IOException {
+        Profile active = Profiles.current;
+        File file = active == null ? clientFile() : new File(active.path);
+        Profile.writeHiddenKeybinds(file, encode(updated), active == null);
+        hidden = updated;
+        if (active == null) defaults = updated;
+    }
+
+    private static String normalize(String name) {
+        return name.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static File clientFile() {
+        return new File(ClientConfig.DIR, "client.json");
     }
 }

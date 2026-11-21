@@ -116,7 +116,7 @@ public final class MenuBackground {
         releaseExcept(style);
     }
 
-    /** Whether the selected wallpaper's atlas is uploaded (the harness uses it to prove the free). */
+    /** Whether the selected wallpaper's atlas is uploaded (used to prove the upload is live). */
     public static boolean stillUploaded() {
         return current.wallpaper() && textures.containsKey(current.still.resource);
     }
@@ -286,6 +286,16 @@ public final class MenuBackground {
     }
 
     private static void drawStill(Style style, UI ui, float w, float h, boolean parallax) {
+        drawStill(style, ui, w, h, parallax, false);
+    }
+
+    /** Unfiltered wallpaper for clients which own their own cached frosted-glass composition. */
+    public static void drawRawInto(UI ui, Style style, float w, float h) {
+        if (style != null && style.wallpaper()) drawStill(style, ui, w, h, false, true);
+        else drawInto(ui, style, 0, 0, w, h, true, System.currentTimeMillis());
+    }
+
+    private static void drawStill(Style style, UI ui, float w, float h, boolean parallax, boolean raw) {
         Still still = style.still;
         int id = texture(still);
         if (id <= 0) {
@@ -324,7 +334,7 @@ public final class MenuBackground {
             v1 = cy + halfH;
         }
 
-        int mode = MenuTheme.blurMode();
+        int mode = raw ? 0 : MenuTheme.blurMode();
         if (mode == 2 && parallax) {
             // Frosted glass: the client's own material - blur the frame we just painted the
             // wallpaper into, then composite the tint over it exactly like the panels do.
@@ -416,11 +426,11 @@ public final class MenuBackground {
     }
 
     public static String label(Style style) {
-        return xyz.daikirai.util.Lang.text(style.label);
+        return style.label;
     }
 
     public static String hint(Style style) {
-        return xyz.daikirai.util.Lang.text(style.hint);
+        return style.hint;
     }
 
     private static Style read() {

@@ -68,6 +68,8 @@ public final class CoverCache {
                 }
             };
     private static final Map<String, Integer> DOMINANT = new ConcurrentHashMap<String, Integer>();
+    private static final Map<String, Integer> ARTWORK = new ConcurrentHashMap<String, Integer>();
+    private static final Map<String, Integer> AVERAGE = new ConcurrentHashMap<String, Integer>();
     private static final Map<String, BufferedImage> PENDING = new HashMap<String, BufferedImage>();
     private static final ExecutorService POOL = Executors.newFixedThreadPool(4, runnable -> {
         Thread thread = new Thread(runnable, "neoraven-covers");
@@ -135,6 +137,8 @@ public final class CoverCache {
             TEXTURES.put(url, texture);
             BYTES.put(url, bytes);
             int dominant = computeDominant(image);
+            ARTWORK.put(url, ArtworkColors.dominant(image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0, image.getWidth())));
+            AVERAGE.put(url, computeAverage(image));
             if (dominant != 0) {
                 DOMINANT.put(url, Integer.valueOf(dominant));
             }
@@ -194,6 +198,29 @@ public final class CoverCache {
         }
         Integer value = DOMINANT.get(url);
         return value == null ? 0 : value.intValue();
+    }
+
+    public static int artworkColor(String url) {
+        Integer color = url == null ? null : ARTWORK.get(url);
+        return color == null ? 0 : color;
+    }
+
+    /** Neutral artwork has no chromatic seed; keep its actual colour for the notification shade. */
+    public static int average(String url) {
+        if (url == null || url.isEmpty()) return 0;
+        Integer value = AVERAGE.get(url);
+        return value == null ? 0 : value;
+    }
+
+    private static int computeAverage(BufferedImage image) {
+        long r = 0, g = 0, b = 0, count = 0;
+        int step = Math.max(1, Math.min(image.getWidth(), image.getHeight()) / 32);
+        for (int y = 0; y < image.getHeight(); y += step) for (int x = 0; x < image.getWidth(); x += step) {
+            int pixel = image.getRGB(x, y);
+            if ((pixel >>> 24) < 128) continue;
+            r += pixel >> 16 & 255; g += pixel >> 8 & 255; b += pixel & 255; count++;
+        }
+        return count == 0 ? 0 : 0xFF000000 | (int) (r / count) << 16 | (int) (g / count) << 8 | (int) (b / count);
     }
 
     /**

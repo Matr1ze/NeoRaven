@@ -101,6 +101,7 @@ public final class EspModule extends Module {
             return;
         }
         RenderManager manager = mc.getRenderManager();
+        double tickRemainder = 1.0 - event.partialTicks;
         // The colour row opens the palette; its "Follow theme" / "Custom" choice is the only switch.
         int rgb = color == null ? Theme.scheme().primary : color.color();
         float fill = fillOpacity == null ? 0.18F : (float) (fillOpacity.getInput() / 100.0);
@@ -113,23 +114,24 @@ public final class EspModule extends Module {
             if (!accepted(entity)) {
                 continue;
             }
-            AxisAlignedBB box = entity.getEntityBoundingBox();
-            double minX = box.minX - manager.viewerPosX;
-            double minY = box.minY - manager.viewerPosY;
-            double minZ = box.minZ - manager.viewerPosZ;
-            double maxX = box.maxX - manager.viewerPosX;
-            double maxY = box.maxY - manager.viewerPosY;
-            double maxZ = box.maxZ - manager.viewerPosZ;
-            AxisAlignedBB relative = new AxisAlignedBB(minX, minY, minZ, maxX, maxY, maxZ);
-            if (boxes != null && boxes.isToggled()) {
-                drawBoxes(relative, rgb, fill, width);
-            }
-            if (glow != null && glow.isToggled()) {
-                drawGlow(relative, rgb);
-            }
-            if (skeleton != null && skeleton.isToggled()) {
-                drawSkeleton(entity, minX, minY, minZ, maxX, maxY, maxZ, rgb);
-            }
+            AxisAlignedBB relative = entity.getEntityBoundingBox().offset(
+                    (entity.lastTickPosX - entity.posX) * tickRemainder - manager.viewerPosX,
+                    (entity.lastTickPosY - entity.posY) * tickRemainder - manager.viewerPosY,
+                    (entity.lastTickPosZ - entity.posZ) * tickRemainder - manager.viewerPosZ);
+            drawTarget(entity, relative, rgb, fill, width);
+        }
+    }
+
+    public void preview(EntityLivingBase actor) {
+        drawTarget(actor, actor.getEntityBoundingBox(), color.color(), (float) fillOpacity.getInput() / 100,
+                (float) lineWidth.getInput());
+    }
+
+    private void drawTarget(EntityLivingBase entity, AxisAlignedBB box, int rgb, float fill, float width) {
+        if (boxes != null && boxes.isToggled()) drawBoxes(box, rgb, fill, width);
+        if (glow != null && glow.isToggled()) drawGlow(box, rgb);
+        if (skeleton != null && skeleton.isToggled()) {
+            drawSkeleton(entity, box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ, rgb);
         }
     }
 
@@ -247,7 +249,7 @@ public final class EspModule extends Module {
 
     private boolean accepted(Entity entity) {
         if (entity == mc.thePlayer) {
-            return self != null && self.isToggled();
+            return self != null && Render3D.showSelf(self);
         }
         if (!(entity instanceof EntityLivingBase) || entity.isDead) {
             return false;

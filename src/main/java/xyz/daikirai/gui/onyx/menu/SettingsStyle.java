@@ -131,7 +131,7 @@ public enum SettingsStyle {
         return new float[]{width - inset - size, height - inset - size, size, size};
     }
 
-    /** {@code {x, y, w, h}} of the style button, for the automated harness. */
+    /** {@code {x, y, w, h}} of the style button, for automated UI checks. */
     public static float[] buttonBounds(int width, int height) {
         return bounds(width, height);
     }

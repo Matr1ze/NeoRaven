@@ -14,6 +14,7 @@ import xyz.daikirai.gui.onyx.Text;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Anim;
+import xyz.daikirai.gui.onyx.render.RollingNumber;
 import xyz.daikirai.gui.onyx.render.Blur;
 import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.Typeface;
@@ -24,6 +25,7 @@ import xyz.daikirai.module.player.AutoSwapModule;
 import xyz.daikirai.module.player.BedAuraModule;
 import xyz.daikirai.module.player.Scaffold2Module;
 import xyz.daikirai.module.render.WatermarkModule;
+import xyz.daikirai.module.render.SilenceFixModule;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -109,7 +111,6 @@ public final class SamsaraIsland {
     private static final String INFO_ICON = "\ue88e";
 
     /** Shown after the logo mark, where upstream printed the client name. */
-    private static final String CLIENT_NAME = "NeoRaven";
 
     /** 8 / 9 / 10px, matching the ported font sizes. */
     private static final Typeface.Style STATUS_FONT = Typeface.TINY;
@@ -126,6 +127,8 @@ public final class SamsaraIsland {
     private enum Icon { TOGGLE, SUCCESS, WARNING, INFO, SCAFFOLD, BREAKING }
 
     private final UI ui = new UI();
+    private final RollingNumber pingNumber = new RollingNumber();
+    private final RollingNumber fpsNumber = new RollingNumber();
     private final Anim visible = new Anim(0.0F);
     private final List<Notice> notices = new ArrayList<Notice>();
     private final List<Row> rows = new ArrayList<Row>();
@@ -389,13 +392,14 @@ public final class SamsaraIsland {
     private void layoutIdle(float available) {
         idleParts.clear();
         int accent = accent();
+        String clientName = SilenceFixModule.islandText(WatermarkModule.DEFAULT_ISLAND_TEXT);
         float x = INSET;
         x = mark(x, accent);
-        x = label(x, CLIENT_NAME, accent);
+        x = label(x, clientName, accent);
         boolean singleplayer = server == null;
         String connection = singleplayer ? "singleplayer" : server;
         float fixed = INSET + RIGHT_INSET + 4.0F * (ICON_SIZE + ICON_GAP)
-                + 3.0F * (2.0F + STATUS_FONT.width("  \u00b7  ")) + STATUS_FONT.width(CLIENT_NAME)
+                + 3.0F * (2.0F + STATUS_FONT.width("  \u00b7  ")) + STATUS_FONT.width(clientName)
                 + STATUS_FONT.width(Math.max(0, fps) + " fps")
                 + (singleplayer ? 0.0F : STATUS_FONT.width(pingText() + " to "));
         float remaining = Math.max(0.0F, available - fixed);
@@ -412,13 +416,13 @@ public final class SamsaraIsland {
         x = separator(x);
         x = icon(x, LINK_ICON, singleplayer ? FOREGROUND : pingColor());
         if (!singleplayer) {
-            x = label(x, pingText(), pingColor());
+            x = numberLabel(x, pingText(), pingColor(), "ping");
             x = label(x, " to ", FOREGROUND);
         }
         x = label(x, connection, FOREGROUND);
         x = separator(x);
         x = icon(x, REFRESH_ICON, FOREGROUND);
-        x = label(x, Math.max(0, fps) + " fps", FOREGROUND);
+        x = numberLabel(x, Math.max(0, fps) + " fps", FOREGROUND, "fps");
         idleWidth = x + RIGHT_INSET;
     }
 
@@ -438,6 +442,12 @@ public final class SamsaraIsland {
     private float icon(float x, String glyph, int color) {
         idleParts.add(Part.icon(glyph, color, x));
         return x + ICON_SIZE + ICON_GAP;
+    }
+
+    private float numberLabel(float x, String text, int color, String key) {
+        float width = STATUS_FONT.width(text);
+        idleParts.add(Part.number(text, color, x, width, key));
+        return x + width;
     }
 
     private float label(float x, String text, int color) {
@@ -473,6 +483,7 @@ public final class SamsaraIsland {
         } else {
             rows.clear();
             notices.clear();
+            pingNumber.reset(); fpsNumber.reset();
             states.clear();
             wasIdle = true;
             width.clear();
@@ -490,12 +501,10 @@ public final class SamsaraIsland {
         }
         GlStateManager.pushMatrix();
         mc.entityRenderer.setupOverlayRendering();
+        if (fade > 0.01F) Blur.prepare();
         ui.begin();
         ui.push();
         try {
-            if (fade > 0.01F) {
-                Blur.prepare();
-            }
             ui.alphaPush(fade);
             ui.translate(x, y + (1.0F - fade) * 4.0F);
             ui.scale(renderScale, 0.0F, 0.0F);
@@ -553,6 +562,9 @@ public final class SamsaraIsland {
                 }
             } else if (part.glyph != null) {
                 surface.icon(part.glyph, part.x + part.width / 2.0F, centerY, part.width, color);
+            } else if (part.numberKey != null) {
+                RollingNumber number = part.numberKey.equals("ping") ? pingNumber : fpsNumber;
+                number.draw(surface, part.numberKey, STATUS_FONT, part.text, part.x, centerY, color, UI.ALIGN_LEFT);
             } else {
                 surface.text(STATUS_FONT, part.text, part.x, centerY, color, UI.ALIGN_LEFT);
             }
@@ -602,12 +614,14 @@ public final class SamsaraIsland {
         if (breaking) {
             surface.text(DETAIL_FONT, fit(DETAIL_FONT, notice.title, textWidth), SCAFFOLD_TEXT_X,
                     row.y + 12.0F, ink, UI.ALIGN_LEFT);
-            surface.text(STATUS_FONT, fit(STATUS_FONT, notice.detail, textWidth), SCAFFOLD_TEXT_X,
+            notice.numbers.draw(surface, notice.key + ":" + notice.title, STATUS_FONT,
+                    fit(STATUS_FONT, notice.detail, textWidth), SCAFFOLD_TEXT_X,
                     row.y + 24.0F, 0xFFFFFFFF, UI.ALIGN_LEFT);
         } else {
             surface.text(TITLE_FONT, fit(TITLE_FONT, notice.title, textWidth), SCAFFOLD_TEXT_X,
                     row.y + 13.0F, ink, UI.ALIGN_LEFT);
-            surface.text(DETAIL_FONT, fit(DETAIL_FONT, notice.detail, textWidth), SCAFFOLD_TEXT_X,
+            notice.numbers.draw(surface, notice.key + ":" + notice.title, DETAIL_FONT,
+                    fit(DETAIL_FONT, notice.detail, textWidth), SCAFFOLD_TEXT_X,
                     row.y + 25.0F, 0xFFFFFFFF, UI.ALIGN_LEFT);
         }
         float barWidth = Math.max(0.0F, designWidth - 8.0F);
@@ -727,6 +741,7 @@ public final class SamsaraIsland {
 
     public void reset() {
         notices.clear();
+        pingNumber.reset(); fpsNumber.reset();
         rows.clear();
         idleParts.clear();
         states.clear();
@@ -797,13 +812,15 @@ public final class SamsaraIsland {
     private static final class Part {
         final String text;
         final String glyph;
+        final String numberKey;
         final boolean mark;
         final int color;
         final float x;
         final float width;
 
-        private Part(String text, String glyph, boolean mark, int color, float x, float width) {
+        private Part(String text, String glyph, boolean mark, int color, float x, float width, String numberKey) {
             this.text = text;
+            this.numberKey = numberKey;
             this.glyph = glyph;
             this.mark = mark;
             this.color = color;
@@ -812,15 +829,19 @@ public final class SamsaraIsland {
         }
 
         static Part mark(float x, int color) {
-            return new Part(null, null, true, color, x, ICON_SIZE);
+            return new Part(null, null, true, color, x, ICON_SIZE, null);
         }
 
         static Part icon(String glyph, int color, float x) {
-            return new Part(null, glyph, false, color, x, ICON_SIZE);
+            return new Part(null, glyph, false, color, x, ICON_SIZE, null);
+        }
+
+        static Part number(String text, int color, float x, float width, String key) {
+            return new Part(text, null, false, color, x, width, key);
         }
 
         static Part text(String text, int color, float x, float width) {
-            return new Part(text, null, false, color, x, width);
+            return new Part(text, null, false, color, x, width, null);
         }
     }
 
@@ -840,6 +861,7 @@ public final class SamsaraIsland {
 
     private static final class Notice {
         final String key;
+        final RollingNumber numbers = new RollingNumber();
         final Transition toggle = new Transition();
         String title = "";
         String detail = "";

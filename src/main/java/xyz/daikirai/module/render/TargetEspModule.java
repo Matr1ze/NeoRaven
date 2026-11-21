@@ -13,6 +13,8 @@ import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.module.setting.ColorSetting;
 import xyz.daikirai.module.setting.SliderSetting;
 import xyz.daikirai.render.TargetEspRenderer;
+import xyz.daikirai.render.furiah.module.targetaura.EffectType;
+import xyz.daikirai.render.furiah.module.targetaura.FuriahTargetAura;
 import xyz.daikirai.util.Render3D;
 
 /**
@@ -36,6 +38,7 @@ public final class TargetEspModule extends Module {
     /** Shards that lunge in on one hit, and how fast the wave runs. */
     private static final int STRIKE_SHARDS = 3;
     private static final float STRIKE_SPEED = 1.0F;
+    private static final EffectType[] FURIAH_STYLES = EffectType.values();
 
     public static TargetEspModule instance;
 
@@ -47,6 +50,7 @@ public final class TargetEspModule extends Module {
     public static ColorSetting color;
 
     private final TargetEspRenderer renderer = new TargetEspRenderer();
+    private FuriahTargetAura furiah;
 
     private EntityLivingBase shown;
     private EntityLivingBase struck;
@@ -76,9 +80,7 @@ public final class TargetEspModule extends Module {
         if (style == null) {
             return null;
         }
-        String[] names = {"Crystals", "Ring", "Box"};
-        int index = Math.max(0, Math.min(names.length - 1, (int) Math.round(style.getInput())));
-        return names[index];
+        return style.getDisplay(false);
     }
 
     @Override
@@ -99,6 +101,7 @@ public final class TargetEspModule extends Module {
         lastHurtTime = 0;
         frameNanos = 0L;
         renderer.reset();
+        if (furiah != null) furiah.clear();
     }
 
     /** KillAura2 first, then the legacy KillAura — both expose a public {@code getTarget()}. */
@@ -124,20 +127,32 @@ public final class TargetEspModule extends Module {
         frameNanos = now;
         renderer.tick(delta);
 
+        int styleIndex = style == null ? 0 : (int) Math.round(style.getInput());
         EntityLivingBase target = resolveTarget();
+        if (styleIndex >= 3 && target == null && mc.objectMouseOver != null
+                && mc.objectMouseOver.entityHit instanceof EntityLivingBase
+                && mc.objectMouseOver.entityHit != mc.thePlayer && mc.objectMouseOver.entityHit.isEntityAlive()) {
+            target = (EntityLivingBase) mc.objectMouseOver.entityHit;
+        }
         updateFade(target, delta);
         EntityLivingBase marked = shown;
         if (marked == null || fade <= 0.0F || marked.worldObj != mc.theWorld || marked.isDead) {
+            if (furiah != null) furiah.clear();
             return;
         }
         watchHits(marked);
 
         double seconds = now / 1.0E9D;
-        float spin = (float) (seconds * 120.0D * (speed == null ? 1.0 : speed.getInput() / 4.0));
         float scale = size == null ? 1.0F : (float) size.getInput();
         float glowAmount = glow == null ? 0.75F : (float) (glow.getInput() / 100.0);
         int rgb = color == null ? Theme.scheme().primary : color.color();
-        int styleIndex = style == null ? 0 : (int) Math.round(style.getInput());
+        if (styleIndex >= 3) {
+            if (furiah == null) furiah = new FuriahTargetAura();
+            furiah.render(FURIAH_STYLES[styleIndex - 3], marked, event.partialTicks, delta / 1000, fade,
+                    target != marked, scale, speed == null ? 1 : (float) speed.getInput() / 4, glowAmount, rgb);
+            return;
+        }
+        if (furiah != null) furiah.clear();
         boolean middle = start != null && Math.round(start.getInput()) == 1;
         // The Ring scans one body height per 180 degrees, so the phase is kept in degrees:
         // Speed 4 is the original's 4 * 120 deg/s, i.e. a little over one sweep per second.

@@ -49,8 +49,18 @@ public final class WingsModule extends VisualModule {
         Vec3 p = WorldRenderState.position(player, partial).subtract(origin);
         float yaw = player.prevRenderYawOffset + MathHelper.wrapAngleTo180_float(player.renderYawOffset - player.prevRenderYawOffset) * partial;
         boolean sneak = player.isSneaking();
-        double flap = flapping.isToggled() ? Math.sin((player.ticksExisted + partial) * .12 * speed.getInput() / 3) * 4.5 * strength.getInput() / 30 : 0;
         double motion = Math.min(1, Math.sqrt(player.motionX * player.motionX + player.motionZ * player.motionZ) * 10);
+        drawAt(p, yaw, sneak, motion, player.ticksExisted + partial);
+    }
+
+    public void preview(Vec3 position, float yaw, double seconds) {
+        try (WorldRenderState state = new WorldRenderState(throughWalls.isToggled())) {
+            drawAt(position, yaw, false, 0, seconds * 20);
+        }
+    }
+
+    private void drawAt(Vec3 p, float yaw, boolean sneak, double motion, double ticks) {
+        double flap = flapping.isToggled() ? Math.sin(ticks * .12 * speed.getInput() / 3) * 4.5 * strength.getInput() / 30 : 0;
         double open = flap + motion * .18 - angle.getInput();
         GL11.glPushMatrix();
         try {

@@ -42,6 +42,7 @@ import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BedESPModule extends Module {
+    private static ButtonSetting renderSelf;
     public static SliderSetting themeSetting, range, rate, coveringBlocks;
     public static ButtonSetting disableInLobby, drawBeam, onlyRenderFirstBed, optimizeForBedWars, renderFullBlock, showToolsOnly,
             showWhitelistedCovering;
@@ -66,6 +67,7 @@ public class BedESPModule extends Module {
     }
 
     public void link() {
+        renderSelf = (ButtonSetting) ModuleManager.setting(this, "Render self");
         themeSetting = (SliderSetting) ModuleManager.setting(this, "Theme");
         range = (SliderSetting) ModuleManager.setting(this, "Range");
         rate = (SliderSetting) ModuleManager.setting(this, "Rate");
@@ -269,6 +271,7 @@ public class BedESPModule extends Module {
     }
 
     public static void render(float pt) {
+        if (Render3D.showSelf(renderSelf)) Render3D.entityBox(mc.thePlayer, 2, theme.getRGB(0.0), pt);
         if (!onlyRenderFirstBed.isToggled()) {
             if (!beds.isEmpty()) {
                 synchronized (beds) {

@@ -4,8 +4,7 @@ import net.minecraft.client.gui.*;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.client.GuiModList;
-import xyz.daikirai.gui.onyx.OnyxClickGui;
-import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.gui.onyx.material.*;
 import xyz.daikirai.gui.onyx.render.*;
 import java.util.*;
@@ -17,7 +16,7 @@ public final class MainMenu extends GuiMainMenu {
     private final List<MenuButton> buttons=new ArrayList<MenuButton>();
     @Override public void initGui() { if (ui==null) ui=new UI(); layout(); last=0; }
     private void layout() {
-        OnyxClickGuiModule.sync();
+        ClickGuiModule.sync();
         scale=Theme.screenScale(Math.min(width*0.8F/560,height*0.92F/468.4F));
         float logicalHeight=height/scale, logicalWidth=width/scale;
         top=Math.max(logicalHeight/4+56,logicalHeight/2-151+30);
@@ -27,12 +26,12 @@ public final class MainMenu extends GuiMainMenu {
                 ()->mc.displayGuiScreen(new AccountsScreen(this)),()->mc.displayGuiScreen(new ProxyScreen(this)),
                 ()->mc.displayGuiScreen(new GuiOptions(this,mc.gameSettings)),()->mc.shutdown()};
         String[] labels={"Singleplayer","Multiplayer","Alt Manager","Proxy","Options","Quit Game"};
-        for(int i=0;i<labels.length;i++) buttons.add(new MenuButton(logicalWidth/2-110,top+i*52,220,42,xyz.daikirai.util.Lang.text(labels[i]),null,0,actions[i]));
-        buttons.add(new MenuButton(14,logicalHeight-44,64,30,xyz.daikirai.util.Lang.text("Mods"),null,2,()->mc.displayGuiScreen(new GuiModList(this))));
-        buttons.add(new MenuButton(86,logicalHeight-44,104,30,xyz.daikirai.util.Lang.text("Background"),null,2,()->mc.displayGuiScreen(new BackgroundScreen(this))));
+        for(int i=0;i<labels.length;i++) buttons.add(new MenuButton(logicalWidth/2-110,top+i*52,220,42,labels[i],null,0,actions[i]));
+        buttons.add(new MenuButton(14,logicalHeight-44,64,30,"Mods",null,2,()->mc.displayGuiScreen(new GuiModList(this))));
+        buttons.add(new MenuButton(86,logicalHeight-44,104,30,"Background",null,2,()->mc.displayGuiScreen(new BackgroundScreen(this))));
     }
     @Override public void drawScreen(int mx,int my,float ticks) {
-        OnyxClickGuiModule.sync();
+        ClickGuiModule.sync();
         float next=Theme.screenScale(Math.min(width*0.8F/560,height*0.92F/468.4F));
         if(next!=scale) layout();
         long now=System.nanoTime(); float dt=last==0 ? 16 : Math.min(100,(now-last)/1E6F); last=now;
@@ -61,8 +60,8 @@ public final class MainMenu extends GuiMainMenu {
     @Override protected void mouseReleased(int x,int y,int b) { }
     @Override protected void keyTyped(char c,int key) {
         if(MenuStyleSwitch.keyTyped(key)) return;
-        if(OnyxClickGuiModule.instance!=null && key!=0 && key==OnyxClickGuiModule.instance.getKeycode())
-            mc.displayGuiScreen(new OnyxClickGui());
+        if(ClickGuiModule.instance!=null && key!=0 && key==ClickGuiModule.instance.getKeycode())
+            ClickGuiModule.instance.enable();
     }
     @Override public void updateScreen() { }
 }

@@ -23,7 +23,7 @@ import java.util.Deque;
  *
  * <p>Everything the ClickGUI draws goes through here: SDF rounded rectangles (through the shipped
  * {@code onyx_shape} shader, so anti-aliasing and stroke widths match the original exactly),
- * shadows, scissor stacks, the frosted-glass panel, Material icons and the MiSans type
+ * shadows, scissor stacks, the frosted-glass panel, Material icons and the Google Sans type
  * scale. Colors are multiplied by a stack-based alpha, which is how the original faded whole
  * groups in and out during page transitions.</p>
  */
@@ -33,7 +33,7 @@ public final class UI {
     public static final int ALIGN_CENTER = 1;
     public static final int ALIGN_RIGHT = 2;
 
-    /** Panel tint coverage used by the ClickGUI's frosted panels (the blurred scene supplies 12%). */
+    /** Base tint coverage for the ClickGUI's glass panels. */
     public static final float DEFAULT_TINT_COVERAGE = 0.88F;
 
     private static final FloatBuffer PROJECTION_BUFFER = BufferUtils.createFloatBuffer(16);
@@ -56,6 +56,7 @@ public final class UI {
     private float pixel = 1.0F;
     /** Extra alpha for surface fills only (translucent ClickGUI); text and icons ignore it. */
     private float surfaceAlpha = 1.0F;
+    private boolean hudReturnTransform;
 
     public UI() {
         if (shapeShader == null && !shapeFailed) {
@@ -99,9 +100,22 @@ public final class UI {
         GlStateManager.disableAlpha();
         GlStateManager.disableDepth();
         GlStateManager.shadeModel(7425);
+        float returning = xyz.daikirai.gui.onyx.hud.HudReturn.elapsed();
+        if (returning >= 0) {
+            float displacement = xyz.daikirai.gui.onyx.hud.HudReturn.displacement(returning);
+            ScaledResolution resolution = new ScaledResolution(mc);
+            float cx = resolution.getScaledWidth() / 2.0F, cy = resolution.getScaledHeight() / 2.0F;
+            GlStateManager.pushMatrix(); hudReturnTransform = true;
+            GlStateManager.translate(cx, cy + 16 * displacement, 0);
+            float size = 1 - 0.10F * displacement;
+            GlStateManager.scale(size, size, 1);
+            GlStateManager.translate(-cx, -cy, 0);
+            alpha = Math.min(1, 0.25F + returning / 0.16F);
+        }
     }
 
     public void end() {
+        if (hudReturnTransform) { GlStateManager.popMatrix(); hudReturnTransform = false; }
         while (!scissors.isEmpty()) {
             scissorPop();
         }
@@ -153,6 +167,25 @@ public final class UI {
 
     public void translate(float x, float y) {
         GlStateManager.translate(x, y, 0.0F);
+    }
+
+    /** Draws one perspective-projected album sheet in GUI coordinates. */
+    public void albumQuad(ResourceLocation texture, float x1, float y1, float x2, float y2,
+                          float x3, float y3, float x4, float y4, float alpha) {
+        if (texture == null || alpha <= 0.001F) return;
+        Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, Material.clamp(alpha, 0.0F, 1.0F));
+        GL11.glBegin(GL11.GL_QUADS);
+        GL11.glTexCoord2f(1.0F, 0.0F); GL11.glVertex2f(x1, y1);
+        GL11.glTexCoord2f(1.0F, 1.0F); GL11.glVertex2f(x2, y2);
+        GL11.glTexCoord2f(0.0F, 1.0F); GL11.glVertex2f(x3, y3);
+        GL11.glTexCoord2f(0.0F, 0.0F); GL11.glVertex2f(x4, y4);
+        GL11.glEnd();
+        GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.disableTexture2D();
     }
 
     /** Scales everything drawn afterwards around a point, keeping AA pixel size constant. */
@@ -242,10 +275,17 @@ public final class UI {
     public void roundedCorners(float x, float y, float w, float h,
                                float topLeft, float topRight, float bottomRight, float bottomLeft,
                                int color) {
+        roundedCorners(x, y, w, h, topLeft, topRight, bottomRight, bottomLeft, color, false, false);
+    }
+
+    /** Fills the same bounds with no vertical feathering at joined row edges. */
+    public void roundedCorners(float x, float y, float w, float h,
+                               float topLeft, float topRight, float bottomRight, float bottomLeft,
+                               int color, boolean joinTop, boolean joinBottom) {
         shape(x, y, w, h,
                 Theme.radius(topLeft, w, h), Theme.radius(topRight, w, h),
                 Theme.radius(bottomRight, w, h), Theme.radius(bottomLeft, w, h),
-                0.0F, 0.0F, color, color, color, color);
+                0.0F, 0.0F, color, color, color, color, joinTop, joinBottom);
     }
 
     /** Stroked rounded rectangle (thickness inside the bounds), like Material's outline. */
@@ -260,17 +300,6 @@ public final class UI {
     /** Draws a texture quad with a tint (used by the island logo). */
     public void image(ResourceLocation texture, float x, float y, float w, float h,
                       float u0, float v0, float u1, float v1, int color) {
-        image(texture, x, y, w, h, u0, v0, u1, v1, color, true);
-    }
-
-    /** Draws a skin or other pixel-art texture with nearest-neighbour filtering. */
-    public void imageNearest(ResourceLocation texture, float x, float y, float w, float h,
-                             float u0, float v0, float u1, float v1, int color) {
-        image(texture, x, y, w, h, u0, v0, u1, v1, color, false);
-    }
-
-    private void image(ResourceLocation texture, float x, float y, float w, float h,
-                       float u0, float v0, float u1, float v1, int color, boolean smooth) {
         int c = applyAlpha(color);
         if (c >>> 24 == 0) {
             return;
@@ -281,17 +310,8 @@ public final class UI {
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         GlStateManager.enableTexture2D();
-        // GUI avatars want smooth scaling, but skins are shared with the world renderer. Leaving
-        // GL_LINEAR on a 64x64 skin blurs the model and bleeds the transparent black texels of
-        // the hat layer into visible pixels, which shows up as dark seam lines around the head.
-        int textureId = Minecraft.getMinecraft().getTextureManager().getTexture(texture) == null ? 0
-                : Minecraft.getMinecraft().getTextureManager().getTexture(texture).getGlTextureId();
-        int[] previous = filters(textureId);
-        int previousMinFilter = previous[0];
-        int previousMagFilter = previous[1];
-        int filter = smooth ? GL11.GL_LINEAR : GL11.GL_NEAREST;
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, filter);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, filter);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         GL11.glColor4f((c >> 16 & 0xFF) / 255.0F, (c >> 8 & 0xFF) / 255.0F,
                 (c & 0xFF) / 255.0F, (c >>> 24) / 255.0F);
         GL11.glBegin(GL11.GL_QUADS);
@@ -304,8 +324,6 @@ public final class UI {
         GL11.glTexCoord2f(u1, v0);
         GL11.glVertex2f(x + w, y);
         GL11.glEnd();
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, previousMinFilter);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, previousMagFilter);
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.resetColor();
         GlStateManager.disableTexture2D();
@@ -342,16 +360,9 @@ public final class UI {
         // stale unit makes the shader sample whatever texture was left there (covers from the
         // previous row), which reads as flickering artwork.
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         GlStateManager.enableTexture2D();
-        // GUI avatars want smooth scaling, but skins are shared with the world renderer. Leaving
-        // GL_LINEAR on a 64x64 skin blurs the model and bleeds the transparent black texels of
-        // the hat layer into visible pixels, which shows up as dark seam lines around the head.
-        int textureId = Minecraft.getMinecraft().getTextureManager().getTexture(texture) == null ? 0
-                : Minecraft.getMinecraft().getTextureManager().getTexture(texture).getGlTextureId();
-        int[] previous = filters(textureId);
-        int previousMinFilter = previous[0];
-        int previousMagFilter = previous[1];
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 
@@ -371,11 +382,7 @@ public final class UI {
         imageVertex(x + w, y + h, centerX, centerY, 1.0F, 1.0F);
         imageVertex(x + w, y, centerX, centerY, 1.0F, 0.0F);
         GL11.glEnd();
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, previousMinFilter);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, previousMagFilter);
 
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         Shader.unbind();
         GlStateManager.disableTexture2D();
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
@@ -435,49 +442,77 @@ public final class UI {
     /**
      * Fills a rounded rectangle with the (already blurred) backdrop.
      *
-     * @param coverage how much the surface tint covers the blurred scene: {@code 1} hides the
-     *                 backdrop completely, the ClickGUI panels use {@value #DEFAULT_TINT_COVERAGE}
-     *                 (a hint of blur) and a glass-like HUD card passes something lower.
+     * @param coverage base tint strength, with the glass shader adapting it to scene brightness
      */
     public void frost(float x, float y, float w, float h, float radius, int tint, float coverage) {
         frostCorners(x, y, w, h, radius, radius, radius, radius, tint, coverage);
     }
 
-    /**
-     * Frosted fill with one radius per corner (top-left, top-right, bottom-right, bottom-left).
-     *
-     * <p>Rows of a stacked list pass {@code 0} for the corners that touch the neighbouring row, so
-     * the rows join without a seam while the column's outer corners stay rounded.</p>
-     */
+    /** Frosted fill with one radius per corner (top-left, top-right, bottom-right, bottom-left). */
     public void frostCorners(float x, float y, float w, float h,
                              float topLeft, float topRight, float bottomRight, float bottomLeft,
                              int tint, float coverage) {
-        if (frostShader == null || !frostShader.valid() || !Blur.ready()) {
+        frostCorners(x, y, w, h, topLeft, topRight, bottomRight, bottomLeft, tint, coverage, false, false);
+    }
+
+    /** Frosted fill with no vertical feathering at joined row edges. */
+    public void frostCorners(float x, float y, float w, float h,
+                             float topLeft, float topRight, float bottomRight, float bottomLeft,
+                             int tint, float coverage, boolean joinTop, boolean joinBottom) {
+        if (!Blur.ready()) {
             return;
+        }
+        if (!glass(x, y, w, h, topLeft, topRight, bottomRight, bottomLeft,
+                tint, coverage, joinTop, joinBottom, Blur.texture(), 0.0F)) {
+            roundedCorners(x, y, w, h, topLeft, topRight, bottomRight, bottomLeft,
+                    tint, joinTop, joinBottom);
+        }
+    }
+
+    /** Draws the selected glass material from a screen-aligned backdrop. */
+    public boolean glass(float x, float y, float w, float h, float radius, int texture,
+                         float offset, int tint, float coverage) {
+        return glass(x, y, w, h, radius, radius, radius, radius,
+                tint, coverage, false, false, texture, offset);
+    }
+
+    private boolean glass(float x, float y, float w, float h,
+                          float topLeft, float topRight, float bottomRight, float bottomLeft,
+                          int tint, float coverage, boolean joinTop, boolean joinBottom,
+                          int texture, float offset) {
+        if (!frostShader.valid() || texture <= 0) {
+            return false;
+        }
+        int color = applyAlpha(tint);
+        if (w <= 0.0F || h <= 0.0F || Material.alpha(color) == 0) {
+            return true;
         }
         float tl = Theme.radius(topLeft, w, h);
         float tr = Theme.radius(topRight, w, h);
         float br = Theme.radius(bottomRight, w, h);
         float bl = Theme.radius(bottomLeft, w, h);
         Minecraft mc = Minecraft.getMinecraft();
-        int color = applyAlpha(tint);
+        float topExtension = joinedEdgeExtension(joinTop);
+        float bottomExtension = joinedEdgeExtension(joinBottom);
 
-        GlStateManager.disableTexture2D();
-        GlStateManager.bindTexture(Blur.texture());
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+        GlStateManager.bindTexture(texture);
         GlStateManager.enableTexture2D();
         frostShader.use();
         frostShader.uniform1i("Sampler0", 0);
-        frostShader.uniform2f("uHalfExtents", w / 2.0F, h / 2.0F);
+        frostShader.uniform2f("uHalfExtents", w / 2.0F, (h + topExtension + bottomExtension) / 2.0F);
         frostShader.uniform4f("uCornerRadii", tl, tr, br, bl);
         frostShader.uniform1f("uPixel", pixel);
         frostShader.uniform2f("uResolution", mc.displayWidth, mc.displayHeight);
-        frostShader.uniform1f("uTint",
-                Material.alpha(color) / 255.0F * Material.clamp(coverage, 0.0F, 1.0F));
+        frostShader.uniform1f("uBackdropOffset", offset);
+        frostShader.uniform1f("uTint", Material.clamp(coverage, 0.0F, 1.0F));
+        frostShader.uniform1i("uLiquidGlass", Theme.liquidGlass() ? 1 : 0);
+        frostShader.uniform2f("uJoinedEdges", joinTop ? 1.0F : 0.0F, joinBottom ? 1.0F : 0.0F);
 
         GL11.glColor4f((color >> 16 & 0xFF) / 255.0F, (color >> 8 & 0xFF) / 255.0F,
                 (color & 0xFF) / 255.0F, (color >>> 24) / 255.0F);
         float centerX = x + w / 2.0F;
-        float centerY = y + h / 2.0F;
+        float centerY = y + (h + bottomExtension - topExtension) / 2.0F;
         GL11.glBegin(GL11.GL_QUADS);
         localVertex(x, y, centerX, centerY);
         localVertex(x, y + h, centerX, centerY);
@@ -489,6 +524,7 @@ public final class UI {
         GlStateManager.disableTexture2D();
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.resetColor();
+        return true;
     }
 
     private static void localVertex(float x, float y, float centerX, float centerY) {
@@ -500,6 +536,15 @@ public final class UI {
                        float radiusTopLeft, float radiusTopRight, float radiusBottomRight,
                        float radiusBottomLeft, float softness, float expansion,
                        int colorTopLeft, int colorBottomLeft, int colorBottomRight, int colorTopRight) {
+        shape(x, y, w, h, radiusTopLeft, radiusTopRight, radiusBottomRight, radiusBottomLeft,
+                softness, expansion, colorTopLeft, colorBottomLeft, colorBottomRight, colorTopRight, false, false);
+    }
+
+    private void shape(float x, float y, float w, float h,
+                       float radiusTopLeft, float radiusTopRight, float radiusBottomRight,
+                       float radiusBottomLeft, float softness, float expansion,
+                       int colorTopLeft, int colorBottomLeft, int colorBottomRight, int colorTopRight,
+                       boolean joinTop, boolean joinBottom) {
         if (w <= 0.0F || h <= 0.0F) {
             return;
         }
@@ -517,12 +562,14 @@ public final class UI {
             return;
         }
 
+        float topExtension = joinedEdgeExtension(joinTop);
+        float bottomExtension = joinedEdgeExtension(joinBottom);
         float centerX = x + w / 2.0F;
-        float centerY = y + h / 2.0F;
+        float centerY = y + (h + bottomExtension - topExtension) / 2.0F;
 
         GlStateManager.disableTexture2D();
         shader.use();
-        shader.uniform2f("uHalfExtents", w / 2.0F, h / 2.0F);
+        shader.uniform2f("uHalfExtents", w / 2.0F, (h + topExtension + bottomExtension) / 2.0F);
         shader.uniform4f("uCornerRadii", radiusTopLeft, radiusTopRight, radiusBottomRight, radiusBottomLeft);
         shader.uniform1f("uSoftness", softness);
         shader.uniform1f("uPixel", pixel);
@@ -542,6 +589,11 @@ public final class UI {
         Shader.unbind();
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.resetColor();
+    }
+
+    private float joinedEdgeExtension(boolean joined) {
+        // Move the shader's edge beyond its feather while keeping the quad at the row bounds.
+        return joined ? 2.0F * pixel : 0.0F;
     }
 
     private static void vertex(float x, float y, float centerX, float centerY, int color) {
@@ -708,7 +760,10 @@ public final class UI {
             // Keep the colour codes intact and measure only the visible glyphs.
             return xyz.daikirai.gui.onyx.LegacyText.truncate(style, text, maxWidth);
         }
-        if (style.width(text) <= maxWidth) {
+        // A hair of tolerance: layout code arrives here with budgets built from the same widths, so
+        // floating point rounding used to ellipsise text that fits exactly (Chinese labels in the
+        // island lost their last glyph this way).
+        if (style.width(text) <= maxWidth + 0.05F) {
             return text;
         }
         String ellipsis = "...";
@@ -766,22 +821,6 @@ public final class UI {
      */
     public void surfaceAlpha(float value) {
         this.surfaceAlpha = Material.clamp(value, 0.0F, 1.0F);
-    }
-
-    /** Filters last seen per texture id; glGetTexParameteri stalls, so each texture is asked once. */
-    private static final java.util.Map<Integer, int[]> TEXTURE_FILTERS =
-            new java.util.HashMap<Integer, int[]>();
-
-    /** {@code {min, mag}} for the bound texture, remembered after the first query. */
-    private static int[] filters(int textureId) {
-        int[] cached = TEXTURE_FILTERS.get(Integer.valueOf(textureId));
-        if (cached == null) {
-            cached = new int[]{
-                    GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER),
-                    GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER)};
-            TEXTURE_FILTERS.put(Integer.valueOf(textureId), cached);
-        }
-        return cached;
     }
 
     private int applySurfaceAlpha(int color) {

@@ -1,7 +1,7 @@
 package xyz.daikirai.gui;
 
 import xyz.daikirai.module.Category;
-import xyz.daikirai.module.GuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.module.Module;
 import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.util.Animation;
@@ -104,7 +104,7 @@ public class CategoryComponent {
         float target;
         this.width = 92.0f;
         boolean active = false;
-        boolean lite = GuiModule.liteMode.isToggled();
+        boolean lite = ClickGuiModule.liteMode.isToggled();
         if ((this.opened || this.closing) && !this.modules.isEmpty()) {
             animated = 0.0f;
             float y = target = 2.0f;
@@ -135,7 +135,7 @@ public class CategoryComponent {
             float top = this.y + this.titleHeight + 3.0f;
             int bottom = (int) ((double) top + Math.floor(animated));
             RenderUtils.roundedRectOutlined(this.x - 2.0f, this.y, this.x + this.width + 2.0f, top + animated, 10.0f,
-                    GuiModule.categoryFill, GuiModule.outlineLeft, GuiModule.outlineRight);
+                    ClickGuiModule.categoryFill, ClickGuiModule.outlineLeft, ClickGuiModule.outlineRight);
             GL11.glPushMatrix();
             GL11.glEnable(3089);
             GL11.glScissor((int) ((this.x - 1.0f) * (float) RenderUtils.scaleFactor), mc.displayHeight - bottom * RenderUtils.scaleFactor,
@@ -161,11 +161,11 @@ public class CategoryComponent {
             active = true;
         } else if (this.overTitle(mouseX, mouseY)) {
             RenderUtils.roundedRectOutlined(this.x - 2.0f, this.y, this.x + this.width + 2.0f, this.y + this.titleHeight + 3.0f, 10.0f,
-                    GuiModule.categoryFill, GuiModule.outlineLeft, GuiModule.outlineRight);
+                    ClickGuiModule.categoryFill, ClickGuiModule.outlineLeft, ClickGuiModule.outlineRight);
             active = true;
         } else {
             RenderUtils.roundedRectOutlined(this.x - 2.0f, this.y, this.x + this.width + 2.0f, this.y + this.titleHeight + 3.0f, 10.0f,
-                    GuiModule.categoryFill, GuiModule.closedOutlineLeft, GuiModule.closedOutlineRight);
+                    ClickGuiModule.categoryFill, ClickGuiModule.closedOutlineLeft, ClickGuiModule.closedOutlineRight);
         }
         GL11.glPushMatrix();
         float nameX = 13.5f;
@@ -179,7 +179,7 @@ public class CategoryComponent {
                 nameX = center;
             }
         }
-        renderer.drawString(this.categoryName.name(), this.x + nameX, this.y + 4.0f, GuiModule.categoryNameColor.rgb, false);
+        renderer.drawString(this.categoryName.name(), this.x + nameX, this.y + 4.0f, ClickGuiModule.categoryNameColor.rgb, false);
         RenderUtils.resetColor();
         GlStateManager.scale(this.iconScale, this.iconScale, this.iconScale);
         ItemStack icon = active ? this.categoryName.activeIcon : this.categoryName.icon;
@@ -200,7 +200,7 @@ public class CategoryComponent {
     }
 
     public void updateHeight() {
-        boolean lite = GuiModule.liteMode != null && GuiModule.liteMode.isToggled();
+        boolean lite = ClickGuiModule.liteMode != null && ClickGuiModule.liteMode.isToggled();
         float y = this.titleHeight + this.scroll + 3.0f;
         this.yOffset = 2.0f;
         for (Component c : this.modules) {
@@ -219,7 +219,7 @@ public class CategoryComponent {
             this.scrollAnimation = new Animation(1000.0f);
         }
         this.scrollAnimation.start();
-        this.targetScroll = (float) ((double) this.targetScroll + (double) dir * GuiModule.scrollSpeed.getInput());
+        this.targetScroll = (float) ((double) this.targetScroll + (double) dir * ClickGuiModule.scrollSpeed.getInput());
     }
 
     public void mousePosition(int mouseX, int mouseY) {

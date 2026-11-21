@@ -44,10 +44,15 @@ public final class JumpCircleRenderer {
 
     public void render(List<Circle> circles, JumpCirclesModule settings, float partialTicks, long now) {
         Entity view = MC.getRenderViewEntity();
-        if (failed || circles.isEmpty() || view == null) return;
+        if (view == null) return;
         Vec3 origin = new Vec3(view.prevPosX + (view.posX - view.prevPosX) * partialTicks,
                 view.prevPosY + (view.posY - view.prevPosY) * partialTicks,
                 view.prevPosZ + (view.posZ - view.prevPosZ) * partialTicks);
+        renderAt(circles, settings, origin, now, MC.getFramebuffer().framebufferWidth, MC.getFramebuffer().framebufferHeight);
+    }
+
+    public void renderAt(List<Circle> circles, JumpCirclesModule settings, Vec3 origin, long now, int width, int height) {
+        if (failed || circles.isEmpty()) return;
         int activeTexture = GL11.glGetInteger(0x84E0);
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         int texture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
@@ -67,11 +72,27 @@ public final class JumpCircleRenderer {
             GL11.glDepthMask(false);
             GL11.glColor4f(1, 1, 1, 1);
             if (settings.distortion() && (settings.blur() > 0 || settings.warp() > 0))
-                distort(circles, settings, origin, now);
+                distort(circles, settings, origin, now, width, height);
             GL11.glEnable(GL11.GL_BLEND);
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
             if (settings.throughWalls()) GL11.glDisable(GL11.GL_DEPTH_TEST);
             else GL11.glEnable(GL11.GL_DEPTH_TEST);
+            if (settings.landingMode()) {
+                GL11.glDisable(GL11.GL_TEXTURE_2D);
+                if (settings.tileWave()) GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                int color = settings.color();
+                for (Circle circle : circles) {
+                    float age = circle.progress(now, settings.lifetime());
+                    Vec3 center = circle.position.subtract(origin);
+                    if (settings.tileWave()) {
+                        tiles(center, age, settings, color);
+                    } else {
+                        wave(center, age, settings, color, false);
+                        if (age > 0.16F) wave(center, (age - 0.16F) / 0.84F, settings, color, true);
+                    }
+                }
+                return;
+            }
             bindRing();
             GL11.glBegin(GL11.GL_QUADS);
             for (Circle circle : circles) {
@@ -94,6 +115,77 @@ public final class JumpCircleRenderer {
             if (OpenGlHelper.shadersSupported) OpenGlHelper.glUseProgram(program);
             GL11.glPopAttrib();
             GlStateManager.setActiveTexture(activeTexture);
+        }
+    }
+
+    private static float expansion(float age) {
+        return 1 - (float) Math.pow(1 - age, 4);
+    }
+
+    private static final int TILE_RADIUS = 6;
+    private static final float TILE_TRAVEL = 0.64F;
+
+    private static void tiles(Vec3 center, float age, JumpCirclesModule settings, int color) {
+        double pitch = settings.radius() / (TILE_RADIUS + 0.5);
+        double floor = center.yCoord + 0.022;
+        float opacity = settings.opacity();
+        GL11.glBegin(GL11.GL_QUADS);
+        for (int row = -TILE_RADIUS; row <= TILE_RADIUS; row++) {
+            for (int column = -TILE_RADIUS; column <= TILE_RADIUS; column++) {
+                float distance = (float) Math.sqrt(row * row + column * column) / TILE_RADIUS;
+                float phase = (age - distance * TILE_TRAVEL) / (1 - TILE_TRAVEL);
+                if (distance > 1 || phase <= 0 || phase >= 1) continue;
+                float flash = Math.min(1, phase * 8) * (1 - phase);
+                double half = pitch * (0.38 + 0.09 * flash);
+                double tileX = center.xCoord + column * pitch;
+                double tileZ = center.zCoord + row * pitch;
+                GL11.glColor4ub((byte) (color >> 16), (byte) (color >> 8), (byte) color,
+                        (byte) Math.round(255 * opacity * flash * 0.32F));
+                square(tileX, floor, tileZ, pitch * 0.49);
+                GL11.glColor4ub((byte) (color >> 16), (byte) (color >> 8), (byte) color,
+                        (byte) Math.round(255 * opacity * flash));
+                square(tileX, floor, tileZ, half);
+                float glint = Math.max(0, 1 - Math.abs(phase - 0.125F) * 12);
+                if (glint > 0) {
+                    GL11.glColor4f(1, 1, 1, opacity * glint * 0.8F);
+                    square(tileX, floor, tileZ, half * 0.25);
+                }
+            }
+        }
+        GL11.glEnd();
+    }
+
+    private static void square(double centerX, double floor, double centerZ, double half) {
+        GL11.glVertex3d(centerX - half, floor, centerZ - half);
+        GL11.glVertex3d(centerX - half, floor, centerZ + half);
+        GL11.glVertex3d(centerX + half, floor, centerZ + half);
+        GL11.glVertex3d(centerX + half, floor, centerZ - half);
+    }
+
+    private static void wave(Vec3 center, float age, JumpCirclesModule settings, int color, boolean outer) {
+        double radius = settings.radius() * expansion(age) * (outer ? 1 : 0.52);
+        double height = outer ? radius * 0.24 * Math.sin(Math.PI * Math.sqrt(age)) : 0;
+        float light = settings.opacity() * Math.min(1, age * 22) * (1 - age * age);
+        double[] widths = {-0.055, -0.009, 0, 0.009, 0.055};
+        float[] glow = {0, 0.48F, 1, 0.48F, 0};
+        for (int band = outer ? -1 : 0; band < widths.length - 1; band++) {
+            GL11.glBegin(GL11.GL_QUAD_STRIP);
+            for (int segment = 0; segment <= 96; segment++) {
+                double angle = segment * Math.PI / 48;
+                double ripple = 1 + 0.035 * Math.sin(3 * angle + age * 4)
+                        + 0.018 * Math.cos(5 * angle - age * 3);
+                double crest = height * (0.84 + 0.16 * Math.sin(angle * 4 + age * 3));
+                for (int side = 0; side < 2; side++) {
+                    double reach = radius * (ripple + (band < 0 ? -0.04 * (1 - side) : widths[band + side]));
+                    float alpha = light * (band < 0 ? side * 0.34F : glow[band + side]);
+                    GL11.glColor4f((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F,
+                            (color & 255) / 255F, alpha);
+                    GL11.glVertex3d(center.xCoord + reach * Math.cos(angle),
+                            center.yCoord + 0.022 + crest * (band < 0 ? side : 1),
+                            center.zCoord + reach * Math.sin(angle));
+                }
+            }
+            GL11.glEnd();
         }
     }
 
@@ -128,7 +220,7 @@ public final class JumpCircleRenderer {
         String text = settings.text().trim();
         float textRadius = settings.radius() - settings.textSize() * 1.35F;
         if (text.isEmpty() || textRadius <= 0) return;
-        if (font == null) font = TtfFont.load(xyz.daikirai.gui.onyx.render.Typeface.familyPath(), 36);
+        if (font == null) font = TtfFont.load("/assets/onyx/font/ttf/googlesansflex_36pt-bold.ttf", 36);
         text += "  ";
         TtfFont.Glyph[] glyphs = new TtfFont.Glyph[text.length()];
         for (int i = 0; i < text.length(); i++) glyphs[i] = font.glyph(text.charAt(i));
@@ -179,7 +271,7 @@ public final class JumpCircleRenderer {
                 model.get(8) * x + model.get(9) * y + model.get(10) * z);
     }
 
-    private void distort(List<Circle> circles, JumpCirclesModule settings, Vec3 origin, long now) {
+    private void distort(List<Circle> circles, JumpCirclesModule settings, Vec3 origin, long now, int width, int height) {
         if (!OpenGlHelper.shadersSupported || !OpenGlHelper.isFramebufferEnabled()) return;
         if (glass == null) glass = Shader.load("onyx_jump_glass");
         if (!glass.valid()) return;
@@ -192,7 +284,6 @@ public final class JumpCircleRenderer {
         Vec3 forward = inverseDirection(0, 0, -1);
         Vec3 right = inverseDirection(1, 0, 0);
         Vec3 up = right.crossProduct(forward);
-        int width = MC.getFramebuffer().framebufferWidth, height = MC.getFramebuffer().framebufferHeight;
         if (width <= 0 || height <= 0) return;
         if (scene == -1) scene = TextureUtil.glGenTextures();
         GlStateManager.bindTexture(scene);
@@ -219,6 +310,16 @@ public final class JumpCircleRenderer {
                 Circle circle = circles.get(i);
                 float radius = circle.radius(settings.radius(), now, settings.lifetime());
                 float fade = 1 - circle.progress(now, settings.lifetime());
+                if (settings.shockwave()) {
+                    float age = 1 - fade;
+                    float outer = expansion(Math.max(0, (age - 0.16F) / 0.84F));
+                    radius = settings.radius() * Math.max(expansion(age) * 0.52F, outer) * 1.12F;
+                    fade *= settings.opacity();
+                } else if (settings.tileWave()) {
+                    float age = 1 - fade;
+                    radius = settings.radius() * Math.min(1, age / TILE_TRAVEL + 0.08F);
+                    fade = settings.opacity() * Math.min(1, age * 20) * Math.min(1, fade / (1 - TILE_TRAVEL));
+                }
                 Vec3 center = circle.position.subtract(camera);
                 if (radius < 0.05F || fade <= 0 || center.dotProduct(forward) + radius < 0.06) continue;
                 float apparentSize = Math.min((float) (radius * py * 0.5 / Math.max(center.lengthVector(), 0.1)), 0.3F);

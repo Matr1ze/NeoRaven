@@ -74,7 +74,7 @@ public class FlagDetectorModule extends Module {
         lastReason = "";
     }
 
-    /** How many flags this session has seen (used by the probe and the chat counter). */
+    /** How many flags this session has seen (used by the debug readout and the chat counter). */
     public static int flags() {
         return FLAGS.get();
     }

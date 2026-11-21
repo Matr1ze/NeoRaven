@@ -62,7 +62,7 @@ public final class InfoBar {
         }
         String name = mc.getSession().getUsername();
         int fps = Minecraft.getDebugFPS();
-        String server = mc.getCurrentServerData() == null ? xyz.daikirai.util.Lang.text("Singleplayer") : mc.getCurrentServerData().serverIP;
+        String server = mc.getCurrentServerData() == null ? "Singleplayer" : mc.getCurrentServerData().serverIP;
         int ping = 0;
         if (mc.getNetHandler() != null) {
             NetworkPlayerInfo info = mc.getNetHandler().getPlayerInfo(mc.thePlayer.getUniqueID());
@@ -70,9 +70,9 @@ public final class InfoBar {
                 ping = info.getResponseTime();
             }
         }
-        String fpsText = fps + " " + xyz.daikirai.util.Lang.text("fps");
-        String pingText = ping + " " + xyz.daikirai.util.Lang.text("ms");
-        server = ui.truncate(Typeface.BODY_MEDIUM, server == null ? xyz.daikirai.util.Lang.text("Singleplayer") : server, MAX_SERVER);
+        String fpsText = fps + " fps";
+        String pingText = ping + " ms";
+        server = ui.truncate(Typeface.BODY_MEDIUM, server == null ? "Singleplayer" : server, MAX_SERVER);
 
         float width = PADDING + HEAD + 6.0F + Typeface.BODY_MEDIUM.width(name);
         if (module.infoFps()) {
@@ -92,11 +92,11 @@ public final class InfoBar {
         this.lastHeight = HEIGHT;
 
         Scheme scheme = Theme.scheme();
-        ui.begin();
         try {
             if (module.frosted() && fade > 0.01F) {
                 Blur.prepare();
             }
+            ui.begin();
             ui.alphaPush(fade);
             float radius = HEIGHT / 2.0F;
             ui.shadow(lastX, lastY, width, HEIGHT, radius, 2);
@@ -112,7 +112,7 @@ public final class InfoBar {
             float cursor = lastX + PADDING;
 
             ResourceLocation skin = mc.thePlayer.getLocationSkin();
-            ui.imageNearest(skin, cursor, centerY - HEAD / 2.0F, HEAD, HEAD,
+            ui.image(skin, cursor, centerY - HEAD / 2.0F, HEAD, HEAD,
                     8.0F / 64.0F, 8.0F / 64.0F, 16.0F / 64.0F, 16.0F / 64.0F, 0xFFFFFFFF);
             cursor += HEAD + 6.0F;
 

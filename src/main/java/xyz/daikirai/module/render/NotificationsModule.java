@@ -7,7 +7,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import xyz.daikirai.client.Overlay;
 import xyz.daikirai.gui.NotificationsPositionEditor;
-import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.gui.onyx.Text;
 import xyz.daikirai.gui.onyx.hud.NotificationLevel;
 import xyz.daikirai.gui.onyx.hud.KeybindsHidden;
@@ -65,7 +65,7 @@ public final class NotificationsModule extends Module {
             @SubscribeEvent public void onRender(TickEvent.RenderTickEvent event) {
                 if (event.phase != TickEvent.Phase.END || instance == null) return;
                 if (!Overlay.canRender()) { HUD.suspend(); return; }
-                OnyxClickGuiModule.sync();
+                ClickGuiModule.sync();
                 HUD.render(instance, false);
             }
         };
@@ -138,7 +138,7 @@ public final class NotificationsModule extends Module {
         if (on(moduleToggles)) {
             for (Module module : ModuleManager.modules) {
                 if (module == this || module == ModuleManager.gui || module == ModuleManager.commandLine
-                        || module instanceof OnyxClickGuiModule || module.noToggle || module.isProfile()) continue;
+                        || module.noToggle || module.isProfile()) continue;
                 boolean enabled = module.isEnabled();
                 Boolean previous = states.put(module, enabled);
                 if (primed && previous != null && previous != enabled) {

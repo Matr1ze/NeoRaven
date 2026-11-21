@@ -66,39 +66,26 @@ public final class Widgets {
      * @param fraction value in 0..1
      */
     public static void slider(UI ui, Scheme scheme, float x, float y, float width, float fraction,
-                              float hover, boolean active) {
-        float h = Material.clamp(hover, 0.0F, 1.0F);
-        float trackHeight = active ? 7.0F : 4.0F + 2.0F * h;
+                              boolean hovered, boolean active) {
+        float trackHeight = active || hovered ? 6.0F : 4.0F;
         float trackY = y - trackHeight / 2.0F;
         float f = Material.clamp(fraction, 0.0F, 1.0F);
-        float thumbRadius = active ? 8.0F : 7.0F + 0.5F * h;
+        float thumbRadius = active ? 8.0F : (hovered ? 7.50F : 7.0F);
 
-        if (active || h > 0.001F) {
-            float halo = active ? 1.0F : h;
-            ui.rounded(x - 2.0F, trackY - 5.0F, width + 4.0F, trackHeight + 10.0F,
-                    (trackHeight + 10.0F) / 2.0F, Material.withAlpha(scheme.primary, 0.08F * halo));
-        }
-
-        int unfilled = h > 0.001F
-                ? Material.mix(scheme.surfaceContainerHighest, scheme.onSurface, 0.07F * h)
-                : scheme.surfaceContainerHighest;
-        ui.rounded(x, trackY, width, trackHeight, trackHeight / 2.0F, unfilled);
+        ui.rounded(x, trackY, width, trackHeight, trackHeight / 2.0F, scheme.surfaceContainerHighest);
         float filled = width * f;
         if (filled > 0.0F) {
             ui.rounded(x, trackY, filled, trackHeight, trackHeight / 2.0F, scheme.primary);
         }
-        if (active || h > 0.001F) {
-            ui.circle(x + filled, trackY + trackHeight / 2.0F, 12.0F + 3.0F * (active ? 1.0F : h),
-                    Material.withAlpha(scheme.primary, 0.12F + (active ? 0.08F : 0.02F * h)));
+        if (active || hovered) {
+            ui.circle(x + filled, trackY + trackHeight / 2.0F, 12.0F, Material.withAlpha(scheme.primary, 0.12F));
         }
-        ui.circle(x + filled, trackY + trackHeight / 2.0F, thumbRadius + 1.0F, Material.withAlpha(scheme.shadow, 0.32F));
+        ui.circle(x + filled, trackY + trackHeight / 2.0F, thumbRadius + 0.5F, Material.withAlpha(scheme.shadow, 0.3F));
         ui.circle(x + filled, trackY + trackHeight / 2.0F, thumbRadius, scheme.primary);
-        if (active || h > 0.001F) {
-            ui.outline(x + filled - thumbRadius - 1.0F, trackY + trackHeight / 2.0F - thumbRadius - 1.0F,
-                    (thumbRadius + 1.0F) * 2.0F, (thumbRadius + 1.0F) * 2.0F, thumbRadius + 1.0F, 1.0F,
-                    Material.withAlpha(scheme.onPrimary, (active ? 0.55F : 0.35F * h)));
-        }
     }
+
+    private static final float MENU_ROW_HEIGHT = 32.0F;
+    private static final float MENU_PADDING = 4.0F;
 
     /** Material menu surface with one row per option. */
     public static void menu(UI ui, Scheme scheme, float x, float y, float width, String[] options, int selected,
@@ -109,7 +96,16 @@ public final class Widgets {
 
     /** Height of a mode menu with {@code count} entries, in GUI pixels. */
     public static float menuFullHeight(int count) {
-        return count * 32.0F + 8.0F;
+        return count * MENU_ROW_HEIGHT + 2.0F * MENU_PADDING;
+    }
+
+    /** Option at a vertical offset from the top of the unscrolled menu. */
+    public static int menuOptionAt(float offset, int count) {
+        float contentY = offset - MENU_PADDING;
+        if (contentY < 0.0F || contentY >= count * MENU_ROW_HEIGHT) {
+            return -1;
+        }
+        return (int) (contentY / MENU_ROW_HEIGHT);
     }
 
     /**
@@ -122,7 +118,7 @@ public final class Widgets {
      */
     public static void menu(UI ui, Scheme scheme, float x, float y, float width, String[] options, int selected,
                             int hovered, float progress, float maxHeight, float scroll) {
-        float rowHeight = 32.0F;
+        float rowHeight = MENU_ROW_HEIGHT;
         float full = menuFullHeight(options.length);
         float height = Math.min(full, maxHeight);
         ui.alphaPush(progress);
@@ -130,7 +126,7 @@ public final class Widgets {
         ui.rounded(x, y, width, height, 8.0F, scheme.surfaceContainerHigh);
         ui.scissorPush(x, y, width, height);
         for (int i = 0; i < options.length; i++) {
-            float rowY = y + 4.0F + i * rowHeight - scroll;
+            float rowY = y + MENU_PADDING + i * rowHeight - scroll;
             if (rowY + rowHeight < y - 1.0F || rowY > y + height + 1.0F) {
                 continue;
             }

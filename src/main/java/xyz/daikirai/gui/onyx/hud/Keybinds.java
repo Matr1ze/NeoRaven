@@ -39,8 +39,8 @@ import java.util.Map;
  *
  * <p>The geometry keeps the same interaction contract as the watermark: the card sits at a
  * percentage of the screen, can be dragged while chat is open, and is also exposed through a
- * dedicated position editor. Every animated size is driven by an {@link Anim}, and the one
- * physical bounce (the keycap) is a {@link Spring}.</p>
+ * dedicated position editor. Row visibility drives the card height, and the keycaps use a
+ * {@link Spring} for their bounce.</p>
  */
 public final class Keybinds {
 
@@ -87,14 +87,13 @@ public final class Keybinds {
     private static final Typeface.Style RETRO_TITLE = Typeface.custom(24.0F, 17.0F, 21.0F, true);
     private static final Typeface.Style RETRO_NAME = Typeface.custom(9.0F, 16.0F, 20.0F, true);
     private static final Typeface.Style RETRO_KEY_TEXT = Typeface.custom(9.0F, 15.0F, 18.0F, true);
-    private static final float ROW_STAGGER = 35.0F;
+    private static final float ROW_VISIBLE = 0.002F;
     /** How much of the surface tint covers the blurred world (the ClickGUI panels use 0.88). */
     private static final float BLUR_COVERAGE = 0.55F;
 
     private final UI ui = new UI();
     private final Anim visible = new Anim(0.0F);
     private final Anim cardWidth = new Anim(MIN_CARD_WIDTH);
-    private final Anim cardHeight = new Anim(54.0F + ROW_HEIGHT);
     private final Map<Module, Entry> cache = new HashMap<Module, Entry>();
     private final List<Entry> entries = new ArrayList<Entry>();
 
@@ -135,17 +134,14 @@ public final class Keybinds {
         float keycapWidth = keycapWidth(retro);
         float nameWidth = nameWidth(retro);
         float cardWidthValue = cardWidth(module, keycapWidth, nameWidth, retro);
-        float cardHeightValue = cardHeight(retro);
         cardWidth.to(cardWidthValue, 280.0F, Ease.EMPHASIZED_DECELERATE);
-        cardHeight.to(cardHeightValue, 280.0F, Ease.EMPHASIZED_DECELERATE);
         cardWidth.update(delta);
-        cardHeight.update(delta);
 
         float base = module.scale();
         float entrance = 0.94F + 0.06F * fade;
         float scale = base * entrance;
         float layoutWidth = cardWidth.value();
-        float layoutHeight = cardHeight.value();
+        float layoutHeight = cardHeight(retro);
         this.w = layoutWidth * base;
         this.h = layoutHeight * base;
 
@@ -158,7 +154,6 @@ public final class Keybinds {
             handleDrag(module, mc, resolution);
         }
 
-        ui.begin();
         try {
             if (!preview) {
                 // A sibling HUD element (the watermark island, for one) may leave its translate
@@ -172,6 +167,7 @@ public final class Keybinds {
                 // and the card must not end up blurred into its own backdrop.
                 Blur.prepare();
             }
+            ui.begin();
             ui.alphaPush(fade);
             // Scale around the card's centre so the entrance grows outwards instead of from the
             // top-left corner (the format Material uses for container transitions).
@@ -189,10 +185,10 @@ public final class Keybinds {
             ui.pop();
             ui.alphaPop();
         } finally {
+            ui.end();
             if (!preview) {
                 GlStateManager.popMatrix();
             }
-            ui.end();
             restoreHudState();
         }
     }
@@ -221,19 +217,18 @@ public final class Keybinds {
         float keycapWidth = keycapWidth(false);
         ui.scissorPush(0.0F, rowsTop - 4.0F, width, Math.max(0.0F, height - rowsTop - PAD + 4.0F));
         float cursor = rowsTop;
-        for (int i = 0; i < entries.size(); i++) {
-            Entry entry = entries.get(i);
-            float show = Material.clamp(entry.show.value(), 0.0F, 1.0F);
-            if (show <= 0.002F && !entry.wanted) {
-                continue;
-            }
+        for (Entry entry : entries) {
+            float show = entry.reveal();
+            if (show == 0.0F) continue;
+            if (show < 1.0F) ui.scissorPush(PAD, cursor, width - PAD * 2.0F, ROW_HEIGHT * show);
             ui.push();
             ui.alphaPush(show);
-            ui.translate(PAD, cursor + (1.0F - show) * 6.0F);
+            ui.translate(PAD, cursor - (1.0F - show) * 6.0F);
             drawRow(scheme, entry, width - PAD * 2.0F, keycapWidth, surface,
                     targetWidth - PAD * 2.0F);
             ui.alphaPop();
             ui.pop();
+            if (show < 1.0F) ui.scissorPop();
             cursor += (ROW_HEIGHT + ROW_GAP) * show;
         }
         ui.scissorPop();
@@ -267,14 +262,14 @@ public final class Keybinds {
         float nameX = keyX + RETRO_KEY + RETRO_TEXT_GAP;
         float nameMax = Math.max(0.0F, width - RETRO_PAD - nameX);
         for (Entry entry : entries) {
-            float show = Material.clamp(entry.show.value(), 0.0F, 1.0F);
-            if (show <= 0.002F && !entry.wanted) {
-                continue;
-            }
-            float enabledAlpha = entry.module.isEnabled() ? 1.0F : 0.52F;
+            float show = entry.reveal();
+            if (show == 0.0F) continue;
+            float state = Material.clamp(entry.state.value(), 0.0F, 1.0F);
+            float enabledAlpha = 0.52F + 0.48F * state;
+            if (show < 1.0F) ui.scissorPush(RETRO_PAD, cursor, width - 2.0F * RETRO_PAD, RETRO_KEY * show);
             ui.push();
             ui.alphaPush(show * enabledAlpha);
-            ui.translate(0.0F, cursor + (1.0F - show) * 5.0F);
+            ui.translate(0.0F, cursor - (1.0F - show) * 5.0F);
 
             float press = Material.clamp(entry.press.value(), 0.0F, 1.0F);
             float pop = Material.clamp(entry.pop.value(), 0.88F, 1.08F) * (1.0F - 0.025F * press);
@@ -298,6 +293,7 @@ public final class Keybinds {
 
             ui.alphaPop();
             ui.pop();
+            if (show < 1.0F) ui.scissorPop();
             cursor += (RETRO_KEY + RETRO_ROW_GAP) * show;
         }
     }
@@ -310,8 +306,8 @@ public final class Keybinds {
                 scheme.onPrimaryContainer);
 
         float titleX = PAD + HEADER_ICON + HEADER_TITLE_GAP;
-        ui.text(Typeface.HEADLINE, xyz.daikirai.util.Lang.module("Keybinds"), titleX,
-                top + HEADER / 2.0F, Theme.hudText(scheme.primary, scheme.onSurface),
+        ui.text(Typeface.HEADLINE, "Keybinds", titleX, top + HEADER / 2.0F,
+                Theme.hudText(scheme.primary, scheme.onSurface),
                 UI.ALIGN_LEFT);
 
         if (module.showCount()) {
@@ -422,13 +418,13 @@ public final class Keybinds {
 
         if (t < 0.999F) {
             ui.alphaPush(1.0F - t);
-            ui.text(Typeface.MICRO, xyz.daikirai.util.Lang.text("OFF"), chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
+            ui.text(Typeface.MICRO, "OFF", chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
                     textColor, UI.ALIGN_CENTER);
             ui.alphaPop();
         }
         if (t > 0.001F) {
             ui.alphaPush(t);
-            ui.text(Typeface.MICRO, xyz.daikirai.util.Lang.text("ON"), chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
+            ui.text(Typeface.MICRO, "ON", chipX + chipWidth / 2.0F, chipY + CHIP_HEIGHT / 2.0F,
                     textColor, UI.ALIGN_CENTER);
             ui.alphaPop();
         }
@@ -453,20 +449,17 @@ public final class Keybinds {
             }
             wanted.add(candidate);
         }
-        wanted.sort(Comparator.comparing(m -> Text.strip(m.localizedName()).toLowerCase()));
 
         for (Entry entry : cache.values()) {
             entry.wanted = false;
         }
 
-        for (int i = 0; i < wanted.size(); i++) {
-            Module candidate = wanted.get(i);
+        for (Module candidate : wanted) {
             Entry entry = cache.get(candidate);
             if (entry == null) {
                 entry = new Entry(candidate);
                 entry.show.set(0.0F);
                 entry.state.set(candidate.isEnabled() ? 1.0F : 0.0F);
-                entry.delay = i * ROW_STAGGER;
                 cache.put(candidate, entry);
             }
             entry.wanted = true;
@@ -483,8 +476,10 @@ public final class Keybinds {
             Entry entry = cache.get(candidate);
             if (entry != null && !entry.wanted) {
                 entry.show.to(0.0F, 180.0F, Ease.DECELERATE);
+                entry.animateToggle(candidate.isEnabled());
+                entry.animatePress(candidate, chatOpen, delta);
                 entry.update(delta);
-                if (entry.show.value() <= 0.002F && entry.show.isDone()) {
+                if (entry.reveal() == 0.0F && entry.show.isDone()) {
                     cache.remove(candidate);
                 }
             }
@@ -546,7 +541,7 @@ public final class Keybinds {
         }
         float rows = PAD * 2.0F + ROW_PAD * 2.0F + keycapWidth + KEYCAP_NAME_GAP + nameWidth
                 + 6.0F + CHIP_WIDTH + CHIP_MORPH;
-        float title = Typeface.HEADLINE.width(xyz.daikirai.util.Lang.module("Keybinds"));
+        float title = Typeface.HEADLINE.width("Keybinds");
         float header = PAD * 2.0F + HEADER_ICON + HEADER_TITLE_GAP + title;
         if (module.showCount()) {
             header += 10.0F + Typeface.MICRO.width(entries.size() + "/" + entries.size()) + 14.0F + 8.0F;
@@ -555,40 +550,23 @@ public final class Keybinds {
     }
 
     private float cardHeight(boolean retro) {
-        if (retro) {
-            float rows = 0.0F;
-            int visibleRows = 0;
-            for (Entry entry : entries) {
-                float show = Material.clamp(entry.show.value(), 0.0F, 1.0F);
-                if (show <= 0.001F) {
-                    continue;
-                }
-                rows += (RETRO_KEY + RETRO_ROW_GAP) * show;
-                visibleRows++;
-            }
-            if (visibleRows > 0) {
-                rows -= RETRO_ROW_GAP;
-            } else {
-                rows = RETRO_KEY;
-            }
-            return RETRO_PAD * 2.0F + RETRO_HEADER + 1.0F + RETRO_HEADER_GAP + rows;
-        }
+        float rowHeight = retro ? RETRO_KEY : ROW_HEIGHT;
+        float gap = retro ? RETRO_ROW_GAP : ROW_GAP;
         float rows = 0.0F;
-        int visibleRows = 0;
+        float lastReveal = 0.0F;
         for (Entry entry : entries) {
-            float show = Material.clamp(entry.show.value(), 0.0F, 1.0F);
-            if (show <= 0.001F) {
-                continue;
+            float reveal = entry.reveal();
+            if (reveal > 0.0F) {
+                rows += (rowHeight + gap) * reveal;
+                lastReveal = reveal;
             }
-            rows += (ROW_HEIGHT + ROW_GAP) * show;
-            visibleRows++;
         }
-        if (visibleRows > 0) {
-            rows -= ROW_GAP;
-        } else {
-            rows = ROW_HEIGHT;
-        }
-        return PAD * 2.0F + HEADER + 10.0F + rows;
+        // Use the same row extents as drawing. Easing this height separately would clip rows
+        // whose entrance has already started, especially at the bottom of the list.
+        rows = Math.max(rowHeight, rows - gap * lastReveal);
+        float header = retro ? RETRO_PAD * 2.0F + RETRO_HEADER + 1.0F + RETRO_HEADER_GAP
+                : PAD * 2.0F + HEADER + 10.0F;
+        return header + rows;
     }
 
     // ------------------------------------------------------------------ //
@@ -644,7 +622,7 @@ public final class Keybinds {
         return h;
     }
 
-    /** Rows currently drawn (harness hook: "Show" mode and .hidekey both change this). */
+    /** Rows currently drawn (exposed for automated checks: "Show" mode and .hidekey both change this). */
     public int rows() {
         return entries.size();
     }
@@ -655,7 +633,6 @@ public final class Keybinds {
         entries.clear();
         visible.set(0.0F);
         cardWidth.set(MIN_CARD_WIDTH);
-        cardHeight.set(PAD * 2.0F + HEADER + 10.0F + ROW_HEIGHT);
         dragging = false;
         lastFrame = 0L;
     }
@@ -678,7 +655,7 @@ public final class Keybinds {
     /** One module row and every animation attached to it. */
     private static final class Entry {
         private final Module module;
-        private String name;
+        private final String name;
         private final Anim state = new Anim(0.0F);
         private final Anim show = new Anim(0.0F);
         private final Anim flash = new Anim(0.0F);
@@ -687,11 +664,10 @@ public final class Keybinds {
         private String label;
         private boolean wanted;
         private boolean lastEnabled;
-        private float delay;
 
         private Entry(Module module) {
             this.module = module;
-            this.name = Text.strip(module.localizedName());
+            this.name = Text.strip(module.getName());
             this.lastEnabled = module.isEnabled();
             this.label = label(module.getKeycode());
         }
@@ -701,15 +677,16 @@ public final class Keybinds {
             if (!next.equals(this.label)) {
                 this.label = next;
             }
-            String localized = Text.strip(module.localizedName());
-            if (!localized.equals(this.name)) {
-                this.name = localized;
-            }
+        }
+
+        private float reveal() {
+            float progress = Material.clamp(this.show.value(), 0.0F, 1.0F);
+            return progress > ROW_VISIBLE ? progress : 0.0F;
         }
 
         /** Whether the row is visible enough to influence the card's width. */
         private boolean measured() {
-            return this.wanted || this.show.value() > 0.002F;
+            return this.wanted || reveal() > 0.0F;
         }
 
         private void animateToggle(boolean enabled) {
@@ -729,11 +706,7 @@ public final class Keybinds {
         }
 
         private void update(float delta) {
-            if (this.delay > 0.0F) {
-                this.delay -= delta;
-            } else {
-                this.show.update(delta);
-            }
+            this.show.update(delta);
             this.state.update(delta);
             this.flash.update(delta);
             this.pop.update(delta);

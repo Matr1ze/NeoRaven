@@ -22,9 +22,21 @@ public final class MusicIsland {
     public static final float PROGRESS_Y = 72.0F;
     public static final float CONTROLS_Y = 104.0F;
     private static long miniUntil;
-    private static final Anim lyricFade = new Anim(1.0F);
-    private static String lyric = "";
-    private static String previousLyric = "";
+    private static final LyricDisplay islandLyrics = new LyricDisplay();
+    private static final LyricDisplay centerLyrics = new LyricDisplay();
+
+    private static final class LyricDisplay {
+        final Anim fade = new Anim(1.0F);
+        String current = "", previous = "";
+
+        void tick(String next, float delta) {
+            if (!next.equals(current)) {
+                previous = current; current = next;
+                fade.set(0.0F); fade.to(1.0F, 240.0F, Ease.STANDARD);
+            }
+            fade.update(delta);
+        }
+    }
 
     private MusicIsland() { }
 
@@ -62,6 +74,10 @@ public final class MusicIsland {
     }
 
     public static String currentLyric() {
+        return currentLyric(false);
+    }
+
+    public static String currentLyric(boolean lyricsOnly) {
         MusicManager manager = MusicManager.get();
         List<LyricLine> lines = manager.lyrics();
         long position = manager.positionMs();
@@ -76,19 +92,17 @@ public final class MusicIsland {
         }
         if (index >= 0 && !lines.get(index).text.trim().isEmpty()) return lines.get(index).text;
         Song song = manager.current();
+        if (lyricsOnly) return song == null ? "暂无播放" : manager.lyricsLoading() ? "正在加载歌词…" : "暂无歌词";
         return song == null ? "Music Player" : song.name;
     }
 
     public static void tick(float delta) {
+        tick(delta, false);
+    }
+
+    public static void tick(float delta, boolean lyricsOnly) {
         CoverCache.tick();
-        String next = currentLyric();
-        if (!next.equals(lyric)) {
-            previousLyric = lyric;
-            lyric = next;
-            lyricFade.set(0.0F);
-            lyricFade.to(1.0F, 240.0F, Ease.STANDARD);
-        }
-        lyricFade.update(delta);
+        (lyricsOnly ? centerLyrics : islandLyrics).tick(currentLyric(lyricsOnly), delta);
     }
 
     /**
@@ -98,12 +112,17 @@ public final class MusicIsland {
      * control stays on the same layout and the click map keeps using those design units.</p>
      */
     public static void draw(UI ui, Scheme scheme, float width, float height, float expansion) {
+        draw(ui, scheme, width, height, expansion, miniSize(), null, false);
+    }
+
+    /** Shared compact layout at an explicit scale, independent of the island's Mini size setting. */
+    public static void draw(UI ui, Scheme scheme, float width, float height, float expansion,
+                            float size, ResourceLocation cover, boolean lyricsOnly) {
         if (!hasTrack()) return;
         MusicManager manager = MusicManager.get();
         Song song = manager.current();
         float mini = Material.clamp(expansion, 0.0F, 1.0F);
         if (mini < 0.01F) return;
-        float size = miniSize();
         float cardWidth = MINI_WIDTH * size;
         float cardHeight = MINI_HEIGHT * size;
         ui.alphaPush(Material.clamp((mini - 0.2F) / 0.8F, 0.0F, 1.0F));
@@ -111,8 +130,9 @@ public final class MusicIsland {
         ui.translate((width - cardWidth) / 2.0F,
                 (height - cardHeight) / 2.0F + (1.0F - mini) * -12.0F);
         ui.scale(size, 0.0F, 0.0F);
-        drawCover(ui, scheme, song, 14.0F, 14.0F, 44.0F);
-        drawLyric(ui, scheme, 68.0F, 25.0F, MINI_WIDTH - 112.0F, MusicTypeface.CARD_HEADLINE);
+        drawCover(ui, scheme, song, 14.0F, 14.0F, 44.0F, cover);
+        drawLyric(ui, scheme, 68.0F, 25.0F, MINI_WIDTH - 112.0F, MusicTypeface.CARD_HEADLINE,
+                lyricsOnly ? centerLyrics : islandLyrics);
         String subtitle = song.artist.isEmpty() ? song.name : song.name + " - " + song.artist;
         ui.text(MusicTypeface.CARD_ARTIST, ui.truncate(MusicTypeface.CARD_ARTIST, subtitle, MINI_WIDTH - 84.0F),
                 68.0F, 47.0F, scheme.onSurfaceVariant, UI.ALIGN_LEFT);
@@ -140,8 +160,8 @@ public final class MusicIsland {
         ui.alphaPop();
     }
 
-    private static void drawCover(UI ui, Scheme scheme, Song song, float x, float y, float size) {
-        ResourceLocation cover = CoverCache.get(song.cover(96));
+    private static void drawCover(UI ui, Scheme scheme, Song song, float x, float y, float size, ResourceLocation cover) {
+        if (cover == null) cover = CoverCache.get(song.cover(96));
         if (cover != null) ui.imageRounded(cover, x, y, size, size, size * 0.24F, -1);
         else {
             ui.rounded(x, y, size, size, size * 0.24F, scheme.primaryContainer);
@@ -149,18 +169,15 @@ public final class MusicIsland {
         }
     }
 
-    private static void drawLyric(UI ui, Scheme scheme, float x, float y, float maxWidth) {
-        drawLyric(ui, scheme, x, y, maxWidth, MusicTypeface.LABEL_TIGHT);
-    }
-
-    private static void drawLyric(UI ui, Scheme scheme, float x, float y, float maxWidth, Typeface.Style style) {
-        float t = lyricFade.value();
+    private static void drawLyric(UI ui, Scheme scheme, float x, float y, float maxWidth,
+                                  Typeface.Style style, LyricDisplay lyrics) {
+        float t = lyrics.fade.value();
         ui.alphaPush(1.0F - t);
-        ui.text(style, ui.truncate(style, previousLyric, maxWidth),
+        ui.text(style, ui.truncate(style, lyrics.previous, maxWidth),
                 x, y - t * 5.0F, scheme.onSurface, UI.ALIGN_LEFT);
         ui.alphaPop();
         ui.alphaPush(t);
-        ui.text(style, ui.truncate(style, lyric, maxWidth),
+        ui.text(style, ui.truncate(style, lyrics.current, maxWidth),
                 x, y + (1.0F - t) * 5.0F, scheme.onSurface, UI.ALIGN_LEFT);
         ui.alphaPop();
     }

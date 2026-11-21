@@ -8,8 +8,7 @@ import net.minecraft.client.gui.GuiSelectWorld;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.client.GuiModList;
 import org.lwjgl.input.Keyboard;
-import xyz.daikirai.gui.onyx.OnyxClickGui;
-import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Anim;
@@ -89,7 +88,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
 
     @Override
     public void initGui() {
-        OnyxClickGuiModule.sync();
+        ClickGuiModule.sync();
         MenuStyleSwitch.reset();
         sheetOpen = false;
         sheet.set(0.0F);
@@ -125,7 +124,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        OnyxClickGuiModule.sync();
+        ClickGuiModule.sync();
         layout();
         long now = System.nanoTime();
         dt = lastFrame == 0L ? 16.0F : Math.min(100.0F, (now - lastFrame) / 1.0E6F);
@@ -192,7 +191,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
         ui.alphaPop();
 
         if (hoveredIndex >= 0 && !sheetOpen) {
-            String label = xyz.daikirai.util.Lang.text(DOCK_LABELS[hoveredIndex]);
+            String label = DOCK_LABELS[hoveredIndex];
             float w = Typeface.LABEL.width(label) + 24.0F;
             float h = 24.0F;
             float cx = dockX + dockCell * (hoveredIndex + 0.5F);
@@ -239,7 +238,7 @@ public final class AndroidMainMenu extends GuiMainMenu {
         float handleY = sheetY + slide + 14.0F;
         ui.rounded(DESIGN_WIDTH / 2.0F - 16.0F, handleY, 32.0F, 4.0F, 2.0F,
                 Material.withAlpha(AndroidWallpaper.ink(), 0.22F));
-        ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Settings"), sheetX + 24.0F,
+        ui.textBaseline(Typeface.BODY_MEDIUM, "Settings", sheetX + 24.0F,
                 sheetY + slide + 36.0F, AndroidWallpaper.softInk(), UI.ALIGN_LEFT);
         for (int i = 0; i < SHEET_LABELS.length; i++) {
             float y = sheetY + slide + sheetHeader + i * rowHeight;
@@ -252,9 +251,9 @@ public final class AndroidMainMenu extends GuiMainMenu {
             }
             boolean quit = i == SHEET_LABELS.length - 1;
             int color = quit ? AndroidWallpaper.errorInk() : AndroidWallpaper.ink();
-            ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text(SHEET_LABELS[i]), sheetX + 24.0F, y + 24.0F, color,
+            ui.textBaseline(Typeface.BODY_MEDIUM, SHEET_LABELS[i], sheetX + 24.0F, y + 24.0F, color,
                     UI.ALIGN_LEFT);
-            ui.textBaseline(Typeface.CAPTION, xyz.daikirai.util.Lang.text(SHEET_HINTS[i]), sheetX + 24.0F, y + 40.0F,
+            ui.textBaseline(Typeface.CAPTION, SHEET_HINTS[i], sheetX + 24.0F, y + 40.0F,
                     quit ? AndroidWallpaper.errorInk() : AndroidWallpaper.faintInk(), UI.ALIGN_LEFT);
             if (!quit) {
                 ui.icon(ICON_CHEVRON, sheetX + sheetWidth - 26.0F, y + rowHeight / 2.0F, 16.0F,
@@ -379,9 +378,9 @@ public final class AndroidMainMenu extends GuiMainMenu {
         if (MenuStyleSwitch.keyTyped(keyCode)) {
             return;
         }
-        if (OnyxClickGuiModule.instance != null && keyCode != 0
-                && keyCode == OnyxClickGuiModule.instance.getKeycode()) {
-            mc.displayGuiScreen(new OnyxClickGui());
+        if (ClickGuiModule.instance != null && keyCode != 0
+                && keyCode == ClickGuiModule.instance.getKeycode()) {
+            ClickGuiModule.instance.enable();
         }
     }
 

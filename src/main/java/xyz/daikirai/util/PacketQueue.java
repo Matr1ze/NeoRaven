@@ -29,6 +29,11 @@ public final class PacketQueue {
         }
     }
 
+    /** Throw away everything that is currently held without sending it (Rise's {@code cQ.clear()}). */
+    public static void drop() {
+        held.clear();
+    }
+
     public static void open() {
         if (!active) {
             active = true;

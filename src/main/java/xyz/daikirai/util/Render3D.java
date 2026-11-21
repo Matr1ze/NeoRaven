@@ -1,6 +1,7 @@
 package xyz.daikirai.util;
 
 import xyz.daikirai.module.render.ExtendCameraModule;
+import xyz.daikirai.module.setting.ButtonSetting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ActiveRenderInfo;
 import net.minecraft.client.renderer.EntityRenderer;
@@ -40,6 +41,11 @@ public final class Render3D {
     private static Method setupCameraTransform;
 
     private Render3D() {
+    }
+
+    public static boolean showSelf(ButtonSetting setting) {
+        return setting.isToggled() && mc.thePlayer != null && mc.thePlayer.isEntityAlive()
+                && mc.gameSettings.thirdPersonView != 0 && !mc.thePlayer.isPlayerSleeping();
     }
 
     public static void updateFrustum(float f) {

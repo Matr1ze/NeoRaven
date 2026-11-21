@@ -1,6 +1,6 @@
 package xyz.daikirai.gui;
 
-import xyz.daikirai.module.GuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.util.Blur;
 import xyz.daikirai.util.RenderUtils;
@@ -33,13 +33,13 @@ public class HudEditor extends GuiScreen {
 
     @Override
     public void drawScreen(int x, int y, float p) {
-        if (GuiModule.darkBackground.isToggled()) {
+        if (ClickGuiModule.darkBackground.isToggled()) {
             drawRect(0, 0, this.width, this.height, -1089466352);
         }
-        if (GuiModule.backgroundBlur.getInput() > 0.0) {
+        if (ClickGuiModule.backgroundBlur.getInput() > 0.0) {
             Blur.get().startStencil();
             Gui.drawRect(0, 0, RenderUtils.scaledWidth, RenderUtils.scaledHeight, -1);
-            Blur.get().render(2, GuiModule.blurStrength);
+            Blur.get().render(2, ClickGuiModule.blurStrength);
         }
         try {
             this.handleInput();
@@ -57,6 +57,6 @@ public class HudEditor extends GuiScreen {
 
     @Override
     public void updateScreen() {
-        GuiModule.updateMovement();
+        ClickGuiModule.updateMovement();
     }
 }

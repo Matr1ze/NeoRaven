@@ -1,6 +1,6 @@
 package xyz.daikirai.gui;
 
-import xyz.daikirai.module.GuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.module.Module;
 import xyz.daikirai.module.setting.ButtonSetting;
 import xyz.daikirai.module.setting.DescriptionSetting;
@@ -11,6 +11,7 @@ import xyz.daikirai.util.RenderUtils;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.List;
 
 public class ModuleComponent extends Component {
     public long hoverEndedAt;
@@ -29,15 +30,25 @@ public class ModuleComponent extends Component {
     public boolean hovered;
     public double colorFadeMs = 75.0;
     public Module mod;
+    private final List<Setting> renderedSettings = new ArrayList<>();
 
     public ModuleComponent(Module mod, CategoryComponent p, float o) {
         this.mod = mod;
         this.categoryComponent = p;
         this.offset = o;
         this.settings = new ArrayList<Component>();
-        float y = o + 12.0f;
-        if (!mod.getSettings().isEmpty()) {
-            for (Setting v : mod.getSettings()) {
+        List<Setting> rows = mod instanceof ClickGuiModule
+                ? ((ClickGuiModule) mod).classicSettings() : mod.getSettings();
+        buildSettings(rows);
+    }
+
+    private void buildSettings(List<Setting> rows) {
+        renderedSettings.clear();
+        renderedSettings.addAll(rows);
+        this.settings.clear();
+        float y = this.offset + 16.0f;
+        if (!rows.isEmpty()) {
+            for (Setting v : rows) {
                 Component c = null;
                 if (v instanceof SliderSetting) {
                     c = new SliderComponent((SliderSetting) v, this, y);
@@ -73,6 +84,10 @@ public class ModuleComponent extends Component {
     @Override
     public void setOffset(float n) {
         this.offset = this.yPos = n;
+        if (this.opened && this.mod instanceof xyz.daikirai.render.furiah.module.ambience.FuriahAmbienceModule) {
+            List<Setting> rows = this.mod.getSettings();
+            if (!renderedSettings.equals(rows)) buildSettings(rows);
+        }
         float y = this.offset + 16.0f;
         for (Component c : this.settings) {
             c.setOffset(y);
@@ -197,22 +212,22 @@ public class ModuleComponent extends Component {
                 if (d == 0.0) {
                     this.mod.enabledAt = 0L;
                 }
-                color = RenderUtils.blend(GuiModule.disabledColor.color, GuiModule.enabledColor.color, d);
+                color = RenderUtils.blend(ClickGuiModule.disabledColor.color, ClickGuiModule.enabledColor.color, d);
             } else {
-                color = GuiModule.enabledColor.rgb;
+                color = ClickGuiModule.enabledColor.rgb;
             }
         } else if (this.mod.isProfile() && this.mod.profile == xyz.daikirai.client.Profiles.current) {
-            color = xyz.daikirai.client.Profiles.modified ? GuiModule.scriptColor.rgb : GuiModule.enabledColor.rgb;
+            color = xyz.daikirai.client.Profiles.modified ? ClickGuiModule.scriptColor.rgb : ClickGuiModule.enabledColor.rgb;
         } else if (this.mod.isScript() && this.mod.script.failed || this.mod.getName().equals("IRC")) {
-            color = GuiModule.errorColor.rgb;
+            color = ClickGuiModule.errorColor.rgb;
         } else if (this.mod.disabledAt > 0L) {
             d = 1.0 - Math.min(1.0, (double) (System.currentTimeMillis() - this.mod.disabledAt) / this.colorFadeMs);
             if (d == 0.0) {
                 this.mod.disabledAt = 0L;
             }
-            color = RenderUtils.blend(GuiModule.enabledColor.color, GuiModule.disabledColor.color, d);
+            color = RenderUtils.blend(ClickGuiModule.enabledColor.color, ClickGuiModule.disabledColor.color, d);
         } else {
-            color = GuiModule.disabledColor.rgb;
+            color = ClickGuiModule.disabledColor.rgb;
         }
         this.wasHovered = this.hovered;
         this.hovered = this.isHovered(mouseX, mouseY);

@@ -8,6 +8,7 @@ import net.minecraft.client.network.OldServerPinger;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
+import xyz.daikirai.via.ViaCompatibility;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -133,12 +134,12 @@ public final class AndroidMultiplayerScreen extends AndroidListScreen {
 
     @Override
     protected String title() {
-        return xyz.daikirai.util.Lang.text("Multiplayer");
+        return "Multiplayer";
     }
 
     @Override
     protected String caption() {
-        return entries.size() + (entries.size() == 1 ? " " + xyz.daikirai.util.Lang.text("server") : " " + xyz.daikirai.util.Lang.text("servers"));
+        return entries.size() + (entries.size() == 1 ? " server" : " servers");
     }
 
     @Override
@@ -148,7 +149,7 @@ public final class AndroidMultiplayerScreen extends AndroidListScreen {
 
     @Override
     protected String emptyText() {
-        return xyz.daikirai.util.Lang.text("No servers yet - add one to join");
+        return "No servers yet - add one to join";
     }
 
     @Override
@@ -215,7 +216,7 @@ public final class AndroidMultiplayerScreen extends AndroidListScreen {
         // populationInfo arrives with §7/§8 colour codes; the M3 caption supplies the colour here.
         String label = data.populationInfo == null ? "" : stripColors(data.populationInfo);
         if (label.isEmpty()) {
-            label = ping < 0 ? xyz.daikirai.util.Lang.text("Pinging\u2026") : (ping + " " + xyz.daikirai.util.Lang.text("ms"));
+            label = ping < 0 ? "Pinging\u2026" : (ping + " ms");
         }
         ui.text(Typeface.CAPTION, ui.truncate(Typeface.CAPTION, label, 74.0F), right - 52.0F, cy - 12.0F,
                 AndroidWallpaper.faintInk(), UI.ALIGN_RIGHT);
@@ -236,16 +237,20 @@ public final class AndroidMultiplayerScreen extends AndroidListScreen {
 
     @Override
     protected void buildActions(List<Action> actions) {
-        actions.add(new Action(xyz.daikirai.util.Lang.text("Add server"), TONAL, () -> mc.displayGuiScreen(new AndroidServerScreen(this, -1))));
+        actions.add(new Action("Add server", TONAL, () -> mc.displayGuiScreen(new AndroidServerScreen(this, -1))));
         // One-off join: no entry is written to servers.dat (that is what "Add server" is for).
-        actions.add(new Action(xyz.daikirai.util.Lang.text("Direct connect"), TONAL, this::directConnect));
-        actions.add(new Action(xyz.daikirai.util.Lang.text("Refresh"), TEXT, () -> {
+        actions.add(new Action("Direct connect", TONAL, this::directConnect));
+        if (ViaCompatibility.available()) {
+            actions.add(new Action(ViaCompatibility.protocolLabel(), TONAL,
+                    () -> ViaCompatibility.openSelector(this)));
+        }
+        actions.add(new Action("Refresh", TEXT, () -> {
             pingAll();
         }));
-        actions.add(new Action(xyz.daikirai.util.Lang.text("Edit"), TEXT,
+        actions.add(new Action("Edit", TEXT,
                 () -> mc.displayGuiScreen(new AndroidServerScreen(this, selected)), selected >= 0));
-        actions.add(new Action(xyz.daikirai.util.Lang.text("Delete"), DANGER, this::askDelete, selected >= 0));
-        actions.add(new Action(xyz.daikirai.util.Lang.text("Join"), FILLED, () -> join(selected), selected >= 0));
+        actions.add(new Action("Delete", DANGER, this::askDelete, selected >= 0));
+        actions.add(new Action("Join", FILLED, () -> join(selected), selected >= 0));
     }
 
     /**
@@ -269,7 +274,7 @@ public final class AndroidMultiplayerScreen extends AndroidListScreen {
         }
         final int index = selected;
         final ServerData data = entries.get(index);
-        confirm(xyz.daikirai.util.Lang.text("Remove server?"), "\"" + data.serverName + "\" " + xyz.daikirai.util.Lang.text("will be removed from your list."), xyz.daikirai.util.Lang.text("Remove"),
+        confirm("Remove server?", "\"" + data.serverName + "\" will be removed from your list.", "Remove",
                 () -> remove(index));
     }
 

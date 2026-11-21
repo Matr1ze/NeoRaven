@@ -7,13 +7,14 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import xyz.daikirai.client.Overlay;
 import xyz.daikirai.gui.TargetHudPositionEditor;
-import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.gui.onyx.hud.TargetHud;
 import xyz.daikirai.module.Category;
 import xyz.daikirai.module.Module;
 import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.module.combat.KillAuraModule;
 import xyz.daikirai.module.setting.ButtonSetting;
+import xyz.daikirai.module.setting.ColorSetting;
 import xyz.daikirai.module.setting.Setting;
 import xyz.daikirai.module.setting.SliderSetting;
 import xyz.daikirai.util.Render3D;
@@ -31,6 +32,9 @@ public final class TargetHudModule extends Module {
 
     public static TargetHudModule instance;
 
+    /** Shipped particle density; {@code 1.0F} is Rise's own rate. */
+    public static final float DEFAULT_PARTICLE_AMOUNT = 1.2F;
+
     private static final TargetHud HUD = new TargetHud();
     private static Object listener;
 
@@ -41,10 +45,21 @@ public final class TargetHudModule extends Module {
     public static ButtonSetting showArmor;
     public static ButtonSetting renderEsp;
 
+    /** Rise-style hit feedback: the avatar squash/flash and the particle burst. */
+    public static ButtonSetting hitAnimation;
+    public static ButtonSetting hitParticles;
+
     public static SliderSetting scale;
     public static SliderSetting positionX;
     public static SliderSetting positionY;
     public static SliderSetting linger;
+
+    /** Multiplies Rise's particle count; 1x is the original density. */
+    public static SliderSetting particleAmount;
+    /** Multiplies the launch speed of every dot: how hard the burst is thrown out. */
+    public static SliderSetting burstForce;
+    /** Particle tint. Follows the theme by default, which is what Rise did. */
+    public static ColorSetting particleTint;
 
     public TargetHudModule(int key) {
         super("TargetHUD", Category.render, key);
@@ -57,11 +72,16 @@ public final class TargetHudModule extends Module {
         positionX = slider("Position X");
         positionY = slider("Position Y");
         linger = slider("Linger");
+        particleAmount = slider("Particle amount");
+        burstForce = slider("Burst force");
+        particleTint = color("Particle color");
         frostedGlass = button("Frosted glass");
         showHealth = button("Show health");
         showDistance = button("Show distance");
         showArmor = button("Show armor");
         renderEsp = button("Render ESP");
+        hitAnimation = button("Hit animation");
+        hitParticles = button("Hit particles");
         editPosition = button("Edit position");
 
         registerRenderer();
@@ -75,6 +95,11 @@ public final class TargetHudModule extends Module {
     private static SliderSetting slider(String name) {
         Setting setting = ModuleManager.setting(instance, name);
         return setting instanceof SliderSetting ? (SliderSetting) setting : null;
+    }
+
+    private static ColorSetting color(String name) {
+        Setting setting = ModuleManager.setting(instance, name);
+        return setting instanceof ColorSetting ? (ColorSetting) setting : null;
     }
 
     /** Registered once so the card can keep fading out after the module is disabled. */
@@ -91,7 +116,7 @@ public final class TargetHudModule extends Module {
                 if (!Overlay.canRender()) {
                     return;
                 }
-                OnyxClickGuiModule.sync();
+                ClickGuiModule.sync();
                 HUD.render(instance, false, event.renderTickTime);
             }
         };
@@ -157,6 +182,32 @@ public final class TargetHudModule extends Module {
 
     public boolean showArmor() {
         return showArmor == null || showArmor.isToggled();
+    }
+
+    /** The avatar squash + red flash on every hit (Rise's {@code headAnimation}). */
+    public boolean hitAnimation() {
+        return hitAnimation == null || hitAnimation.isToggled();
+    }
+
+    /** The dots that burst out of the avatar on every hit (Rise's {@code ParticleComponent}). */
+    public boolean hitParticles() {
+        return hitParticles == null || hitParticles.isToggled();
+    }
+
+    /**
+     * Particle density multiplier. {@code 1} is Rise's original rate (0–2.5 dots per tick); the
+     * shipped default is higher because the original reads a little sparse on a big screen.
+     */
+    public float particleAmount() {
+        return particleAmount == null ? DEFAULT_PARTICLE_AMOUNT : (float) particleAmount.getInput();
+    }
+
+    /**
+     * Launch-speed multiplier for the burst. {@code 1} is the tuned default: a hard shove that is
+     * mostly spent in ~150 ms, then a long slow drift.
+     */
+    public float burstForce() {
+        return burstForce == null ? 1.0F : (float) burstForce.getInput();
     }
 
     public float scale() {

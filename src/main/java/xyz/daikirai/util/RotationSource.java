@@ -27,7 +27,8 @@ public enum RotationSource {
     DISPLACE(true),
     /** raven-bS BridgeAssist pre-place aim: leans the view down at the face being placed against. */
     BRIDGEASSIST(true),
-    JUMP45(true);
+    JUMP45(true),
+    CHESTAURA(true);
 
     public final boolean movementFix;
 

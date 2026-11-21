@@ -1,6 +1,6 @@
 package xyz.daikirai.gui;
 
-import xyz.daikirai.module.GuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.module.Module;
 import xyz.daikirai.util.RenderUtils;
 import xyz.daikirai.util.Theme;
@@ -120,7 +120,7 @@ public class BindComponent extends Component {
 
     public void setBind(int keybind) {
         if (keybind == 1) {
-            if (!(this.mod instanceof GuiModule)) {
+            if (!(this.mod instanceof ClickGuiModule)) {
                 this.mod.setBind(0);
             }
         } else {

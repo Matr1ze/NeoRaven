@@ -6,7 +6,7 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import xyz.daikirai.client.Overlay;
 import xyz.daikirai.gui.ArrayListPositionEditor;
 import xyz.daikirai.gui.ColorEditor;
-import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.gui.onyx.hud.ArrayListHud;
 import xyz.daikirai.module.Category;
 import xyz.daikirai.module.Module;
@@ -125,7 +125,7 @@ public final class ArrayListModule extends Module {
                 if (!Overlay.canRender()) {
                     return;
                 }
-                OnyxClickGuiModule.sync();
+                ClickGuiModule.sync();
                 HUD.render(instance, false);
             }
         };

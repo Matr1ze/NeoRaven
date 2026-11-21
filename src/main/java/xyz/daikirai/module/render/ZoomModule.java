@@ -63,7 +63,7 @@ public final class ZoomModule extends Module {
         tick(delta);
     }
 
-    /** Advances the fade by an explicit amount of milliseconds (the harness drives it this way). */
+    /** Advances the fade by an explicit amount of milliseconds (a fixed step drives it this way). */
     public void tick(float deltaMillis) {
         float target = isEnabled() ? 1.0F : 0.0F;
         float duration = (float) animation.getInput();
@@ -90,7 +90,7 @@ public final class ZoomModule extends Module {
         return fov + (zoomed - fov) * eased;
     }
 
-    /** How far the zoom is currently applied, between 0 and 1 (used by the dev harness). */
+    /** How far the zoom is currently applied, between 0 and 1 (exposed for automated checks). */
     public float value() {
         return current;
     }

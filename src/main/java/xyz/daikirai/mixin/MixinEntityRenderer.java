@@ -3,9 +3,7 @@ package xyz.daikirai.mixin;
 import xyz.daikirai.module.render.CameraModule;
 import xyz.daikirai.module.render.CameraModules;
 import xyz.daikirai.module.render.FreelookModule;
-import xyz.daikirai.module.render.HandOutlineModule;
 import xyz.daikirai.module.render.ZoomModule;
-import net.minecraft.client.renderer.ItemRenderer;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
 import xyz.daikirai.gui.onyx.render.GuiOpenAnimation;
@@ -25,14 +23,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(EntityRenderer.class)
 public class MixinEntityRenderer {
-    @Redirect(method = "renderHand", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/client/renderer/ItemRenderer;renderItemInFirstPerson(F)V"))
-    private void onyx$handOutline(ItemRenderer renderer, float partialTicks) {
-        renderer.renderItemInFirstPerson(partialTicks);
-        HandOutlineModule module = HandOutlineModule.instance;
-        if (module != null && module.isEnabled()) module.render(renderer, partialTicks);
-    }
-
     @Redirect(method = "updateCameraAndRender", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/entity/EntityPlayerSP;setAngles(FF)V"))
     private void onyx$mouse(EntityPlayerSP player, float yaw, float pitch) {

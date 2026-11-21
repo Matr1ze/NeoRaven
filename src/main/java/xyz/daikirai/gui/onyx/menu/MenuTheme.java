@@ -1,7 +1,7 @@
 package xyz.daikirai.gui.onyx.menu;
 
 import xyz.daikirai.client.ClientConfig;
-import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -124,7 +124,7 @@ public final class MenuTheme {
             dark = value;
             save();
         }
-        OnyxClickGuiModule.syncModeFromMenu(value);
+        ClickGuiModule.syncModeFromMenu(value);
     }
 
     public static void toggle() {
@@ -143,7 +143,7 @@ public final class MenuTheme {
             glass = value;
             save();
         }
-        OnyxClickGuiModule.syncModeFromMenu(dark);
+        ClickGuiModule.syncModeFromMenu(dark);
     }
 
     /** 0 = off, 1 = Mica blur, 2 = the client's own frosted glass. */

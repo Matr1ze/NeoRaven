@@ -58,8 +58,7 @@ public final class GuiOpenAnimation {
 
     /** Includes Forge's GUI hooks, and always restores the font scope when drawing throws. */
     public static void drawScreen(GuiScreen gui, int mouseX, int mouseY, float partialTicks) {
-        boolean customFont = gui != null && gui.getClass().getName().startsWith("xyz.daikirai.");
-        if (customFont) GuiFont.begin();
+        GuiFont.begin();
         try {
             if (screen != gui) opened(gui);
             // Island animates its own loot card. Bypass the vanilla GUI animation's world scrim,
@@ -90,7 +89,7 @@ public final class GuiOpenAnimation {
                 drawScaled(gui, x, y, partialTicks);
             }
         } finally {
-            if (customFont) GuiFont.end();
+            GuiFont.end();
         }
     }
 

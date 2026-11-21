@@ -3,7 +3,7 @@ package xyz.daikirai.gui.onyx.menu;
 import net.minecraft.client.gui.*;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
-import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.gui.onyx.material.*;
 import xyz.daikirai.gui.onyx.render.*;
 import java.io.IOException;
@@ -72,7 +72,7 @@ abstract class MenuScreen extends GuiScreen {
         scale=Math.max(0.1F,Theme.screenScale(fit)); ox=(width/scale-panelWidth)/2; oy=(height/scale-panelHeight)/2;
     }
     @Override public final void drawScreen(int x,int y,float ticks) {
-        OnyxClickGuiModule.sync(); position();
+        ClickGuiModule.sync(); position();
         long now=System.nanoTime(); dt=last==0 ? 16 : Math.min(100,(now-last)/1E6F); last=now; opening.update(dt);
         float enter=Material.clamp(opening.value(),0.0F,1.0F);
         mx=x/scale-ox; my=y/scale-oy;
@@ -126,16 +126,16 @@ abstract class MenuScreen extends GuiScreen {
         ui.alphaPop();
         ui.pop(); ui.end();
         for(MenuButton b:buttons) if(b.icon!=null && b.label.isEmpty() && b.hit(mx,my)) {
-            String tip="\ue5cd".equals(b.icon)?xyz.daikirai.util.Lang.text("Close"):tooltip(b.icon);
+            String tip="\ue5cd".equals(b.icon)?"Close":tooltip(b.icon);
             if(!tip.isEmpty()) drawHoveringText(Collections.singletonList(tip),x,y);
         }
     }
     String tooltip(String icon) {
-        if("\ue872".equals(icon)) return xyz.daikirai.util.Lang.text("Delete");
-        if("\ue5d5".equals(icon)) return xyz.daikirai.util.Lang.text("Refresh tokens");
-        if("\ue037".equals(icon)) return xyz.daikirai.util.Lang.text("Log in");
-        if("\ue14d".equals(icon)) return xyz.daikirai.util.Lang.text("Copy username");
-        if("\ue5c4".equals(icon)) return xyz.daikirai.util.Lang.text("Back");
+        if("\ue872".equals(icon)) return "Delete";
+        if("\ue5d5".equals(icon)) return "Refresh tokens";
+        if("\ue037".equals(icon)) return "Log in";
+        if("\ue14d".equals(icon)) return "Copy username";
+        if("\ue5c4".equals(icon)) return "Back";
         return "";
     }
     abstract void drawContent(Scheme scheme);
@@ -153,7 +153,7 @@ abstract class MenuScreen extends GuiScreen {
     void message(String text,boolean bad) { status=text; error=bad; }
     static String failure(Throwable e) {
         while(e.getCause()!=null) e=e.getCause();
-        return e.getMessage()==null ? xyz.daikirai.util.Lang.text("Operation failed") : e.getMessage();
+        return e.getMessage()==null ? "Operation failed" : e.getMessage();
     }
     <T> void task(java.util.concurrent.Callable<T> work,java.util.function.Consumer<T> success) {
         if(busy) return;
@@ -175,8 +175,10 @@ abstract class MenuScreen extends GuiScreen {
         if(!opening.settled()) return;
         for(MenuField f:fields) f.click(mx,my,b);
         if(b!=0) return;
+        if(clickContent(mx,my)) return;
         for(MenuButton button:new ArrayList<MenuButton>(buttons)) if(button.enabled && button.hit(mx,my)) { button.action.run(); return; }
     }
+    boolean clickContent(float x,float y) { return false; }
     @Override protected void keyTyped(char c,int key) throws IOException {
         if(key==Keyboard.KEY_ESCAPE) { closeToParent(); return; }
         if(key==Keyboard.KEY_RETURN && !busy) { submit(); return; }

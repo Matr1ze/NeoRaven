@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 public class ItemESPModule extends Module {
+    private ButtonSetting renderSelf;
     public static ButtonSetting disableDiamond, disableEmerald, disableGold, disableIron;
 
     public ItemESPModule(int key) {
@@ -32,6 +33,7 @@ public class ItemESPModule extends Module {
     }
 
     public void link() {
+        renderSelf = (ButtonSetting) ModuleManager.setting(this, "Render self");
         disableDiamond = (ButtonSetting) ModuleManager.setting(this, "Disable diamond");
         disableEmerald = (ButtonSetting) ModuleManager.setting(this, "Disable emerald");
         disableGold = (ButtonSetting) ModuleManager.setting(this, "Disable gold");
@@ -48,6 +50,7 @@ public class ItemESPModule extends Module {
         if (!Chat.inWorld()) {
             return;
         }
+        if (Render3D.showSelf(renderSelf)) Render3D.entityBox(mc.thePlayer, 2, -1, e.partialTicks);
         HashMap<Item, ArrayList<EntityItem>> byItem = new HashMap<Item, ArrayList<EntityItem>>();
         HashMap<Double, Integer> counts = new HashMap<Double, Integer>();
         for (Entity entity : mc.theWorld.loadedEntityList) {

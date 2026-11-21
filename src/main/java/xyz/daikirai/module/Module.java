@@ -136,6 +136,7 @@ public class Module {
         } else {
             xyz.daikirai.script.ScriptManager.onEnable(this.script);
         }
+        xyz.daikirai.client.Sounds.toggle(true);
     }
 
     public void disable() {
@@ -171,6 +172,7 @@ public class Module {
         } else {
             xyz.daikirai.script.ScriptManager.onDisable(this.script);
         }
+        xyz.daikirai.client.Sounds.toggle(false);
     }
 
     public void link() {
@@ -187,7 +189,7 @@ public class Module {
     }
 
     public String getDisplayName() {
-        return this.displayName(this.localizedName());
+        return this.displayName(this.name);
     }
 
     public String displayName(String s) {
@@ -196,12 +198,6 @@ public class Module {
             s = s + HudModule.INFO_SEPARATOR + info;
         }
         return HudModule.lowercase.isToggled() ? s.toLowerCase() : s;
-    }
-
-    /** Localised module name for display only; {@link #name} stays the stable lookup/save key. */
-    public String localizedName() {
-        if (isScript() || isProfile()) return name;
-        return xyz.daikirai.util.Lang.module(name);
     }
 
     public boolean isCloset() {

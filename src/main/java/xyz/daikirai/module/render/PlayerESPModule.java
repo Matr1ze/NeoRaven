@@ -130,7 +130,21 @@ public class PlayerESPModule extends Module {
     }
 
     public static void renderShader(float pt) {
-        if (!EspShaders.valid(EspShaders.outline()) || !EspShaders.valid(EspShaders.fill())) {
+        if (!EspShaders.valid(EspShaders.outline())) return;
+        renderMask(pt, mc.theWorld.playerEntities, player -> player == mc.thePlayer ? Render3D.showSelf(renderSelf)
+                : player.deathTime == 0 && (showInvis.isToggled() || !player.isInvisible()) && shouldRender(player), player -> {
+            int rgb = color(player, pt);
+            return rgb == 0 ? RenderUtils.rainbow(2L, 0L) : rgb;
+        }, mask -> {
+            if (type != Type.Outline) GlowShader.get().render(mask, 2, type == Type.Outline_Light_Glow ? 1.5f : 6.5f);
+            EspShaders.outline(mask, 2.0f, 0.1f);
+        });
+    }
+
+    static <E extends Entity> void renderMask(float pt, Iterable<E> entities,
+            java.util.function.Predicate<E> accepts, java.util.function.ToIntFunction<E> color,
+            java.util.function.Consumer<Framebuffer> composite) {
+        if (!OpenGlHelper.isFramebufferEnabled() || !EspShaders.valid(EspShaders.fill())) {
             return;
         }
         Framebuffer fb = framebuffer();
@@ -158,15 +172,10 @@ public class PlayerESPModule extends Module {
             GlStateManager.enableTexture2D();
             GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
             shaderPass = true;
-            for (EntityPlayer p : mc.theWorld.playerEntities) {
-                if (p.deathTime != 0 || p == mc.thePlayer && (!renderSelf.isToggled() || mc.gameSettings.thirdPersonView == 0 || p.isPlayerSleeping())
-                        || !showInvis.isToggled() && p.isInvisible() || !shouldRender(p)) continue;
-                int n = color(p, pt);
-                if (n == 0) {
-                    n = RenderUtils.rainbow(2L, 0L);
-                }
-                EspShaders.useFill(n);
-                rm.renderEntityStatic(p, pt, true);
+            for (E entity : entities) {
+                if (!accepts.test(entity)) continue;
+                EspShaders.useFill(color.applyAsInt(entity));
+                rm.renderEntityStatic(entity, pt, true);
                 EspShaders.fill().stop();
                 drew = true;
             }
@@ -183,10 +192,7 @@ public class PlayerESPModule extends Module {
                 GlStateManager.enableBlend();
                 GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
                 GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
-                if (type != Type.Outline) {
-                    GlowShader.get().render(fb, 2, type == Type.Outline_Light_Glow ? 1.5f : 6.5f);
-                }
-                EspShaders.outline(fb, 2.0f, 0.1f);
+                composite.accept(fb);
             }
         } finally {
             EspShaders.fill().stop();

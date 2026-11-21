@@ -146,7 +146,7 @@ public final class M3LoadingIndicator {
     }
 
     /**
-     * Whether the morph shader compiled. The dev harness asserts this so a silent fallback (a plain
+     * Whether the morph shader compiled. A silent fallback (a plain
      * disc) cannot pass as the indicator.
      */
     public static boolean ready() {

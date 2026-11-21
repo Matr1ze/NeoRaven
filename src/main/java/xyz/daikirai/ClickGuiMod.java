@@ -15,6 +15,7 @@ import xyz.daikirai.module.HudModule;
 import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.util.Zoom;
 import xyz.daikirai.util.RotationManager;
+import xyz.daikirai.via.ViaCompatibility;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.client.event.MouseEvent;
@@ -23,11 +24,12 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
-@Mod(modid = "clickgui", name = "NeoRaven", version = "1.2", clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
+@Mod(modid = "clickgui", name = "NeoRaven", version = "1.0.0", clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
 public class ClickGuiMod {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
@@ -49,6 +51,11 @@ public class ClickGuiMod {
         MinecraftForge.EVENT_BUS.register(new xyz.daikirai.client.Keystrokes());
         xyz.daikirai.client.Keystrokes.instance = new xyz.daikirai.client.Keystrokes();
         xyz.daikirai.client.Keystrokes.load();
+    }
+
+    @Mod.EventHandler
+    public void postInit(FMLPostInitializationEvent event) {
+        ViaCompatibility.initialize(mc.mcDataDir);
     }
 
     private boolean pollBind(Module m) {
@@ -81,6 +88,8 @@ public class ClickGuiMod {
         if (e.phase != TickEvent.Phase.END) {
             return;
         }
+        // Runs in menus too, so the animated window title keeps typing before a world exists.
+        xyz.daikirai.client.WindowTitle.tick();
         if (xyz.daikirai.util.PacketQueue.active) {
             xyz.daikirai.util.PacketQueue.tick();
         }

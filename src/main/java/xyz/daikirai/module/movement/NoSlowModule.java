@@ -15,7 +15,9 @@ import xyz.daikirai.util.MoveUtils;
 import xyz.daikirai.util.PacketQueue;
 import xyz.daikirai.util.PacketUtils;
 import xyz.daikirai.util.PlayerUtils;
+import xyz.daikirai.via.ViaCompatibility;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.monster.EntityIronGolem;
 import net.minecraft.entity.monster.EntitySilverfish;
@@ -69,6 +71,11 @@ public class NoSlowModule extends Module {
 
     private static Minecraft mc() {
         return Minecraft.getMinecraft();
+    }
+
+    public static boolean requiresVanillaItemUse() {
+        EntityPlayerSP player = mc().thePlayer;
+        return player != null && ViaCompatibility.usesMovement1206(player.sendQueue.getNetworkManager());
     }
 
     public void link() {
@@ -166,7 +173,7 @@ public class NoSlowModule extends Module {
 
     @Override
     public float[] getRotations(float yaw, float pitch) {
-        if (interactTicks > 0) {
+        if (interactTicks > 0 && !requiresVanillaItemUse()) {
             return new float[]{interactYaw, interactPitch};
         }
         return null;
@@ -224,6 +231,8 @@ public class NoSlowModule extends Module {
     public void onJoin(EntityJoinWorldEvent e) {
         if (e.entity == mc().thePlayer) {
             lastSlowTick = -1;
+            useTicks = 0;
+            tickSlow = -1.0f;
         }
     }
 

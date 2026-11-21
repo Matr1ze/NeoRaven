@@ -12,10 +12,8 @@ import xyz.daikirai.script.ScriptEvents;
 import xyz.daikirai.script.ScriptManager;
 import xyz.daikirai.module.ModuleManager;
 import xyz.daikirai.module.SettingsModule;
+import xyz.daikirai.module.movement.TargetStrafeModule;
 import xyz.daikirai.module.render.AntiShuffleModule;
-import xyz.daikirai.module.dev.DebugAcModule;
-import xyz.daikirai.module.dev.TestModule;
-import xyz.daikirai.module.dev.ViewPacketsModule;
 import xyz.daikirai.module.render.CameraModules;
 import xyz.daikirai.util.MoveUtils;
 import xyz.daikirai.util.PacketQueue;
@@ -24,6 +22,8 @@ import xyz.daikirai.util.PlayerUtils;
 import xyz.daikirai.util.RenderUtils;
 import xyz.daikirai.util.RotationManager;
 import xyz.daikirai.util.SwapSlot;
+import xyz.daikirai.via.ViaCompatibility;
+import xyz.daikirai.via.ViaInteractCursor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -114,13 +114,13 @@ public final class Hooks {
         if ((m = on("Chat Commands")) != null) {
             ChatCommands.tick();
         }
-        String[] enabledOrder = {"Displace", "KillAura", "KillAura2", "Scaffold", "Scaffold2", "SafeWalk", "NoSlow"};
+        String[] enabledOrder = {"AntiVoid", "Displace", "KillAura", "KillAura2", "Scaffold", "Scaffold2", "SafeWalk", "NoSlow"};
         for (String name : enabledOrder) {
             if ((m = on(name)) != null) m.onPreUpdate();
         }
         if ((m = any("Hitbox")) != null) m.onPreUpdateAlways();
         if ((m = any("AntiFireball")) != null) m.onPreUpdateAlways();
-        String[] enabledOrder2 = {"BedAura", "AutoRod", "AutoRodNew", "Bridge Assist", "Long Jump", "InvManager", "ChestStealer", "WoolWars", "AutoClicker", "AutoRequeue",
+        String[] enabledOrder2 = {"BedAura", "AutoRod", "AutoRodNew", "Bridge Assist", "Long Jump", "InvManager", "ChestAura", "ChestStealer", "WoolWars", "AutoClicker", "AutoRequeue",
                 "AutoWho", "Lag Range", "Limbo", "AutoLadder", "Water Bucket", "WTap", "Stasis", "Sprint"};
         for (String name : enabledOrder2) {
             if ((m = on(name)) != null) m.onPreUpdate();
@@ -130,7 +130,7 @@ public final class Hooks {
         }
     }
 
-    public static void onUpdateWalkingPlayer() {
+    public static boolean onUpdateWalkingPlayer(boolean lastReportedGround) {
         EntityPlayerSP p = mc.thePlayer;
         IEntityPlayerSP acc = (IEntityPlayerSP) p;
         try {
@@ -189,7 +189,11 @@ public final class Hooks {
                 double dyaw = yaw - lastYaw;
                 double dpitch = pitch - lastPitch;
                 int ticks = acc.getPositionUpdateTicks();
-                boolean moved = dx * dx + dy * dy + dz * dz > 9.0E-4 || ticks >= 20;
+                boolean modernMovement = ViaCompatibility.usesMovement1206(p.sendQueue.getNetworkManager());
+                // The 1.20.6 client reports small position changes and counts the current tick.
+                double movementThreshold = modernMovement ? 2.0E-4 * 2.0E-4 : 9.0E-4;
+                boolean moved = dx * dx + dy * dy + dz * dz > movementThreshold
+                        || (modernMovement ? ticks + 1 : ticks) >= 20;
                 boolean rotated = dyaw != 0.0 || dpitch != 0.0;
                 if (p.ridingEntity == null) {
                     if (moved && rotated) {
@@ -198,7 +202,7 @@ public final class Hooks {
                         p.sendQueue.addToSendQueue(new C03PacketPlayer.C04PacketPlayerPosition(e.x, e.y, e.z, e.onGround));
                     } else if (rotated) {
                         p.sendQueue.addToSendQueue(new C03PacketPlayer.C05PacketPlayerLook(yaw, pitch, e.onGround));
-                    } else {
+                    } else if (!modernMovement || e.onGround != lastReportedGround) {
                         p.sendQueue.addToSendQueue(new C03PacketPlayer(e.onGround));
                     }
                 } else {
@@ -218,9 +222,11 @@ public final class Hooks {
                     acc.setLastReportedPitch(pitch);
                 }
                 postMotion();
+                return e.onGround;
             }
         } catch (Exception exception) {
         }
+        return lastReportedGround;
     }
 
     private static void preMotion(MotionEvent e) {
@@ -229,7 +235,7 @@ public final class Hooks {
         if ((m = on("WTap")) != null) m.onPreMotion(e);
         if ((m = on("BedAura")) != null) m.onPreMotion(e);
         if ((m = any("Tower")) != null) m.onPreMotionAlways(e);
-        String[] order = {"Scaffold", "NoSlow", "InvMove", "Bhop", "Long Jump", "Speed", "AutoPlace", "Freecam", "NoFall",
+        String[] order = {"AntiVoid", "Scaffold", "NoSlow", "InvMove", "Bhop", "Long Jump", "Speed", "AutoPlace", "Freecam", "NoFall",
                 "Speed Builders", "Bed Wars", "AntiCheat", "Duels Stats", "AutoGapple"};
         for (String name : order) {
             if ((m = on(name)) != null) m.onPreMotion(e);
@@ -241,7 +247,7 @@ public final class Hooks {
     }
 
     private static void postMotion() {
-        String[] order = {"Displace", "KillAura", "NoSlow", "InvMove", "AutoBlock", "AutoBlock2"};
+        String[] order = {"AntiVoid", "Displace", "KillAura", "NoSlow", "InvMove", "AutoBlock", "AutoBlock2", "ChestAura"};
         Module m;
         for (String name : order) {
             if ((m = on(name)) != null) m.onPostMotion();
@@ -269,7 +275,7 @@ public final class Hooks {
         Module m;
         if ((m = any("Scaffold")) != null) m.onPostPlayerInputAlways();
         if ((m = any("Tower")) != null) m.onPostPlayerInputAlways();
-        String[] order = {"Freecam", "KillAura", "Bhop", "NoSlow", "SafeWalk", "Long Jump", "Dolphin", "AntiAFK", "InvMove",
+        String[] order = {"AntiVoid", "Freecam", "KillAura", "Bhop", "NoSlow", "SafeWalk", "Long Jump", "Dolphin", "AntiAFK", "InvMove",
                 "TargetStrafe", "Stasis", "AutoGapple", "Scaffold2", "Velocity2", "Bridge Assist"};
         for (String name : order) {
             if ((m = on(name)) != null) m.onPostPlayerInput();
@@ -277,7 +283,16 @@ public final class Hooks {
         if (ScriptManager.events != null) {
             ScriptEvents.postPlayerInput();
         }
-        if (!RotationManager.movementFix() || !PlayerUtils.isMoving()) {
+        if (!RotationManager.remapMovementInput() || !PlayerUtils.isMoving()) {
+            return;
+        }
+        TargetStrafeModule orbit = TargetStrafeModule.activeOrbit();
+        float speed = Math.max(Math.abs(mc.thePlayer.movementInput.moveForward), Math.abs(mc.thePlayer.movementInput.moveStrafe));
+        if (orbit != null) {
+            // Project the world-space orbit into the rotation owner's input basis.
+            double relative = Math.toRadians(RotationManager.serverYaw - orbit.orbitDirection());
+            mc.thePlayer.movementInput.moveForward = speed * (float) Math.cos(relative);
+            mc.thePlayer.movementInput.moveStrafe = speed * (float) Math.sin(relative);
             return;
         }
         float target = MathHelper.wrapAngleTo180_float(MoveUtils.moveYaw(mc.thePlayer.rotationYaw));
@@ -295,7 +310,6 @@ public final class Hooks {
                 bestStrafe = strafe;
             }
         }
-        float speed = Math.max(Math.abs(mc.thePlayer.movementInput.moveForward), Math.abs(mc.thePlayer.movementInput.moveStrafe));
         mc.thePlayer.movementInput.moveForward = bestForward * speed;
         mc.thePlayer.movementInput.moveStrafe = bestStrafe * speed;
     }
@@ -310,7 +324,8 @@ public final class Hooks {
             mc.thePlayer.motionY += (double) ((float) (mc.thePlayer.getActivePotionEffect(Potion.jump).getAmplifier() + 1) * 0.1f);
         }
         if (mc.thePlayer.isSprinting()) {
-            float f = RotationManager.movementYaw() * ((float) Math.PI / 180);
+            TargetStrafeModule orbit = TargetStrafeModule.activeOrbit();
+            float f = (orbit == null ? RotationManager.movementYaw() : orbit.orbitDirection()) * ((float) Math.PI / 180);
             float f2 = 0.2f;
             mc.thePlayer.motionX -= (double) (MathHelper.sin(f) * f2);
             mc.thePlayer.motionZ += (double) (MathHelper.cos(f) * f2);
@@ -542,23 +557,15 @@ public final class Hooks {
         if (!serverbound(packet)) {
             return true;
         }
-        boolean viewSent = ModuleManager.enabled("View Packets") != null && ViewPacketsModule.sent.isToggled();
+        if (packet instanceof C02PacketUseEntity) {
+            // Before any module or queue sees it: the cursor has to be legal for the translated client.
+            ViaInteractCursor.clamp((C02PacketUseEntity) packet);
+        }
         if (packet == PacketUtils.sendingNoEvent) {
             if (packet == PacketUtils.sendingQueued) {
-                if (viewSent) {
-                    ViewPacketsModule.onSent(packet);
-                }
                 return true;
             }
-            return finalSendCheck(packet, viewSent);
-        }
-        boolean showAfter = false;
-        if (viewSent) {
-            if (ViewPacketsModule.includeCancelled.isToggled()) {
-                ViewPacketsModule.onSent(packet);
-            } else {
-                showAfter = true;
-            }
+            return finalSendCheck(packet);
         }
         PacketUtils.track(packet);
         if (ScriptManager.events != null && PacketUtils.sendingSkipScripts != packet && !ScriptEvents.packetSent(packet)) {
@@ -624,9 +631,6 @@ public final class Hooks {
             if ((m = on("Freeze")) != null) {
                 m.onSendPacket(packet);
             }
-            if (on("Test") != null) {
-                TestModule.onDig((C07PacketPlayerDigging) packet);
-            }
         } else if (packet instanceof C08PacketPlayerBlockPlacement) {
             String[] cancelling = {"NoSlow", "BedAura", "AutoPlace", "FastPlace"};
             for (String name : cancelling) {
@@ -671,26 +675,23 @@ public final class Hooks {
         if (!lagPassesOutbound(packet)) {
             return false;
         }
-        return finalSendCheck(packet, showAfter);
+        return finalSendCheck(packet);
     }
 
     public static boolean finalSendCheck(Packet<?> packet) {
-        return finalSendCheck(packet, false);
-    }
-
-    public static boolean finalSendCheck(Packet<?> packet, boolean show) {
         PacketUtils.trackPost(packet);
         boolean send = true;
         Module killAura;
         if (packet instanceof C09PacketHeldItemChange && (killAura = on("KillAura")) != null && !killAura.allowHeldItemPacket()) {
             send = false;
         }
-        if (show && (send || ViewPacketsModule.includeCancelled.isToggled())) {
-            ViewPacketsModule.onSent(packet);
+        if (send && packet instanceof C02PacketUseEntity) {
+            C02PacketUseEntity interaction = (C02PacketUseEntity) packet;
+            xyz.daikirai.module.render.WeaponWispsModule.attackPacket(interaction);
+            xyz.daikirai.module.render.FuriahHitEffectModule.attackPacket(interaction);
         }
-        if (send && on("Debug AC") != null) {
-            DebugAcModule.onSent(packet);
-        }
+        if (send && packet instanceof C08PacketPlayerBlockPlacement)
+            xyz.daikirai.module.player.ChestAuraModule.interacted(((C08PacketPlayerBlockPlacement) packet).getPosition());
         return send;
     }
 
@@ -710,9 +711,6 @@ public final class Hooks {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static void onReceive(Packet packet, INetHandler handler) {
-        if (ModuleManager.enabled("View Packets") != null && ViewPacketsModule.received.isToggled()) {
-            ViewPacketsModule.onReceived(packet);
-        }
         PacketUtils.trackReceived(packet);
         Module m;
         if ((m = any("Latency Alerts")) != null) m.onPacketReceivedAlways();
@@ -720,6 +718,9 @@ public final class Hooks {
             return;
         }
         if ((m = on("AntiCheat")) != null) {
+            m.onReceivePacket(packet, handler);
+        }
+        if ((m = on("AntiVoid")) != null) {
             m.onReceivePacket(packet, handler);
         }
         String[] cancelling = {"Freeze", "AntiKnockback", "Backtrack"};

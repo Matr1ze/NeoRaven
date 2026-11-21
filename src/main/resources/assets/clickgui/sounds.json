@@ -1,0 +1,74 @@
+{
+  "toggle_on": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "toggle_on",
+        "stream": false
+      }
+    ]
+  },
+  "toggle_off": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "toggle_off",
+        "stream": false
+      }
+    ]
+  },
+  "toggle_smooth_on": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "toggle_smooth_on",
+        "stream": false
+      }
+    ]
+  },
+  "toggle_smooth_off": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "toggle_smooth_off",
+        "stream": false
+      }
+    ]
+  },
+  "toggle_celestial_on": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "toggle_celestial_on",
+        "stream": false
+      }
+    ]
+  },
+  "toggle_celestial_off": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "toggle_celestial_off",
+        "stream": false
+      }
+    ]
+  },
+  "toggle_nursultan_on": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "toggle_nursultan_on",
+        "stream": false
+      }
+    ]
+  },
+  "toggle_nursultan_off": {
+    "category": "master",
+    "sounds": [
+      {
+        "name": "toggle_nursultan_off",
+        "stream": false
+      }
+    ]
+  }
+}

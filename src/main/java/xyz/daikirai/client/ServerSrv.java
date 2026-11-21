@@ -51,8 +51,41 @@ public final class ServerSrv {
             return CACHE.get(key);
         }
         String[] result = query("_minecraft._tcp." + key);
+        if (result != null && result[0] != null) {
+            // One line per host: the only way to tell from a user's log whether the record was
+            // actually used, and the cheap fix for "it still says it cannot connect" reports.
+            System.out.println("[onyx] SRV " + key + " -> " + result[0] + ":" + result[1]);
+        }
         CACHE.put(key, result);
         return result;
+    }
+
+    /**
+     * Resolves a bare host + the default port to its SRV target, for the code paths that never go
+     * through {@link ServerAddress#fromString} (the direct-connect / {@code --server} constructor of
+     * {@code GuiConnecting}).
+     *
+     * @return {@code {target, port}}, or {@code null} when the address already carries a port, is an
+     *         IPv6 literal, or the host has no record
+     */
+    public static String[] resolve(String host, int port) {
+        if (host == null || host.isEmpty() || port != 25565
+                || host.indexOf(':') >= 0 || host.startsWith("[")) {
+            return null;
+        }
+        String[] srv = lookup(host);
+        if (srv == null || srv[0] == null || srv[0].isEmpty()) {
+            return null;
+        }
+        try {
+            int targetPort = Integer.parseInt(srv[1]);
+            if (targetPort <= 0 || targetPort > 65535) {
+                return null;
+            }
+            return new String[]{srv[0], Integer.toString(targetPort)};
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     /** Applies the SRV record to a parsed address; returns the original instance when there is none. */

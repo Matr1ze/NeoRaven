@@ -24,6 +24,7 @@ import org.lwjgl.input.Keyboard;
 
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -217,7 +218,16 @@ public final class ChatCommands {
             }
             case "hidekey":
             case "hk": {
-                hideKey(cmd, rest);
+                Runnable action = () -> {
+                    try {
+                        hideKey(cmd, rest);
+                    } catch (IOException e) {
+                        reply(cmd, "&cCould not save the hidden keybinds to the config.");
+                        System.err.println("[onyx] could not save hidden keybinds: " + e);
+                    }
+                };
+                if (mc.isCallingFromMinecraftThread()) action.run();
+                else mc.addScheduledTask(action);
                 break;
             }
             case "keysize":
@@ -635,7 +645,7 @@ public final class ChatCommands {
 
     private static final double KEYBINDS_SIZE_STEP = 0.05D;
 
-    private static void hideKey(String cmd, String args) {
+    private static void hideKey(String cmd, String args) throws IOException {
         String arg = args == null ? "" : args.trim();
         if (arg.isEmpty()) {
             keybindsUsage(cmd);

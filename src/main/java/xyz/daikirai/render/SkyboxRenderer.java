@@ -55,7 +55,7 @@ public final class SkyboxRenderer {
     private static int width;
     private static int height;
 
-    /** Frames the custom sky was actually drawn in (used by the dev harness). */
+    /** Frames the custom sky was actually drawn in (exposed for automated checks). */
     private static int frames;
 
     private SkyboxRenderer() {

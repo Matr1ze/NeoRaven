@@ -11,11 +11,12 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
+import xyz.daikirai.gui.onyx.material.Theme;
 
 import java.nio.ByteBuffer;
 
 /**
- * Frosted-glass backdrop, ported from Onyx's {@code render.Util3}.
+ * Shared scene texture for the liquid glass material, ported from Onyx's {@code render.Util3}.
  *
  * <p>The scene (the Minecraft framebuffer texture) is downsampled into two ping-pong targets and
  * run through the shipped {@code box_blur} shader in two passes, which is the exact same blur the
@@ -32,6 +33,24 @@ public final class Blur {
     private static boolean available = true;
     private static boolean prepared;
     private static long preparedAt;
+
+    /** Maximum value of the existing blur strength control. */
+    public static final float MAX_RADIUS = 8.0F;
+    private static float radius = MAX_RADIUS;
+
+    /** Drives the radius from the "Blur" slider: {@code 0} means the frost shows no blur at all. */
+    public static void radius(float value) {
+        radius = Math.max(0.0F, Math.min(MAX_RADIUS, value));
+    }
+
+    public static float radius() {
+        return radius;
+    }
+
+    /** Keeps enough scene detail for refraction to be visible. */
+    public static float samplingRadius() {
+        return Theme.liquidGlass() ? radius * 0.5F : radius;
+    }
 
     /**
      * Every HUD element that frosts its background (watermark island, info bar, keybind card,
@@ -103,12 +122,11 @@ public final class Blur {
     }
 
     /**
-     * @param rounds blur rounds; each round is one horizontal + one vertical box pass at half
-     *               resolution. The frosted-glass appearance asks for more so the world behind the
-     *               pane reads as colour rather than shapes.
+     * @param rounds blur rounds, each consisting of a horizontal and a vertical box pass
      */
     public static void prepare(int rounds, int divisor) {
-        if (!available) {
+        if (!available || !OpenGlHelper.isFramebufferEnabled()) {
+            prepared = false;
             return;
         }
         // A minimized window must not drive a framebuffer capture: the capture rebinds the scene FBO
@@ -130,6 +148,7 @@ public final class Blur {
         } else if (prepared && now - preparedAt < FRAME_WINDOW_NANOS) {
             return;
         }
+        prepared = false;
         if (shader == null) {
             shader = Shader.load("box_blur");
         }
@@ -141,7 +160,6 @@ public final class Blur {
             Minecraft mc = Minecraft.getMinecraft();
             Framebuffer framebuffer = mc.getFramebuffer();
             if (framebuffer == null || framebuffer.framebufferTexture <= 0) {
-                available = false;
                 return;
             }
 
@@ -151,35 +169,38 @@ public final class Blur {
             int targetWidth = Math.max(1, screenWidth / scale);
             int targetHeight = Math.max(1, screenHeight / scale);
             int previousFramebuffer = GL11.glGetInteger(FRAMEBUFFER_BINDING);
-            ensureTargets(targetWidth, targetHeight);
-
-            pass(framebuffer.framebufferTexture, framebufferA, screenWidth, screenHeight, 1.0F, 0.0F);
-            int total = Math.max(1, rounds);
-            for (int round = 0; round < total; round++) {
+            try {
+                GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+                ensureTargets(targetWidth, targetHeight);
+                pass(framebuffer.framebufferTexture, framebufferA, screenWidth, screenHeight, 1.0F, 0.0F);
+                int total = Math.max(1, rounds);
+                for (int round = 0; round < total; round++) {
+                    pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
+                    pass(textureB, framebufferA, targetWidth, targetHeight, 1.0F, 0.0F);
+                }
                 pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
-                pass(textureB, framebufferA, targetWidth, targetHeight, 1.0F, 0.0F);
+            } finally {
+                Shader.unbind();
+                OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFramebuffer);
+                GlStateManager.viewport(0, 0, mc.displayWidth, mc.displayHeight);
+                mc.entityRenderer.setupOverlayRendering();
+                GlStateManager.enableDepth();
+                GlStateManager.enableAlpha();
+                GlStateManager.enableBlend();
+                GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
+                GlStateManager.disableAlpha();
+                GlStateManager.disableDepth();
+                GlStateManager.shadeModel(7425);
+                GlStateManager.disableTexture2D();
+                GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+                GlStateManager.resetColor();
             }
-            pass(textureA, framebufferB, targetWidth, targetHeight, 0.0F, 1.0F);
-
-            OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFramebuffer);
-            GlStateManager.viewport(0, 0, mc.displayWidth, mc.displayHeight);
-            mc.entityRenderer.setupOverlayRendering();
-            GlStateManager.enableDepth();
-            GlStateManager.enableAlpha();
-            GlStateManager.enableBlend();
-            GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
-            GlStateManager.disableAlpha();
-            GlStateManager.disableDepth();
-            GlStateManager.shadeModel(7425);
-            GlStateManager.disableTexture2D();
-            GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            GlStateManager.resetColor();
             prepared = true;
             preparedAt = now;
         } catch (Throwable t) {
             available = false;
-            prepared = false;
-            System.err.println("[onyx] frosted glass unavailable: " + t);
+            dispose();
+            System.err.println("[onyx] liquid glass backdrop unavailable: " + t);
         }
     }
 
@@ -222,7 +243,11 @@ public final class Blur {
                 GL11.GL_TEXTURE_2D, texture, 0);
         int status = OpenGlHelper.glCheckFramebufferStatus(OpenGlHelper.GL_FRAMEBUFFER);
         OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, 0);
-        return status == OpenGlHelper.GL_FRAMEBUFFER_COMPLETE ? framebuffer : -1;
+        if (status != OpenGlHelper.GL_FRAMEBUFFER_COMPLETE) {
+            OpenGlHelper.glDeleteFramebuffers(framebuffer);
+            return -1;
+        }
+        return framebuffer;
     }
 
     private static void pass(int sourceTexture, int targetFramebuffer, int sourceWidth, int sourceHeight,
@@ -244,7 +269,7 @@ public final class Blur {
         shader.uniform1i("Sampler0", 0);
         shader.uniform2f("uResolution", sourceWidth, sourceHeight);
         shader.uniform2f("uBlurDir", dirX, dirY);
-        shader.uniform1f("uRadius", 8.0F);
+        shader.uniform1f("uRadius", samplingRadius());
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
         GL11.glBegin(GL11.GL_QUADS);
         for (int i = 0; i < QUAD.length; i += 2) {

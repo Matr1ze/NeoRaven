@@ -18,6 +18,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import java.awt.Color;
 
 public class ChestESPModule extends Module {
+    private ButtonSetting renderSelf;
     public static SliderSetting red, green, blue;
     public static ButtonSetting rainbow, outline, shade, disableIfOpened;
 
@@ -26,6 +27,7 @@ public class ChestESPModule extends Module {
     }
 
     public void link() {
+        renderSelf = (ButtonSetting) ModuleManager.setting(this, "Render self");
         red = (SliderSetting) ModuleManager.setting(this, "Red");
         green = (SliderSetting) ModuleManager.setting(this, "Green");
         blue = (SliderSetting) ModuleManager.setting(this, "Blue");
@@ -41,6 +43,10 @@ public class ChestESPModule extends Module {
             return;
         }
         int n = rainbow.isToggled() ? RenderUtils.rainbow(2L) : new Color((int) red.getInput(), (int) green.getInput(), (int) blue.getInput()).getRGB();
+        if (Render3D.showSelf(renderSelf)) {
+            if (shade.isToggled()) Render3D.entityBox(mc.thePlayer, 2, n, e.partialTicks);
+            if (outline.isToggled()) Render3D.entityBox(mc.thePlayer, 1, n, e.partialTicks);
+        }
         for (TileEntity te : mc.theWorld.loadedTileEntityList) {
             if (te instanceof TileEntityChest) {
                 if (disableIfOpened.isToggled() && ((TileEntityChest) te).lidAngle > 0.0f) continue;

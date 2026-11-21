@@ -36,8 +36,8 @@ public final class ClockModule extends VisualModule {
     private final SliderSetting clockScale = slider("Scale", 1.0D, 0.5D, 2.5D, 0.05D, "x");
     private final SliderSetting positionX = slider("Position X", 50, 0, 100, 0.01D, "%");
     private final SliderSetting positionY = slider("Position Y", 12, 0, 100, 0.01D, "%");
-    private final ButtonSetting shadow = toggle("Shadow", true);
-    private final ButtonSetting showDate = toggle("Show date", true);
+    private final ButtonSetting shadow = toggle("Shadow", false);
+    private final ButtonSetting showDate = toggle("Show date", false);
     private final ButtonSetting dateFollows = toggle("Date follows seconds", false);
     private final ButtonSetting chinese = toggle("Chinese date", true);
 
@@ -71,7 +71,7 @@ public final class ClockModule extends VisualModule {
             return;
         }
         if (!Overlay.canRender()) {
-            visible.set(0.0F);
+            if (!(mc.currentScreen instanceof xyz.daikirai.gui.onyx.NotificationCenterScreen)) visible.set(0.0F);
             return;
         }
         draw(event.renderTickTime);

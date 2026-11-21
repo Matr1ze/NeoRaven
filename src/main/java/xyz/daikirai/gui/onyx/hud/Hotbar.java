@@ -123,13 +123,13 @@ public final class Hotbar {
         this.bottom = y + height;
         this.lastScale = scale;
 
-        ui.begin();
         try {
             GlStateManager.pushMatrix();
             mc.entityRenderer.setupOverlayRendering();
             if (module.hotbarFrosted()) {
                 Blur.prepare();
             }
+            ui.begin();
             ui.alphaPush(fade);
             ui.push();
             ui.translate(x, y);
@@ -138,8 +138,8 @@ public final class Hotbar {
             ui.pop();
             ui.alphaPop();
         } finally {
-            GlStateManager.popMatrix();
             ui.end();
+            GlStateManager.popMatrix();
             restoreHudState();
         }
     }
@@ -340,7 +340,7 @@ public final class Hotbar {
     // Misc
     // ------------------------------------------------------------------ //
 
-    /** Frames the bar was drawn in (used by the dev harness). */
+    /** Frames the bar was drawn in (exposed for automated checks). */
     public int frames() {
         return frames;
     }

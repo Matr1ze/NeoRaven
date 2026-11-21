@@ -22,7 +22,6 @@ public final class SearchField {
     private String text = "";
     private boolean focused;
     private long caretStamp = System.currentTimeMillis();
-    private int caret;
 
     private float x;
     private float y;
@@ -52,38 +51,7 @@ public final class SearchField {
 
     public void clear() {
         this.text = "";
-        this.caret = 0;
         this.caretStamp = System.currentTimeMillis();
-    }
-
-    /** Moves the caret to the character boundary nearest {@code localX} inside the text area. */
-    public void placeCaret(float localX, float textStart, float maxText) {
-        int start = windowStart(maxText);
-        float target = localX - textStart;
-        int best = start;
-        float bestDelta = Float.MAX_VALUE;
-        for (int i = start; i <= text.length(); i++) {
-            float w = Typeface.BODY_MEDIUM.width(text.substring(start, i));
-            float delta = Math.abs(w - target);
-            if (delta < bestDelta) {
-                bestDelta = delta;
-                best = i;
-            }
-        }
-        this.caret = best;
-        this.caretStamp = System.currentTimeMillis();
-    }
-
-    private int windowStart(float maxText) {
-        float limit = Math.max(2.0F, maxText - 2.0F);
-        if (caret <= 0) {
-            return 0;
-        }
-        int start = 0;
-        while (start < caret && Typeface.BODY_MEDIUM.width(text.substring(start, caret)) > limit) {
-            start++;
-        }
-        return start;
     }
 
     public void update(float delta, float mouseX, float mouseY) {
@@ -116,14 +84,13 @@ public final class SearchField {
         float maxText = w - 28.0F - clearSpace;
 
         if (text.isEmpty() && !focused) {
-            ui.text(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Search modules"), textStart, centerY,
+            ui.text(Typeface.BODY_MEDIUM, "Search modules", textStart, centerY,
                     Material.withAlpha(scheme.onSurfaceVariant, 0.7F), UI.ALIGN_LEFT);
         } else {
-            int start = windowStart(maxText);
-            String visible = ui.truncate(Typeface.BODY_MEDIUM, text.substring(start), maxText);
+            String visible = ui.truncate(Typeface.BODY_MEDIUM, text.isEmpty() ? "" : text, maxText);
             ui.text(Typeface.BODY_MEDIUM, visible, textStart, centerY, scheme.onSurface, UI.ALIGN_LEFT);
             if (focused && (System.currentTimeMillis() - caretStamp) / 500L % 2L == 0L) {
-                float caretX = textStart + Typeface.BODY_MEDIUM.width(text.substring(start, caret)) + 1.0F;
+                float caretX = textStart + Typeface.BODY_MEDIUM.width(visible) + 1.0F;
                 ui.rect(caretX, centerY - 7.0F, 1.0F, 14.0F, scheme.primary);
             }
         }
@@ -148,9 +115,6 @@ public final class SearchField {
             return true;
         }
         focus(true);
-        float clearSpace = text.isEmpty() ? 6.0F : 24.0F;
-        float maxText = w - 28.0F - clearSpace;
-        placeCaret(mouseX, x + 28.0F, maxText);
         return true;
     }
 
@@ -168,36 +132,9 @@ public final class SearchField {
             }
             return true;
         }
-        if (key == 203) {
-            if (caret > 0) {
-                this.caret--;
-            }
-            return true;
-        }
-        if (key == 205) {
-            if (caret < text.length()) {
-                this.caret++;
-            }
-            return true;
-        }
-        if (key == 199) {
-            this.caret = 0;
-            return true;
-        }
-        if (key == 207) {
-            this.caret = text.length();
-            return true;
-        }
         if (key == 14) {
-            if (caret > 0) {
-                this.text = text.substring(0, caret - 1) + text.substring(caret);
-                this.caret--;
-            }
-            return true;
-        }
-        if (key == 211) {
-            if (caret < text.length()) {
-                this.text = text.substring(0, caret) + text.substring(caret + 1);
+            if (!text.isEmpty()) {
+                this.text = text.substring(0, text.length() - 1);
             }
             return true;
         }
@@ -212,25 +149,16 @@ public final class SearchField {
                     }
                 }
                 if (builder.length() > 0) {
-                    insert(builder.toString());
+                    this.text = (text + builder).length() > 48 ? (text + builder).substring(0, 48) : text + builder;
                 }
                 return true;
             }
             return true;
         }
         if (typed >= ' ' && typed != 127 && text.length() < 48) {
-            insert(String.valueOf(typed));
+            this.text = text + typed;
             return true;
         }
         return false;
-    }
-
-    private void insert(String value) {
-        String merged = text.substring(0, caret) + value + text.substring(caret);
-        if (merged.length() > 48) {
-            merged = merged.substring(0, 48);
-        }
-        this.text = merged;
-        this.caret = Math.min(merged.length(), caret + value.length());
     }
 }

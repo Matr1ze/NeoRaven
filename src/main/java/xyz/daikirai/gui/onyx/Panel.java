@@ -1,5 +1,7 @@
 package xyz.daikirai.gui.onyx;
 
+import xyz.daikirai.module.ClickGuiModule;
+
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
@@ -13,9 +15,7 @@ import xyz.daikirai.module.Module;
 import xyz.daikirai.module.ModuleManager;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * The Material You ClickGUI panel, ported from Onyx's {@code UndoneGuiComponent}.
@@ -55,13 +55,11 @@ public final class Panel {
     private String lastQuery = "";
     private Module current;
     private boolean themeOpen;
-    private Category restoredCategory;
     private float lastMouseX;
     private float lastMouseY;
     private static Category lastCategory;
     private static float offsetX;
     private static float offsetY;
-    private static final Map<Category, Float> scrollMemory = new EnumMap<Category, Float>(Category.class);
 
     public Panel() {
         List<Category> categories = new ArrayList<Category>();
@@ -130,20 +128,7 @@ public final class Panel {
         sidebar.bounds(x + PADDING, y + HEADER, Sidebar.WIDTH, BODY_HEIGHT);
         sidebar.update(delta, mouseX, mouseY, listPage);
         list.bounds(searchX(), y + HEADER, x + WIDTH - PADDING - searchX(), BODY_HEIGHT);
-        boolean rememberingScroll = listPage && search.text().isEmpty() && category != null;
-        if (rememberingScroll && restoredCategory != category) {
-            Float remembered = scrollMemory.get(category);
-            if (remembered != null) {
-                list.restoreScroll(remembered);
-            }
-            restoredCategory = category;
-        }
         list.update(delta, mouseX, mouseY, listPage);
-        if (rememberingScroll) {
-            scrollMemory.put(category, list.scrollTarget());
-        } else {
-            restoredCategory = null;
-        }
         detail.bounds(x + PADDING, y + HEADER, WIDTH - PADDING * 2.0F, BODY_HEIGHT);
         detail.update(delta, mouseX, mouseY, !listPage);
         toasts.update(delta);
@@ -181,13 +166,13 @@ public final class Panel {
     }
 
     private float rightLabelWidth() {
-        String label = page.target() >= 0.5F ? currentCategoryLabel() : Icons.label(category);
+        String label = page.target() >= 0.5F ? currentCategoryLabel() : category.name();
         return Typeface.LABEL.width(label);
     }
 
     private String currentCategoryLabel() {
         if (themeOpen) {
-            return xyz.daikirai.util.Lang.text("Onyx ClickGUI");
+            return ClickGuiModule.NAME;
         }
         return current == null ? "" : Icons.label(current.moduleCategory());
     }
@@ -246,7 +231,7 @@ public final class Panel {
             String label;
             if (!search.text().isEmpty()) {
                 int results = list.size();
-                label = results == 1 ? xyz.daikirai.util.Lang.text("1 result") : results + " " + xyz.daikirai.util.Lang.text("results");
+                label = results == 1 ? "1 result" : results + " results";
             } else {
                 label = Icons.label(category);
             }
@@ -261,7 +246,7 @@ public final class Panel {
                         Material.withAlpha(scheme.onSurface, 0.08F * backHover.value()));
             }
             ui.icon(Icons.ARROW_BACK, chipX + 13.0F, chipY + 13.0F, 15.0F, scheme.onSurface);
-            String title = themeOpen || current == null ? xyz.daikirai.util.Lang.text("Theme") : Text.strip(current.localizedName());
+            String title = themeOpen || current == null ? "Theme" : Text.strip(current.getName());
             ui.text(Typeface.HEADLINE, ui.truncate(Typeface.HEADLINE, title, 340.0F),
                     chipX + 26.0F + 8.0F, y + HEADER / 2.0F, scheme.onSurface, UI.ALIGN_LEFT);
             ui.text(Typeface.LABEL, currentCategoryLabel(), x + WIDTH - PADDING - 6.0F, y + HEADER / 2.0F,
@@ -326,9 +311,6 @@ public final class Panel {
             detail.drag(mouseX, mouseY, button);
             return;
         }
-        if (list.drag(mouseX, mouseY)) {
-            return;
-        }
         if (dragging && button == 0) {
             this.x = Math.round(Material.clamp(mouseX - dragOffsetX, 96.0F - WIDTH, parentWidth - 96.0F));
             this.y = Math.round(Material.clamp(mouseY - dragOffsetY, 0.0F, parentHeight - HEIGHT));
@@ -391,7 +373,7 @@ public final class Panel {
                 Module selected = list.openSelected();
                 if (selected != null) {
                     selected.toggle();
-                    toasts.show(Text.strip(selected.localizedName()) + (selected.isEnabled() ? " " + xyz.daikirai.util.Lang.text("on") : " " + xyz.daikirai.util.Lang.text("off")));
+                    toasts.show(Text.strip(selected.getName()) + (selected.isEnabled() ? " on" : " off"));
                 }
                 return true;
             }
@@ -411,20 +393,19 @@ public final class Panel {
     }
 
     public void openTheme() {
-        this.current = OnyxClickGuiModule.instance;
+        this.current = ClickGuiModule.instance;
         if (this.current == null) {
             return;
         }
         this.themeOpen = true;
         this.search.focus(false);
-        this.detail.open(OnyxClickGuiModule.instance);
+        this.detail.open(ClickGuiModule.instance);
         this.page.to(1.0F, 300.0F, Ease.EMPHASIZED_DECELERATE);
     }
 
     public void back() {
         this.page.to(0.0F, 300.0F, Ease.EMPHASIZED_DECELERATE);
         this.themeOpen = false;
-        this.detail.release();
         this.list.focus(true);
     }
 
@@ -436,21 +417,6 @@ public final class Panel {
             this.x = Math.round(Material.clamp((parentWidth - WIDTH) / 2.0F, 96.0F - WIDTH, parentWidth - 96.0F));
             this.y = Math.round(Material.clamp((parentHeight - HEIGHT) / 2.0F, 0.0F, parentHeight - HEIGHT));
         }
-    }
-
-    /** Saved drag offset relative to the screen centre, persisted in the client config. */
-    public static float savedOffsetX() {
-        return offsetX;
-    }
-
-    public static float savedOffsetY() {
-        return offsetY;
-    }
-
-    /** Restores a persisted drag offset; the next {@link #layout} call positions the panel. */
-    public static void restoreOffset(float x, float y) {
-        offsetX = x;
-        offsetY = y;
     }
 
     /** Static reset so the module button can recentre an already-open panel. */

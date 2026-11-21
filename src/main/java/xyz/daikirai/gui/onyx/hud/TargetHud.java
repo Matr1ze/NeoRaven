@@ -24,10 +24,12 @@ import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
 import xyz.daikirai.module.combat.KillAuraModule;
 import xyz.daikirai.module.render.TargetHudModule;
+import xyz.daikirai.module.setting.ColorSetting;
 import xyz.daikirai.util.Render3D;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.Random;
 import java.util.Locale;
 
 /**
@@ -70,6 +72,11 @@ public final class TargetHud {
     private static final float OFF_SCREEN_MARGIN = 28.0F;
     private static final long SWITCH_HOLD_MS = 160L;
 
+    private static final float AVATAR_CENTER = PAD + AVATAR / 2.0F;
+    private static final float HIT_SHRINK = 0.16F;
+    private static final int HIT_RED = 0xFFFF4B4B;
+    private static final float BURST_PER_HIT = 6.9F;
+
     private static final FloatBuffer MODELVIEW = BufferUtils.createFloatBuffer(16);
     private static final FloatBuffer PROJECTION = BufferUtils.createFloatBuffer(16);
     private static final IntBuffer VIEWPORT = BufferUtils.createIntBuffer(16);
@@ -82,6 +89,12 @@ public final class TargetHud {
     private final Anim healthFill = new Anim(0.0F);
     private final Anim healthLag = new Anim(0.0F);
     private final Anim lowHealth = new Anim(0.0F);
+
+    private final TargetHudParticles particles = new TargetHudParticles();
+    private final Random random = new Random();
+    private float hitPulse;
+    private float hitVisual;
+    private int lastHurtTime;
 
     private EntityLivingBase entity;
     private long lostAt;
@@ -116,8 +129,10 @@ public final class TargetHud {
         long now = System.currentTimeMillis();
         boolean chatOpen = mc.currentScreen instanceof GuiChat;
 
-        updateTarget(module, preview, now, delta);
-
+        Scheme scheme = Theme.scheme();
+        if (module.hitParticles()) particles.update(delta);
+        else particles.clear();
+        updateTarget(module, preview, scheme, now, delta, partialTicks);
 
         boolean active = (preview || module.isEnabled()) && entity != null;
         visible.to(active ? 1.0F : 0.0F, active ? 180.0F : 200.0F,
@@ -126,13 +141,13 @@ public final class TargetHud {
         float fade = visible.value();
         if (fade <= 0.002F) {
             if (!preview) {
+                particles.clear();
                 clearContent();
                 return;
             }
             fade = 1.0F;
         }
 
-        Scheme scheme = Theme.scheme();
         ScaledResolution resolution = new ScaledResolution(mc);
         float screenW = resolution.getScaledWidth();
         float screenH = resolution.getScaledHeight();
@@ -146,13 +161,13 @@ public final class TargetHud {
 
         updatePosition(module, mc, resolution, screenW, screenH, preview, chatOpen, now, delta, partialTicks);
 
-        ui.begin();
         try {
             GlStateManager.pushMatrix();
             mc.entityRenderer.setupOverlayRendering();
             if (module.frosted() && fade > 0.01F) {
                 Blur.prepare();
             }
+            ui.begin();
             ui.alphaPush(fade);
             ui.push();
             ui.translate(x + w / 2.0F, y + h / 2.0F);
@@ -164,8 +179,8 @@ public final class TargetHud {
             ui.pop();
             ui.alphaPop();
         } finally {
-            GlStateManager.popMatrix();
             ui.end();
+            GlStateManager.popMatrix();
             restoreHudState();
         }
     }
@@ -174,7 +189,8 @@ public final class TargetHud {
     // Target tracking
     // ------------------------------------------------------------------ //
 
-    private void updateTarget(TargetHudModule module, boolean preview, long now, float delta) {
+    private void updateTarget(TargetHudModule module, boolean preview, Scheme scheme, long now,
+                              float delta, float partialTicks) {
         Minecraft mc = Minecraft.getMinecraft();
         EntityLivingBase target = preview ? mc.thePlayer : killAuraTarget();
         if (target != null) {
@@ -187,13 +203,16 @@ public final class TargetHud {
                 content.to(1.0F, switching ? 180.0F : 220.0F, Ease.DECELERATE);
                 healthFill.set(healthRatio(target));
                 healthLag.set(healthRatio(target));
+                resetHit();
                 if (!switching) {
                     placed = false;
                 }
             }
             lostAt = 0;
             refresh(target);
+            trackHit(module, target, scheme, partialTicks, preview || module.isEnabled());
         } else if (entity != null) {
+            hitPulse = 0.0F;
             if (lostAt == 0L) {
                 lostAt = now;
             }
@@ -201,6 +220,9 @@ public final class TargetHud {
                 entity = null;
             }
         }
+        float blend = 1.0F - (float) Math.exp(-delta / 38.0F);
+        hitVisual += (hitPulse - hitVisual) * blend;
+        if (hitVisual < 0.002F) hitVisual = 0.0F;
         content.update(delta);
         healthFill.update(delta);
         healthLag.update(delta);
@@ -223,6 +245,37 @@ public final class TargetHud {
         }
         healthFill.to(healthRatio(), 250.0F, Ease.DECELERATE);
         healthLag.to(healthRatio(), 650.0F, Ease.DECELERATE);
+    }
+
+    private void trackHit(TargetHudModule module, EntityLivingBase target, Scheme scheme,
+                          float partialTicks, boolean active) {
+        int hurtTime = target.hurtTime;
+        float hurt = Material.clamp((hurtTime - partialTicks) / 10.0F, 0.0F, 1.0F);
+        hitPulse = active && module.hitAnimation() ? hurt : 0.0F;
+
+        // Only a rise starts a burst. Frames drawn while the game is paused keep the same hurtTime.
+        boolean freshHit = hurtTime > lastHurtTime;
+        lastHurtTime = hurtTime;
+        if (!active || !module.hitParticles() || !freshHit) return;
+
+        int accent = scheme.primary;
+        int accentAlt = scheme.tertiary;
+        ColorSetting tint = TargetHudModule.particleTint;
+        if (tint != null && !tint.followsTheme()) {
+            accent = tint.color();
+            accentAlt = mixSrgb(accent, 0xFFFFFFFF, 0.45F);
+        }
+        float wanted = BURST_PER_HIT * module.particleAmount();
+        int count = (int) wanted;
+        if (random.nextFloat() < wanted - count) count++;
+        particles.burst(AVATAR_CENTER, AVATAR_CENTER, count, module.burstForce(), accent, accentAlt);
+    }
+
+    private void resetHit() {
+        hitPulse = 0.0F;
+        hitVisual = 0.0F;
+        lastHurtTime = 0;
+        particles.clear();
     }
 
     /** The entity KillAura is attacking, or {@code null} when it is gone. */
@@ -444,19 +497,31 @@ public final class TargetHud {
 
         drawHealthBar(scheme, contentX, right - contentX);
         drawStats(module, scheme, contentX, right);
+        particles.render(ui);
         ui.alphaPop();
     }
 
     private void drawAvatar(Scheme scheme) {
+        float hit = Material.clamp(hitVisual, 0.0F, 1.0F);
+        float squash = 1.0F - HIT_SHRINK * hit;
+        ui.push();
+        if (squash < 0.999F) ui.scale(squash, AVATAR_CENTER, AVATAR_CENTER);
         ui.rounded(PAD, PAD, AVATAR, AVATAR, AVATAR_RADIUS, scheme.secondaryContainer);
         if (skin != null) {
-            ui.imageNearest(skin, PAD + 2.0F, PAD + 2.0F, AVATAR - 4.0F, AVATAR - 4.0F,
-                    8.0F / 64.0F, 8.0F / 64.0F, 16.0F / 64.0F, 16.0F / 64.0F, 0xFFFFFFFF);
+            ui.image(skin, PAD + 2.0F, PAD + 2.0F, AVATAR - 4.0F, AVATAR - 4.0F,
+                    8.0F / 64.0F, 8.0F / 64.0F, 16.0F / 64.0F, 16.0F / 64.0F,
+                    hit > 0.01F ? mixSrgb(0xFFFFFFFF, HIT_RED, hit * 0.85F) : 0xFFFFFFFF);
         } else {
             String letter = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(Locale.ROOT);
-            ui.text(Typeface.HEADLINE, letter, PAD + AVATAR / 2.0F, PAD + AVATAR / 2.0F,
-                    scheme.onSecondaryContainer, UI.ALIGN_CENTER);
+            ui.text(Typeface.HEADLINE, letter, AVATAR_CENTER, AVATAR_CENTER,
+                    hit > 0.01F ? mixSrgb(scheme.onSecondaryContainer, HIT_RED, hit * 0.85F)
+                            : scheme.onSecondaryContainer, UI.ALIGN_CENTER);
         }
+        if (hit > 0.01F) {
+            TargetHudParticles.halo(AVATAR_CENTER, AVATAR_CENTER, AVATAR * 0.5F, scheme.error,
+                    0.20F * hit * ui.alpha());
+        }
+        ui.pop();
     }
 
     private void drawHealthBar(Scheme scheme, float barX, float barWidth) {
@@ -483,11 +548,11 @@ public final class TargetHud {
     }
 
     /**
-     * Plain sRGB mix for the health bar. {@link Material#mix} blends in Onyx's linear working
+     * Plain sRGB mix for health, avatar and particle colors. {@link Material#mix} blends in Onyx's linear working
      * space, which turns the primary → error ramp into a muddy beige halfway through; the bar
      * needs the two roles to stay recognisable.
      */
-    private static int mixSrgb(int from, int to, float t) {
+    static int mixSrgb(int from, int to, float t) {
         t = Material.clamp(t, 0.0F, 1.0F);
         return Material.argb(255,
                 Math.round(Material.red(from) + (Material.red(to) - Material.red(from)) * t),
@@ -548,6 +613,7 @@ public final class TargetHud {
         lowHealth.set(0.0F);
         width.set(MIN_WIDTH);
         lastFrame = 0L;
+        resetHit();
     }
 
     private void clearContent() {

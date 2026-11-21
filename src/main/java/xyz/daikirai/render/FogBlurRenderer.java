@@ -1,22 +1,27 @@
 package xyz.daikirai.render;
 
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.shader.Framebuffer;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.util.vector.Matrix4f;
 import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Shader;
 import xyz.daikirai.module.render.FogBlurModule;
 
-/** Onyx's half/quarter-resolution blur, composited using the scene's depth. */
+/** Depth-reconstructed, player-centred radial fog over Onyx's half/quarter-resolution blur. */
 public final class FogBlurRenderer {
     private final Minecraft mc = Minecraft.getMinecraft();
     private Shader down, up, composite;
     private int half = -1, quarter = -1, depth = -1, halfFbo = -1, quarterFbo = -1;
     private int width, height;
     private boolean failed;
+    private final FloatBuffer matrixBuffer = BufferUtils.createFloatBuffer(16);
+    private final Matrix4f projection = new Matrix4f(), view = new Matrix4f(), inverse = new Matrix4f();
 
     public void reset() { failed = false; }
 
@@ -28,9 +33,25 @@ public final class FogBlurRenderer {
         width = height = 0;
     }
 
-    public void render(FogBlurModule settings) {
+    public void render(FogBlurModule settings, float partialTicks) {
         Framebuffer scene = mc.getFramebuffer();
         if (failed || !OpenGlHelper.shadersSupported || !OpenGlHelper.isFramebufferEnabled() || scene == null) return;
+        // Capture the actual camera before the fullscreen passes replace its matrices. This
+        // includes FOV, pitch, view bobbing and the third-person camera's offset from the player.
+        matrixBuffer.clear();
+        GL11.glGetFloat(GL11.GL_PROJECTION_MATRIX, matrixBuffer);
+        projection.load(matrixBuffer);
+        matrixBuffer.clear();
+        GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, matrixBuffer);
+        view.load(matrixBuffer);
+        Matrix4f.mul(projection, view, inverse);
+        if (Matrix4f.invert(inverse, inverse) == null) return;
+        // World geometry is rendered relative to viewerPos, even when the view entity differs
+        // from the player. Subtract in double precision before uploading the small local offset.
+        float playerX = (float) (mc.thePlayer.lastTickPosX
+                + (mc.thePlayer.posX - mc.thePlayer.lastTickPosX) * partialTicks - mc.getRenderManager().viewerPosX);
+        float playerZ = (float) (mc.thePlayer.lastTickPosZ
+                + (mc.thePlayer.posZ - mc.thePlayer.lastTickPosZ) * partialTicks - mc.getRenderManager().viewerPosZ);
         int previousFbo = GL11.glGetInteger(0x8CA6);
         int matrix = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
         // Unit bindings are not part of GL_ALL_ATTRIB_BITS, so the pass has to put them back itself.
@@ -71,7 +92,12 @@ public final class FogBlurRenderer {
                 composite.use();
                 composite.uniform1i("BlurSampler", 1);
                 composite.uniform1i("DepthSampler", 2);
-                composite.uniform4f("uCamera", .05F, Math.max(1.05F, mc.gameSettings.renderDistanceChunks * 64F), 1, 0);
+                // Four column vectors avoid adding a matrix-uniform API to the shared wrapper.
+                composite.uniform4f("uInverse0", inverse.m00, inverse.m01, inverse.m02, inverse.m03);
+                composite.uniform4f("uInverse1", inverse.m10, inverse.m11, inverse.m12, inverse.m13);
+                composite.uniform4f("uInverse2", inverse.m20, inverse.m21, inverse.m22, inverse.m23);
+                composite.uniform4f("uInverse3", inverse.m30, inverse.m31, inverse.m32, inverse.m33);
+                composite.uniform2f("uPlayer", playerX, playerZ);
                 composite.uniform4f("uFog", (float) settings.distance.getInput(), (float) settings.fade.getInput(),
                         (float) settings.tint.getInput(), settings.clientColor.isToggled() ? 1 : 0);
                 composite.uniformColor("uColor1", Theme.scheme().primary);

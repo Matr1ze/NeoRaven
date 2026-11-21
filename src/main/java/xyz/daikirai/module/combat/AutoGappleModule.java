@@ -86,7 +86,7 @@ public class AutoGappleModule extends Module {
     private static int heldMoves;
     /** True while the module is holding packets for an apple. */
     private static boolean eating;
-    /** Dev harness seam: pins the gauge state and keeps the tick logic out of the way. */
+    /** Preview seam: pins the gauge state and keeps the tick logic out of the way. */
     private static boolean previewing;
 
     private final Deque<Packet<?>> held = new ArrayDeque<Packet<?>>();
@@ -167,7 +167,7 @@ public class AutoGappleModule extends Module {
     }
 
     /**
-     * Dev harness seam: pins the progress the island reads without a live eat, so the gauge can be
+     * Preview seam: pins the progress the island reads without a live eat, so the gauge can be
      * captured deterministically. While previewing, the tick and packet logic stay out of the way.
      */
     public static void preview(float value, int moves) {
@@ -177,7 +177,7 @@ public class AutoGappleModule extends Module {
         progress = value < 0.0F ? 0.0F : Math.min(value, 1.0F);
     }
 
-    /** Dev harness seam: ends {@link #preview(float, int)}. */
+    /** Preview seam: ends {@link #preview(float, int)}. */
     public static void clearPreview() {
         previewing = false;
         eating = false;

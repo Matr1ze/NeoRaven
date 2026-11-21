@@ -81,7 +81,7 @@ public class BridgeAssistModule extends Module {
     private float aimPitch;
     private boolean aimValid;
     private int aimTick = -1;
-    /** Last pre-place failure reason, for the visual probe (and for support requests). */
+    /** Last pre-place failure reason, for the debug readout (and for support requests). */
     public String aimDebug = "init";
 
     public BridgeAssistModule(int key) {

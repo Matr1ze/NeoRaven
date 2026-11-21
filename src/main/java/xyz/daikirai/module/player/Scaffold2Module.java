@@ -1043,7 +1043,7 @@ public final class Scaffold2Module extends Module {
     // Helpers
     // ------------------------------------------------------------------ //
 
-    /** One-line state for the dev probe; harmless in release. */
+    /** One-line state for the debug readout. */
     public String debugState() {
         if (mc.thePlayer == null) {
             return "no-player";

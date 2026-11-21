@@ -75,12 +75,15 @@ public class SpeedModule extends Module {
         if (current == 0.0) {
             return;
         }
-        MoveDirection dir = PlayerUtils.direction(e.yaw);
+        TargetStrafeModule orbit = TargetStrafeModule.activeOrbit();
+        MoveDirection dir = orbit == null ? PlayerUtils.direction(e.yaw) : orbit.inputDirection();
         if (onlyForward.enabled && !dir.forward || onlyStrafe.enabled && !dir.diagonal) {
             return;
         }
         double d = 0.153 * multiplier.getInput() + (double) PlayerUtils.speedLevel() * 0.04;
-        MoveUtils.strafe(Math.max(d, current));
+        double speed = Math.max(d, current);
+        if (orbit == null) MoveUtils.strafe(speed);
+        else MoveUtils.setSpeed(speed, orbit.orbitDirection());
     }
 
     private static boolean edgeStairs(BlockPos pos) {

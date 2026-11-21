@@ -298,7 +298,7 @@ public final class AndroidWallpaper {
         return Material.mix(card, MenuBackground.averageColor(), builtDark ? 0.42F : 0.26F);
     }
 
-    /** Whether the wallpaper shader compiled; the harness asserts this so a silent fallback fails the run. */
+    /** Whether the wallpaper shader compiled; so a silent fallback fails the run instead of passing quietly. */
     public static boolean ready() {
         ensure();
         if (!attempted) {

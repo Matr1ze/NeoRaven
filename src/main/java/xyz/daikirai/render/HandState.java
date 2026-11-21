@@ -11,6 +11,7 @@ import org.lwjgl.opengl.GL14;
 /** Restores both driver state and MC's cached switches after the extra vanilla hand draw. */
 final class HandState implements AutoCloseable {
     final int framebuffer = GL11.glGetInteger(0x8CA6);
+    private final int renderbuffer = GL11.glGetInteger(0x8CA7);
     final int[] viewport = new int[4];
     private final int active = GL11.glGetInteger(0x84E0);
     private final int matrix = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
@@ -71,6 +72,7 @@ final class HandState implements AutoCloseable {
         GlStateManager.setActiveTexture(active);
         // Draw/read buffer attributes belong to the framebuffer active when they were saved.
         OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebuffer);
+        OpenGlHelper.glBindRenderbuffer(OpenGlHelper.GL_RENDERBUFFER, renderbuffer);
         GL11.glPopAttrib();
         OpenGlHelper.glUseProgram(program);
         GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);

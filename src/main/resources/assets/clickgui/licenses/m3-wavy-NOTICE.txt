@@ -1,0 +1,19 @@
+Material Components for Android — Minecraft 1.8.9 adaptation
+
+This work includes adaptations of algorithms from Material Components for Android:
+https://github.com/material-components/material-components-android
+Reference commit: 66b0eeb53afeb6025ffbbd37734b08e5bce197ed
+
+Copyright (C) 2020, 2024 The Android Open Source Project
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+Adapted files/algorithms:
+- CircularDrawingDelegate.java: circular path, inward wave anchors, cubic handles,
+  round caps, gaps and near-completion seam handling.
+- CircularIndeterminateRetreatAnimatorDelegate.java: retreat timing and segment/rotation values.
+- DeterminateDrawable.java: spring parameters and amplitude transition behavior.
+- Progress indicator and motion token resources: default dimensions, colors and easing.
+
+Modifications: removed Android APIs, used Java2D path measurement/rasterization,
+added LWJGL 2 texture rendering, Minecraft GUI integration and headless verification.
+This is an independent adaptation and is not an official Google or Mojang component.

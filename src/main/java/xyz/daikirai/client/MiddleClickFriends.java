@@ -9,8 +9,7 @@ public final class MiddleClickFriends {
     }
 
     public static void onMouse(MouseEvent event) {
-        if (!event.buttonstate || event.button != 2 || !SettingsModule.middleClickFriends.isToggled()
-                || xyz.daikirai.module.ModuleManager.enabled("TargetStrafe") != null && xyz.daikirai.module.movement.TargetStrafeModule.active()) {
+        if (!event.buttonstate || event.button != 2 || !SettingsModule.middleClickFriends.isToggled()) {
             return;
         }
         EntityLivingBase e = BotCheck.lookingAt(100.0);

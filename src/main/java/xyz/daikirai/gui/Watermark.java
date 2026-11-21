@@ -1,6 +1,6 @@
 package xyz.daikirai.gui;
 
-import xyz.daikirai.module.GuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.util.RenderUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -21,7 +21,7 @@ public final class Watermark {
     public static void render(int x, int y, boolean animate) {
         FontRenderer fr = mc.fontRendererObj;
         int cx = x;
-        int color = GuiModule.watermarkColor.rgb;
+        int color = ClickGuiModule.watermarkColor.rgb;
         String user = username();
         fr.drawStringWithShadow("welcome, ", (float) cx, (float) (y - 20), color);
         int end = rainbowText(user, cx += 45, y - 20, fr);
@@ -48,7 +48,7 @@ public final class Watermark {
 
     private static void scramble(String prefix, String name, float x, float y, boolean animate, FontRenderer fr) {
         long now = System.currentTimeMillis();
-        int base = GuiModule.watermarkColor.rgb;
+        int base = ClickGuiModule.watermarkColor.rgb;
         fr.drawStringWithShadow(prefix, x, y, base);
         float cx = x + (float) fr.getStringWidth(prefix);
         long since = now - ClickGui.openedAt;

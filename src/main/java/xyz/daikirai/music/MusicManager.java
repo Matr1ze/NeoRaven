@@ -6,8 +6,6 @@ import xyz.daikirai.client.ClientConfig;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -71,6 +69,15 @@ public final class MusicManager {
     private volatile String playbackError;
     private volatile Repeat repeat = Repeat.ALL;
     private volatile boolean shuffle;
+    private volatile boolean coverFlow;
+    /** Automatic music-cache cleanup; off by default, limit in megabytes. */
+    private volatile boolean autoCleanCache;
+    private volatile int cacheLimitMb = 512;
+    /** Newest first, capped; kept in music.txt so the list survives restarts. */
+    private final List<String> searchHistory = new ArrayList<String>();
+    private static final int SEARCH_HISTORY_MAX = 8;
+    /** Wall clock of the last remembered query, used to tell typing from a new search. */
+    private volatile long lastSearchHistoryAt;
     private volatile long playSerial;
     private volatile String streamLevel = "exhigh";
 
@@ -204,6 +211,155 @@ public final class MusicManager {
         saveSettings();
     }
 
+    /** Music home layout: false keeps the plain playlist grid, true shows the cover flow. */
+    public boolean coverFlow() {
+        return coverFlow;
+    }
+
+    public void toggleCoverFlow() {
+        coverFlow = !coverFlow;
+        saveSettings();
+    }
+
+    public boolean autoCleanCache() {
+        return autoCleanCache;
+    }
+
+    public void setAutoCleanCache(boolean value) {
+        autoCleanCache = value;
+        saveSettings();
+        maintainCache();
+    }
+
+    public int cacheLimitMb() {
+        return cacheLimitMb;
+    }
+
+    public void setCacheLimitMb(int value) {
+        cacheLimitMb = Math.max(64, Math.min(8192, value));
+        saveSettings();
+        maintainCache();
+    }
+
+    /** Total size of the downloaded tracks currently held in the cache directory. */
+    public long cacheBytes() {
+        File[] files = cacheDir().listFiles();
+        long total = 0L;
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile() && file.getName().endsWith(".mp3")) {
+                    total += file.length();
+                }
+            }
+        }
+        return total;
+    }
+
+    /** Runs the cleanup only when the user turned it on. */
+    public void maintainCache() {
+        if (autoCleanCache) {
+            trimCache();
+        }
+    }
+
+    /** Manual cleanup from the settings page; keeps the same limit and skips the playing track. */
+    public void cleanCacheNow() {
+        trimCache();
+    }
+
+    /**
+     * Deletes the oldest cached tracks until the cache is back under the limit. The track that is
+     * playing right now is never removed, so a full cache cannot cut the current song short.
+     */
+    private void trimCache() {
+        File[] files = cacheDir().listFiles();
+        if (files == null) {
+            return;
+        }
+        long limit = (long) cacheLimitMb * 1024L * 1024L;
+        long total = 0L;
+        List<File> tracks = new ArrayList<File>();
+        for (File file : files) {
+            if (file.isFile() && file.getName().endsWith(".mp3")) {
+                total += file.length();
+                tracks.add(file);
+            }
+        }
+        if (total <= limit) {
+            return;
+        }
+        Song playing = current;
+        String keep = playing == null ? null : cachedFile(playing).getAbsolutePath();
+        Collections.sort(tracks, new java.util.Comparator<File>() {
+            @Override
+            public int compare(File a, File b) {
+                return Long.compare(a.lastModified(), b.lastModified());
+            }
+        });
+        for (File file : tracks) {
+            if (total <= limit) {
+                break;
+            }
+            if (keep != null && file.getAbsolutePath().equals(keep)) {
+                continue;
+            }
+            long size = file.length();
+            if (file.delete()) {
+                total -= size;
+            }
+        }
+    }
+
+    /** Newest first. A refined query replaces the entry it extends, so typing does not spam. */
+    public List<String> searchHistory() {
+        synchronized (searchHistory) {
+            return new ArrayList<String>(searchHistory);
+        }
+    }
+
+    public void rememberSearch(String query) {
+        String trimmed = query == null ? "" : query.trim();
+        if (trimmed.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        // Only fold a longer query into the previous entry while the user is still typing it; a
+        // later search that happens to start with an old one is a new entry of its own.
+        boolean refining = now - lastSearchHistoryAt < 4000L;
+        synchronized (searchHistory) {
+            if (!searchHistory.isEmpty()) {
+                String first = searchHistory.get(0);
+                if (trimmed.equalsIgnoreCase(first)) {
+                    lastSearchHistoryAt = now;
+                    return;
+                }
+                if (refining && trimmed.toLowerCase().startsWith(first.toLowerCase())) {
+                    searchHistory.set(0, trimmed);
+                    lastSearchHistoryAt = now;
+                    saveSettings();
+                    return;
+                }
+                if (refining && first.toLowerCase().startsWith(trimmed.toLowerCase())) {
+                    lastSearchHistoryAt = now;
+                    return;
+                }
+            }
+            searchHistory.add(0, trimmed);
+            while (searchHistory.size() > SEARCH_HISTORY_MAX) {
+                searchHistory.remove(searchHistory.size() - 1);
+            }
+        }
+        lastSearchHistoryAt = now;
+        saveSettings();
+    }
+
+    public void clearSearchHistory() {
+        synchronized (searchHistory) {
+            searchHistory.clear();
+        }
+        saveSettings();
+    }
+
     public String streamLevel() {
         return streamLevel;
     }
@@ -211,19 +367,6 @@ public final class MusicManager {
     public void setStreamLevel(String value) {
         streamLevel = value;
         saveSettings();
-    }
-
-    public int outputMode() {
-        return engine.outputMode();
-    }
-
-    public void setOutputMode(int value) {
-        engine.setOutputMode(value);
-        saveSettings();
-    }
-
-    public String activeOutput() {
-        return engine.activeOutput();
     }
 
     /** Replaces the queue and starts playing {@code song}. */
@@ -309,9 +452,6 @@ public final class MusicManager {
 
     public void setVolume(float volume) {
         engine.setVolume(volume);
-    }
-
-    public void commitVolume() {
         saveSettings();
     }
 
@@ -602,6 +742,7 @@ public final class MusicManager {
         }
         settingsLoaded = true;
         loadSettings();
+        maintainCache();
         refreshProfile();
         loadHome();
     }
@@ -789,6 +930,9 @@ public final class MusicManager {
             if (!part.renameTo(target)) {
                 throw new IllegalStateException("无法写入缓存文件");
             }
+            // A finished download is the only thing that grows the cache, so this is the moment
+            // the user's limit can be crossed.
+            maintainCache();
         } finally {
             if (connection != null) {
                 connection.disconnect();
@@ -802,12 +946,22 @@ public final class MusicManager {
     public void saveSettings() {
         try {
             File file = new File(musicDir(), "music.txt");
-            FileWriter writer = new FileWriter(file, false);
+            // UTF-8 explicitly: the search history holds Chinese queries, and the platform default
+            // charset differs between machines.
+            java.io.Writer writer = new java.io.OutputStreamWriter(
+                    new FileOutputStream(file), "UTF-8");
             writer.write("volume: " + engine.volume() + "\n");
             writer.write("repeat: " + repeat.name() + "\n");
             writer.write("shuffle: " + shuffle + "\n");
+            writer.write("coverFlow: " + coverFlow + "\n");
+            writer.write("autoCleanCache: " + autoCleanCache + "\n");
+            writer.write("cacheLimitMb: " + cacheLimitMb + "\n");
+            List<String> history;
+            synchronized (searchHistory) {
+                history = new ArrayList<String>(searchHistory);
+            }
+            writer.write("searchHistory: " + String.join("|", history) + "\n");
             writer.write("level: " + streamLevel + "\n");
-            writer.write("audioOutput: " + engine.outputMode() + "\n");
             writer.write("lyricScale: " + lyricScale + "\n");
             writer.write("lyricAnimation: " + lyricAnimation + "\n");
             writer.write("coverTint: " + coverTint + "\n");
@@ -837,7 +991,8 @@ public final class MusicManager {
                 engine.setVolume(0.8F);
                 return;
             }
-            BufferedReader reader = new BufferedReader(new FileReader(file));
+            BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(
+                    new java.io.FileInputStream(file), "UTF-8"));
             String line;
             while ((line = reader.readLine()) != null) {
                 int colon = line.indexOf(':');
@@ -858,14 +1013,28 @@ public final class MusicManager {
                     }
                 } else if (key.equals("shuffle")) {
                     shuffle = Boolean.parseBoolean(value);
+                } else if (key.equals("coverFlow")) {
+                    coverFlow = Boolean.parseBoolean(value);
+                } else if (key.equals("autoCleanCache")) {
+                    autoCleanCache = Boolean.parseBoolean(value);
+                } else if (key.equals("cacheLimitMb")) {
+                    try {
+                        cacheLimitMb = Math.max(64, Math.min(8192, Integer.parseInt(value)));
+                    } catch (NumberFormatException ignored) {
+                    }
+                } else if (key.equals("searchHistory")) {
+                    synchronized (searchHistory) {
+                        searchHistory.clear();
+                        for (String part : value.split("\\|")) {
+                            String entry = part.trim();
+                            if (!entry.isEmpty() && searchHistory.size() < SEARCH_HISTORY_MAX) {
+                                searchHistory.add(entry);
+                            }
+                        }
+                    }
                 } else if (key.equals("level")) {
                     if (!value.isEmpty()) {
                         streamLevel = value;
-                    }
-                } else if (key.equals("audioOutput")) {
-                    try {
-                        engine.setOutputMode(Integer.parseInt(value));
-                    } catch (NumberFormatException ignored) {
                     }
                 } else if (key.equals("lyricScale")) {
                     try {

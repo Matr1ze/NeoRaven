@@ -140,7 +140,6 @@ public final class Scoreboard {
         // gains or loses a line never flashes an ellipsis mid-animation.
         float rowMax = Math.max(layoutWidth, targetWidth) - PAD * 2.0F - scoreColumn + 1.0F;
 
-        ui.begin();
         try {
             if (!preview) {
                 GlStateManager.pushMatrix();
@@ -149,6 +148,7 @@ public final class Scoreboard {
             if (module.scoreboardFrosted() && fade > 0.01F) {
                 Blur.prepare();
             }
+            ui.begin();
             ui.alphaPush(fade);
             ui.push();
             ui.translate(x + w / 2.0F, y + h / 2.0F);
@@ -160,10 +160,10 @@ public final class Scoreboard {
             ui.pop();
             ui.alphaPop();
         } finally {
+            ui.end();
             if (!preview) {
                 GlStateManager.popMatrix();
             }
-            ui.end();
             restoreHudState();
         }
     }

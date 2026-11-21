@@ -34,8 +34,11 @@ public final class Notifications {
     private float offsetX, offsetY;
 
     public void post(String title, String message, NotificationLevel level, Integer accent, float hold, int maximum) {
-        entries.add(new Entry(Text.strip(title == null ? "Notification" : title),
-                message == null ? null : Text.strip(message), level == null ? NotificationLevel.INFO : level, accent, hold));
+        String cleanTitle = Text.strip(title == null ? "Notification" : title);
+        String cleanMessage = message == null ? null : Text.strip(message);
+        NotificationLevel safeLevel = level == null ? NotificationLevel.INFO : level;
+        NotificationHistory.record(cleanTitle, cleanMessage, safeLevel, accent);
+        entries.add(new Entry(cleanTitle, cleanMessage, safeLevel, accent, hold));
         trim(maximum);
     }
     private void trim(int maximum) {
@@ -84,10 +87,10 @@ public final class Notifications {
 
         GlStateManager.pushMatrix();
         mc.entityRenderer.setupOverlayRendering();
+        if (module.frosted()) Blur.prepare();
         ui.begin();
         try {
             // Same one-capture-per-frame backdrop as the island, Keybinds and Scoreboard.
-            if (module.frosted()) Blur.prepare();
             ui.push();
             ui.translate(x, y); ui.scale(scale, 0.0F, 0.0F);
             Scheme scheme = Theme.scheme();

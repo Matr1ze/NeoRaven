@@ -1,7 +1,7 @@
 package xyz.daikirai.gui.onyx.hud;
 
 import net.minecraft.client.Minecraft;
-import xyz.daikirai.gui.onyx.OnyxClickGuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.module.render.ArrayListModule;
 import xyz.daikirai.module.render.ClockModule;
 import xyz.daikirai.module.render.CustomGuiModule;
@@ -29,14 +29,21 @@ public final class HudPass {
     private HudPass() {
     }
 
+    /** Shade owns this pass; Forge END listeners remain suppressed to avoid duplicate rendering. */
+    public static void renderNotificationReturn(float partialTicks) {
+        render(partialTicks);
+        WatermarkModule.renderHud(true, false);
+    }
+
     /** @param partialTicks frame interpolation, needed by the target card's health smoothing */
     public static void render(float partialTicks) {
         if (Minecraft.getMinecraft().theWorld == null) {
             return;
         }
-        OnyxClickGuiModule.sync();
+        ClickGuiModule.sync();
         ArrayListModule.renderHud();
         ClockModule.renderHud();
+        xyz.daikirai.module.render.StrengthTimerModule.renderHud();
         CustomGuiModule.renderHud();
         KeybindsModule.renderHud();
         PotionHudModule.renderHud();

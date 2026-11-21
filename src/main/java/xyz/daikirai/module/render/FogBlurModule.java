@@ -22,6 +22,6 @@ public final class FogBlurModule extends VisualModule {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void render(RenderWorldLastEvent event) {
-        if (mc.theWorld != null && mc.thePlayer != null && !(disableOnZoom.isToggled() && Zoom.isZooming())) renderer.render(this);
+        if (mc.theWorld != null && mc.thePlayer != null && !(disableOnZoom.isToggled() && Zoom.isZooming())) renderer.render(this, event.partialTicks);
     }
 }

@@ -31,6 +31,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.input.Mouse;
 
@@ -60,11 +61,13 @@ public final class KillAura2Module extends Module {
     /** Which implementation the settings and behaviour belong to. */
     private static final int CLIENT_EXPO = 0;
     private static final int CLIENT_LEADER = 1;
+    private static final int CLIENT_FLUX = 2;
 
-    private final SliderSetting clientSetting = new SliderSetting("Client", "", "", CLIENT_LEADER, 0, 1, 1,
-            new String[]{"Expo", "Leader"}, null);
+    private final SliderSetting clientSetting = new SliderSetting("Client", "", "", CLIENT_LEADER, 0, CLIENT_FLUX, 1,
+            new String[]{"Expo", "Leader", "Flux"}, null);
     private final List<Setting> expoSettings = new ArrayList<Setting>();
     private final List<Setting> leaderSettings = new ArrayList<Setting>();
+    private final KillAura2Flux flux = new KillAura2Flux();
     private int activeClient = CLIENT_LEADER;
 
     // Leader-Lite KillAura surface (its own list; the engine below reads whichever client is active).
@@ -150,7 +153,7 @@ public final class KillAura2Module extends Module {
     }
 
     // ------------------------------------------------------------------ //
-    // Client switching (Expo / Leader)
+    // Client switching
     // ------------------------------------------------------------------ //
 
     @Override
@@ -159,21 +162,45 @@ public final class KillAura2Module extends Module {
         return super.getSettings();
     }
 
+    @Override
+    public ArrayList<Setting> persistedSettings() {
+        ArrayList<Setting> result = new ArrayList<>(getSettings());
+        for (List<Setting> rows : java.util.Arrays.asList(expoSettings, leaderSettings, flux.settings)) {
+            for (Setting row : rows) {
+                if (!result.contains(row)) result.add(row);
+            }
+        }
+        return result;
+    }
+
+    public String profileSettingKey(Setting setting) {
+        boolean expo = expoSettings.contains(setting);
+        boolean leader = leaderSettings.contains(setting);
+        if (expo && !leader) return "Expo: " + setting.getName();
+        if (leader && !expo) return "Leader: " + setting.getName();
+        if (flux.settings.contains(setting)) return "Flux: " + setting.getName();
+        return setting.getName();
+    }
+
     private int clientIndex() {
         return (int) Math.round(clientSetting.getInput());
+    }
+
+    public boolean fluxSelected() {
+        return clientIndex() == CLIENT_FLUX;
     }
 
     private void rebuildSettings() {
         List<Setting> extras = new ArrayList<Setting>();
         for (Setting setting : settings) {
             if (setting != clientSetting && !expoSettings.contains(setting)
-                    && !leaderSettings.contains(setting)) {
+                    && !leaderSettings.contains(setting) && !flux.settings.contains(setting)) {
                 extras.add(setting);
             }
         }
         settings.clear();
         settings.add(clientSetting);
-        settings.addAll(clientIndex() == CLIENT_LEADER ? leaderSettings : expoSettings);
+        settings.addAll(fluxSelected() ? flux.settings : leader() ? leaderSettings : expoSettings);
         settings.addAll(extras);
     }
 
@@ -182,10 +209,17 @@ public final class KillAura2Module extends Module {
         if (wanted == activeClient) {
             return;
         }
+        int previous = activeClient;
         activeClient = wanted;
         rebuildSettings();
         target = null;
         pending = null;
+        flux.reset();
+        if (wanted == CLIENT_FLUX || previous == CLIENT_FLUX) {
+            RotationManager.killAura2NoMovementFix = false;
+            switchIndex = 0;
+            lastAttack = lastSwitch = 0;
+        }
     }
 
     private SliderSetting slider(String name, double value, double min, double max, double step, String suffix) {
@@ -362,11 +396,13 @@ public final class KillAura2Module extends Module {
 
     @Override
     public Entity getTarget() {
+        syncClient();
         return target;
     }
 
     @Override
     public String getInfo() {
+        if (fluxSelected()) return "Flux " + flux.modeName();
         if (leader()) {
             return "Leader " + lMode.options[(int) Math.round(lMode.getInput())];
         }
@@ -380,6 +416,7 @@ public final class KillAura2Module extends Module {
 
     @Override
     public void onEnable() {
+        flux.reset();
         target = null;
         candidates = new ArrayList<EntityLivingBase>();
         switchIndex = 0;
@@ -390,6 +427,7 @@ public final class KillAura2Module extends Module {
 
     @Override
     public void onDisable() {
+        flux.reset();
         target = null;
         pending = null;
         RotationManager.killAura2NoMovementFix = false;
@@ -397,6 +435,11 @@ public final class KillAura2Module extends Module {
 
     @Override
     public void onPreUpdate() {
+        syncClient();
+        if (fluxSelected()) {
+            updateFlux();
+            return;
+        }
         if (mc.thePlayer == null || mc.theWorld == null) {
             target = null;
             pending = null;
@@ -411,6 +454,30 @@ public final class KillAura2Module extends Module {
         selectTarget();
         updateRotation();
         attack();
+    }
+
+    private void updateFlux() {
+        pending = null;
+        if (flux.syncPlayer() && flux.autoDisable.isToggled()) {
+            disable();
+            return;
+        }
+        if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null
+                || !mc.thePlayer.isEntityAlive() || mc.thePlayer.isSpectator()
+                || mc.getRenderViewEntity() != mc.thePlayer) {
+            flux.clearTarget();
+            target = null;
+            return;
+        }
+        target = flux.tick();
+    }
+
+    @SubscribeEvent
+    public void onWorldUnload(WorldEvent.Unload event) {
+        if (event.world.isRemote && fluxSelected()) {
+            flux.reset();
+            target = null;
+        }
     }
 
     private int moveFixIndex() {
@@ -616,7 +683,7 @@ public final class KillAura2Module extends Module {
 
     @Override
     public float[] getRotations(float yaw, float pitch) {
-        if (!isEnabled() || target == null || pending == null || rotationCode() == 4) {
+        if (!isEnabled() || fluxSelected() || target == null || pending == null || rotationCode() == 4) {
             return null;
         }
         return new float[]{pending[0], pending[1]};
@@ -667,7 +734,7 @@ public final class KillAura2Module extends Module {
 
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent event) {
-        if (!isEnabled() || mc.thePlayer == null) {
+        if (!isEnabled() || mc.thePlayer == null || fluxSelected()) {
             return;
         }
         if (showReachRing.isToggled()) {

@@ -2690,49 +2690,70 @@
     "failed": null,
     "settings": [
       {
-        "t": "desc",
-        "name": "Only works with KillAura."
-      },
-      {
-        "t": "slider",
-        "name": "Radius",
-        "prefix": "",
-        "suffix": "",
-        "value": 1.5,
-        "min": 0.0,
-        "max": 8.0,
-        "step": 0.1,
-        "options": null,
-        "labels": null
-      },
-      {
         "t": "slider",
         "name": "Range",
         "prefix": "",
         "suffix": "",
-        "value": 4.0,
-        "min": 3.0,
-        "max": 10.0,
+        "value": 1,
+        "min": 0.2,
+        "max": 6,
         "step": 0.1,
-        "options": null,
-        "labels": null
-      },
-      {
-        "t": "slider",
-        "name": "Yaw offset",
-        "prefix": "",
-        "suffix": "",
-        "value": 45.0,
-        "min": 0.0,
-        "max": 90.0,
-        "step": 5.0,
         "options": null,
         "labels": null
       },
       {
         "t": "toggle",
-        "name": "Only while middle clicking",
+        "name": "Hold Jump",
         "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Require Speed or Flight",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Auto third person camera",
+        "value": false
+      },
+      {
+        "t": "toggle",
+        "name": "Circle",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Glow",
+        "value": false
+      },
+      {
+        "t": "slider",
+        "name": "Dots",
+        "prefix": "",
+        "suffix": "",
+        "value": 1,
+        "min": 1,
+        "max": 20,
+        "step": 1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Thickness",
+        "prefix": "",
+        "suffix": "",
+        "value": 1.5,
+        "min": 1,
+        "max": 10,
+        "step": 0.5,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Behind",
+        "value": false
       }
     ]
   },
@@ -4116,7 +4137,12 @@
     "settings": [
       {
         "t": "desc",
-        "name": "Takes the useful stacks out of an open chest and closes it when done."
+        "name": "Takes useful stacks normally; Instant takes every stack without click delays."
+      },
+      {
+        "t": "toggle",
+        "name": "Instant",
+        "value": false
       },
       {
         "t": "toggle",
@@ -4207,6 +4233,73 @@
         "max": 1000.0,
         "step": 10.0,
         "options": null,
+        "labels": null
+      }
+    ]
+  },
+  {
+    "cls": "ChestAura",
+    "name": "ChestAura",
+    "category": "player",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "desc",
+        "name": "Automatically opens nearby chests. Player check range 0 disables the nearby-player check."
+      },
+      {
+        "t": "slider",
+        "name": "Range",
+        "prefix": "",
+        "suffix": " m",
+        "value": 3,
+        "min": 0,
+        "max": 10,
+        "step": 0.1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Through walls",
+        "value": false
+      },
+      {
+        "t": "slider",
+        "name": "Player check range",
+        "prefix": "",
+        "suffix": " m",
+        "value": 5,
+        "min": 0,
+        "max": 20,
+        "step": 0.1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Rotation",
+        "value": true
+      },
+      {
+        "t": "slider",
+        "name": "Move-fix",
+        "prefix": "",
+        "suffix": "",
+        "value": 0,
+        "min": 0,
+        "max": 2,
+        "step": 1,
+        "options": [
+          "SILENT",
+          "STRICT",
+          "NONE"
+        ],
         "labels": null
       }
     ]
@@ -4560,6 +4653,23 @@
     "lite": false,
     "failed": null,
     "settings": []
+  },
+  {
+    "cls": "AntiVoid",
+    "name": "AntiVoid",
+    "category": "player",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "desc",
+        "name": "Rise 6.9.5 AntiVoid: Packet / Position / Vulcan / Collision / Watchdog / Blink."
+      }
+    ]
   },
   {
     "cls": "R367",
@@ -5418,6 +5528,11 @@
         "t": "toggle",
         "name": "Show whitelisted covering",
         "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Render self",
+        "value": false
       }
     ]
   },
@@ -5439,12 +5554,33 @@
         "suffix": "",
         "value": 0.0,
         "min": 0.0,
-        "max": 2.0,
+        "max": 3.0,
         "step": 1.0,
         "options": [
           "Percentage",
           "Seconds",
-          "Raw"
+          "Raw",
+          "Circle"
+        ],
+        "labels": null
+      },
+      {
+        "t": "mode",
+        "name": "Circle style",
+        "prefix": "",
+        "suffix": "",
+        "value": 0.0,
+        "min": 0.0,
+        "max": 6.0,
+        "step": 1.0,
+        "options": [
+          "SoftBurst",
+          "Cookie9",
+          "Pentagon",
+          "Pill",
+          "Sunny",
+          "Cookie4",
+          "Oval"
         ],
         "labels": null
       },
@@ -5558,6 +5694,11 @@
       {
         "t": "toggle",
         "name": "Disable if opened",
+        "value": false
+      },
+      {
+        "t": "toggle",
+        "name": "Render self",
         "value": false
       }
     ]
@@ -5988,6 +6129,11 @@
         "t": "toggle",
         "name": "Disable iron",
         "value": false
+      },
+      {
+        "t": "toggle",
+        "name": "Render self",
+        "value": false
       }
     ]
   },
@@ -6081,6 +6227,11 @@
         "t": "toggle",
         "name": "Zombie Pigman §dPink",
         "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Render self",
+        "value": false
       }
     ]
   },
@@ -6405,18 +6556,6 @@
     ]
   },
   {
-    "cls": "R088",
-    "name": null,
-    "category": null,
-    "enabled": null,
-    "noToggle": null,
-    "hidden": null,
-    "key": null,
-    "lite": null,
-    "failed": " FAILED java.lang.NullPointerException at R088.<init>(Unknown Source)",
-    "settings": []
-  },
-  {
     "cls": "R504",
     "name": "TargetHUD",
     "category": "render",
@@ -6494,6 +6633,45 @@
         "t": "toggle",
         "name": "Show armor",
         "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Hit animation",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Hit particles",
+        "value": true
+      },
+      {
+        "t": "slider",
+        "name": "Particle amount",
+        "prefix": "",
+        "suffix": "x",
+        "value": 1.2,
+        "min": 0.5,
+        "max": 6.0,
+        "step": 0.1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Burst force",
+        "prefix": "",
+        "suffix": "x",
+        "value": 1.0,
+        "min": 0.3,
+        "max": 2.5,
+        "step": 0.05,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "color",
+        "name": "Particle color",
+        "value": -1
       },
       {
         "t": "toggle",
@@ -8297,104 +8475,6 @@
     ]
   },
   {
-    "cls": "R519",
-    "name": "Gui",
-    "category": "client",
-    "enabled": false,
-    "noToggle": false,
-    "hidden": false,
-    "key": 0,
-    "lite": true,
-    "failed": null,
-    "settings": [
-      {
-        "t": "mode",
-        "name": "Scale",
-        "prefix": "",
-        "suffix": "",
-        "value": 1.0,
-        "min": 0.0,
-        "max": 2.0,
-        "step": 1.0,
-        "options": [
-          "Small",
-          "Normal",
-          "Large"
-        ],
-        "labels": null
-      },
-      {
-        "t": "slider",
-        "name": "Background blur",
-        "prefix": "",
-        "suffix": "%",
-        "value": 30.0,
-        "min": 0.0,
-        "max": 100.0,
-        "step": 5.0,
-        "options": null,
-        "labels": null
-      },
-      {
-        "t": "slider",
-        "name": "Scroll speed",
-        "prefix": "",
-        "suffix": "",
-        "value": 35.0,
-        "min": 10.0,
-        "max": 90.0,
-        "step": 1.0,
-        "options": null,
-        "labels": null
-      },
-      {
-        "t": "toggle",
-        "name": "Allow movement",
-        "value": true
-      },
-      {
-        "t": "toggle",
-        "name": "Allow rotating",
-        "value": true
-      },
-      {
-        "t": "toggle",
-        "name": "Dark background",
-        "value": true
-      },
-      {
-        "t": "toggle",
-        "name": "Hide player model",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Hide watermark",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Lite mode",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Rainbow outlines",
-        "value": true
-      },
-      {
-        "t": "button",
-        "name": "Reset positions",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Save category positions",
-        "value": false
-      }
-    ]
-  },
-  {
     "cls": "R247",
     "name": "Settings",
     "category": "client",
@@ -8717,232 +8797,32 @@
     ]
   },
   {
-    "cls": "R057",
-    "name": "Test",
-    "category": "other",
+    "cls": "R600",
+    "name": "Click GUI",
+    "category": "client",
     "enabled": false,
     "noToggle": false,
     "hidden": false,
-    "key": 0,
-    "lite": false,
+    "key": 54,
+    "lite": true,
     "failed": null,
     "settings": [
       {
-        "t": "toggle",
-        "name": "Block break test",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Break time",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Limbo packet",
-        "value": false
-      },
-      {
-        "t": "slider",
-        "name": "Limbo type",
+        "t": "mode",
+        "name": "Style",
         "prefix": "",
         "suffix": "",
         "value": 0.0,
         "min": 0.0,
         "max": 2.0,
         "step": 1.0,
-        "options": null,
+        "options": [
+          "Onyx",
+          "Classic",
+          "Samsara"
+        ],
         "labels": null
       },
-      {
-        "t": "toggle",
-        "name": "Print ticks",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Bedwars TP",
-        "value": false
-      },
-      {
-        "t": "slider",
-        "name": "Bedwars TP delay",
-        "prefix": "",
-        "suffix": "",
-        "value": 0.0,
-        "min": 0.0,
-        "max": 1000.0,
-        "step": 50.0,
-        "options": null,
-        "labels": null
-      },
-      {
-        "t": "toggle",
-        "name": "Bedwars lobby TP",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Kill counter",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Kill counter check",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Anti dcbot",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Entity info",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Rejoin",
-        "value": false
-      }
-    ]
-  },
-  {
-    "cls": "R512",
-    "name": "View Packets",
-    "category": "other",
-    "enabled": false,
-    "noToggle": false,
-    "hidden": false,
-    "key": 0,
-    "lite": false,
-    "failed": null,
-    "settings": [
-      {
-        "t": "toggle",
-        "name": "Include cancelled",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Logs only",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Round values",
-        "value": true
-      },
-      {
-        "t": "toggle",
-        "name": "Sent",
-        "value": true
-      },
-      {
-        "t": "toggle",
-        "name": "Ignore C00",
-        "value": true
-      },
-      {
-        "t": "toggle",
-        "name": "Ignore C03",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Compact C03",
-        "value": true
-      },
-      {
-        "t": "toggle",
-        "name": "Ignore C08",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Ignore C0A",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Ignore C0F",
-        "value": true
-      },
-      {
-        "t": "toggle",
-        "name": "Received",
-        "value": false
-      }
-    ]
-  },
-  {
-    "cls": "R103",
-    "name": "Debug AC",
-    "category": "other",
-    "enabled": false,
-    "noToggle": false,
-    "hidden": false,
-    "key": 0,
-    "lite": false,
-    "failed": null,
-    "settings": [
-      {
-        "t": "desc",
-        "name": "Breaks with limbo packets!"
-      },
-      {
-        "t": "toggle",
-        "name": "Should ping",
-        "value": true
-      },
-      {
-        "t": "desc",
-        "name": "Detected cheats"
-      },
-      {
-        "t": "toggle",
-        "name": "Backwards speed",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Blink",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Dig targets",
-        "value": true
-      },
-      {
-        "t": "toggle",
-        "name": "Ground spoof",
-        "value": true
-      },
-      {
-        "t": "toggle",
-        "name": "Incorrrect hit vec",
-        "value": false
-      },
-      {
-        "t": "toggle",
-        "name": "Missing stop sprint",
-        "value": true
-      }
-    ]
-  },
-  {
-    "cls": "R600",
-    "name": "Onyx ClickGUI",
-    "category": "client",
-    "enabled": false,
-    "noToggle": false,
-    "hidden": false,
-    "key": 54,
-    "lite": false,
-    "failed": null,
-    "settings": [
       {
         "t": "mode",
         "name": "Accent",
@@ -8950,7 +8830,7 @@
         "suffix": "",
         "value": 0.0,
         "min": 0.0,
-        "max": 7.0,
+        "max": 9.0,
         "step": 1.0,
         "options": [
           "Purple",
@@ -8960,14 +8840,18 @@
           "Amber",
           "Orange",
           "Pink",
-          "Mocha"
+          "Mocha",
+          "White",
+          "Graphite"
         ],
-        "labels": null
+        "labels": null,
+        "style": "Onyx"
       },
       {
         "t": "toggle",
         "name": "HUD text color",
-        "value": false
+        "value": false,
+        "style": "Onyx"
       },
       {
         "t": "slider",
@@ -8979,7 +8863,34 @@
         "max": 100.0,
         "step": 5.0,
         "options": null,
-        "labels": null
+        "labels": null,
+        "style": "Onyx"
+      },
+      {
+        "t": "slider",
+        "name": "Background opacity",
+        "prefix": "",
+        "suffix": "%",
+        "value": 100.0,
+        "min": 0.0,
+        "max": 100.0,
+        "step": 1.0,
+        "options": null,
+        "labels": null,
+        "style": "Onyx"
+      },
+      {
+        "t": "slider",
+        "name": "Blur",
+        "prefix": "",
+        "suffix": "%",
+        "value": 100.0,
+        "min": 0.0,
+        "max": 100.0,
+        "step": 1.0,
+        "options": null,
+        "labels": null,
+        "style": "Onyx"
       },
       {
         "t": "slider",
@@ -8991,32 +8902,51 @@
         "max": 1.5,
         "step": 0.05,
         "options": null,
-        "labels": null
-      },
-      {
-        "t": "mode",
-        "name": "Language",
-        "prefix": "",
-        "suffix": "",
-        "value": 1.0,
-        "min": 0.0,
-        "max": 1.0,
-        "step": 1.0,
-        "options": [
-          "Chinese",
-          "English"
-        ],
-        "labels": null
+        "labels": null,
+        "style": "Onyx"
       },
       {
         "t": "toggle",
         "name": "Follow GUI scale",
-        "value": true
+        "value": true,
+        "style": "Onyx"
       },
       {
         "t": "toggle",
         "name": "Frosted glass",
-        "value": true
+        "value": true,
+        "style": "Onyx"
+      },
+      {
+        "t": "toggle",
+        "name": "Liquid Glass",
+        "value": false,
+        "style": "Onyx"
+      },
+      {
+        "t": "toggle",
+        "name": "Toggle sound",
+        "value": true,
+        "style": "Onyx"
+      },
+      {
+        "t": "mode",
+        "name": "Sound style",
+        "prefix": "",
+        "suffix": "",
+        "value": 0.0,
+        "min": 0.0,
+        "max": 4.0,
+        "step": 1.0,
+        "options": [
+          "Tick",
+          "Lever",
+          "Smooth",
+          "Celestial",
+          "Nursultan"
+        ],
+        "labels": null,
+        "style": "Onyx"
       },
       {
         "t": "mode",
@@ -9032,12 +8962,163 @@
           "Light",
           "Translucent"
         ],
-        "labels": null
+        "labels": null,
+        "style": "Onyx"
       },
       {
         "t": "button",
         "name": "Reset window",
-        "value": false
+        "value": false,
+        "style": "Onyx"
+      },
+      {
+        "t": "mode",
+        "name": "Scale",
+        "prefix": "",
+        "suffix": "",
+        "value": 1.0,
+        "min": 0.0,
+        "max": 2.0,
+        "step": 1.0,
+        "options": [
+          "Small",
+          "Normal",
+          "Large"
+        ],
+        "labels": null,
+        "style": "Classic"
+      },
+      {
+        "t": "slider",
+        "name": "Background blur",
+        "prefix": "",
+        "suffix": "%",
+        "value": 30.0,
+        "min": 0.0,
+        "max": 100.0,
+        "step": 5.0,
+        "options": null,
+        "labels": null,
+        "style": "Classic"
+      },
+      {
+        "t": "slider",
+        "name": "Scroll speed",
+        "prefix": "",
+        "suffix": "",
+        "value": 35.0,
+        "min": 10.0,
+        "max": 90.0,
+        "step": 1.0,
+        "options": null,
+        "labels": null,
+        "style": "Classic"
+      },
+      {
+        "t": "toggle",
+        "name": "Allow movement",
+        "value": true,
+        "style": "Classic"
+      },
+      {
+        "t": "toggle",
+        "name": "Allow rotating",
+        "value": true,
+        "style": "Classic"
+      },
+      {
+        "t": "toggle",
+        "name": "Dark background",
+        "value": true,
+        "style": "Classic"
+      },
+      {
+        "t": "toggle",
+        "name": "Hide player model",
+        "value": false,
+        "style": "Classic"
+      },
+      {
+        "t": "toggle",
+        "name": "Hide watermark",
+        "value": false,
+        "style": "Classic"
+      },
+      {
+        "t": "toggle",
+        "name": "Lite mode",
+        "value": false,
+        "style": "Classic"
+      },
+      {
+        "t": "toggle",
+        "name": "Rainbow outlines",
+        "value": true,
+        "style": "Classic"
+      },
+      {
+        "t": "button",
+        "name": "Reset positions",
+        "value": false,
+        "style": "Classic"
+      },
+      {
+        "t": "toggle",
+        "name": "Save category positions",
+        "value": false,
+        "style": "Classic"
+      },
+      {
+        "t": "mode",
+        "name": "Samsara layout",
+        "prefix": "",
+        "suffix": "",
+        "value": 0.0,
+        "min": 0.0,
+        "max": 2.0,
+        "step": 1.0,
+        "options": [
+          "Opai",
+          "Modern",
+          "Sidebar"
+        ],
+        "labels": null,
+        "style": "Samsara"
+      },
+      {
+        "t": "mode",
+        "name": "Interface",
+        "prefix": "",
+        "suffix": "",
+        "value": 0.0,
+        "min": 0.0,
+        "max": 1.0,
+        "step": 1.0,
+        "options": [
+          "LiquidGlass",
+          "Normal"
+        ],
+        "labels": null,
+        "style": "Samsara"
+      },
+      {
+        "t": "slider",
+        "name": "Scale",
+        "prefix": "",
+        "suffix": "x",
+        "value": 1.0,
+        "min": 0.65,
+        "max": 1.25,
+        "step": 0.05,
+        "options": null,
+        "labels": null,
+        "style": "Samsara"
+      },
+      {
+        "t": "button",
+        "name": "Reset Samsara layout",
+        "value": false,
+        "style": "Samsara"
       }
     ]
   },
@@ -9122,6 +9203,11 @@
           "Lyric"
         ],
         "labels": null
+      },
+      {
+        "t": "button",
+        "name": "Edit island text",
+        "value": false
       },
       {
         "t": "toggle",
@@ -9647,6 +9733,21 @@
       },
       {
         "t": "slider",
+        "name": "Font: Weight",
+        "prefix": "",
+        "suffix": "",
+        "value": 1.0,
+        "min": 0.0,
+        "max": 1.0,
+        "step": 1.0,
+        "options": [
+          "Regular",
+          "Medium"
+        ],
+        "labels": null
+      },
+      {
+        "t": "slider",
         "name": "Font: Size",
         "prefix": "",
         "suffix": "x",
@@ -9663,16 +9764,16 @@
         "prefix": "",
         "suffix": " px",
         "value": 0.0,
-        "min": -5.0,
-        "max": 5.0,
-        "step": 0.5,
+        "min": -1.0,
+        "max": 1.0,
+        "step": 0.05,
         "options": null,
         "labels": null
       },
       {
         "t": "toggle",
         "name": "Font: Shadow",
-        "value": false
+        "value": true
       },
       {
         "t": "toggle",
@@ -9902,11 +10003,53 @@
         "suffix": "",
         "value": 0,
         "min": 0,
-        "max": 1,
+        "max": 27,
         "step": 1,
         "options": [
           "Ring",
-          "Text"
+          "Text",
+          "Shockwave",
+          "Tile Wave",
+          "Furiah Jump Circles",
+          "Neural Net",
+          "X-Ray Scan",
+          "Hex Pulse",
+          "Warp Dome",
+          "Dust Ring",
+          "Energy Fissures",
+          "Seal Stamp",
+          "Light Pillar",
+          "Feather Fall",
+          "Liquid Ripple",
+          "Sparkle Burst",
+          "Bramble Bloom",
+          "Ink Blot",
+          "Pop-Up",
+          "Cathedral Light",
+          "Bad Sector",
+          "Chrome Splash",
+          "Shadow Pool",
+          "Clockface",
+          "Card Spread",
+          "Sketch Rings",
+          "Chain Slam",
+          "Thud"
+        ],
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Furiah trigger",
+        "prefix": "",
+        "suffix": "",
+        "value": 0,
+        "min": 0,
+        "max": 2,
+        "step": 1,
+        "options": [
+          "Jump",
+          "Landing",
+          "Both"
         ],
         "labels": null
       },
@@ -10340,6 +10483,51 @@
     ]
   },
   {
+    "cls": "GlowESP",
+    "name": "Glow ESP",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "color",
+        "name": "Color",
+        "value": -10178561
+      },
+      {
+        "t": "toggle",
+        "name": "Players",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Mobs",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Render self",
+        "value": false
+      },
+      {
+        "t": "slider",
+        "name": "Glow radius",
+        "prefix": "",
+        "suffix": " px",
+        "value": 8,
+        "min": 3,
+        "max": 16,
+        "step": 1,
+        "options": null,
+        "labels": null
+      }
+    ]
+  },
+  {
     "cls": "R780",
     "name": "Target ESP",
     "category": "render",
@@ -10361,12 +10549,32 @@
         "suffix": "",
         "value": 0.0,
         "min": 0.0,
-        "max": 2.0,
+        "max": 22.0,
         "step": 1.0,
         "options": [
           "Crystals",
           "Ring",
-          "Box"
+          "Box",
+          "Crystal Halo",
+          "Orbit Rings",
+          "Spirit Spiral",
+          "Soul Orbs",
+          "Chain Bind",
+          "Neon Icon",
+          "Ground Sigil",
+          "Lock-On",
+          "Ascension",
+          "Pulse Wave",
+          "Thorn Crown",
+          "Ink Enso",
+          "Paper Cranes",
+          "Rose Window",
+          "Glitch Frame",
+          "Liquid Chrome",
+          "Shadow Veil",
+          "Armillary",
+          "Tarot",
+          "Doodle"
         ],
         "labels": null
       },
@@ -10429,7 +10637,6 @@
     ]
   },
   {
-    "cls": "R781",
     "name": "Ambience",
     "category": "render",
     "enabled": false,
@@ -10438,136 +10645,7 @@
     "key": 0,
     "lite": false,
     "failed": null,
-    "settings": [
-      {
-        "t": "desc",
-        "name": "Moonlight Atmosphere: time / weather editor and the Ambience cycle."
-      },
-      {
-        "t": "mode",
-        "name": "Mode",
-        "prefix": "",
-        "suffix": "",
-        "value": 0.0,
-        "min": 0.0,
-        "max": 1.0,
-        "step": 1.0,
-        "options": [
-          "Default",
-          "Ambience (Xylitol)"
-        ],
-        "labels": null
-      },
-      {
-        "t": "toggle",
-        "name": "Time editor",
-        "value": true
-      },
-      {
-        "t": "slider",
-        "name": "Time",
-        "prefix": "",
-        "suffix": "t",
-        "value": 18000.0,
-        "min": 0.0,
-        "max": 24000.0,
-        "step": 1000.0,
-        "options": null,
-        "labels": null
-      },
-      {
-        "t": "toggle",
-        "name": "Weather editor",
-        "value": true
-      },
-      {
-        "t": "mode",
-        "name": "Weather",
-        "prefix": "",
-        "suffix": "",
-        "value": 0.0,
-        "min": 0.0,
-        "max": 2.0,
-        "step": 1.0,
-        "options": [
-          "Clean",
-          "Rain",
-          "Thunder"
-        ],
-        "labels": null
-      },
-      {
-        "t": "mode",
-        "name": "Time mode",
-        "prefix": "",
-        "suffix": "",
-        "value": 0.0,
-        "min": 0.0,
-        "max": 1.0,
-        "step": 1.0,
-        "options": [
-          "Static",
-          "Cycle"
-        ],
-        "labels": null
-      },
-      {
-        "t": "slider",
-        "name": "Static time",
-        "prefix": "",
-        "suffix": "t",
-        "value": 24000.0,
-        "min": 0.0,
-        "max": 24000.0,
-        "step": 100.0,
-        "options": null,
-        "labels": null
-      },
-      {
-        "t": "slider",
-        "name": "Cycle speed",
-        "prefix": "",
-        "suffix": "",
-        "value": 24.0,
-        "min": 1.0,
-        "max": 24.0,
-        "step": 1.0,
-        "options": null,
-        "labels": null
-      },
-      {
-        "t": "toggle",
-        "name": "Reverse cycle",
-        "value": false
-      },
-      {
-        "t": "mode",
-        "name": "Weather mode",
-        "prefix": "",
-        "suffix": "",
-        "value": 0.0,
-        "min": 0.0,
-        "max": 1.0,
-        "step": 1.0,
-        "options": [
-          "Clear",
-          "Rain"
-        ],
-        "labels": null
-      },
-      {
-        "t": "slider",
-        "name": "Rain strength",
-        "prefix": "",
-        "suffix": "",
-        "value": 0.1,
-        "min": 0.1,
-        "max": 0.5,
-        "step": 0.1,
-        "options": null,
-        "labels": null
-      }
-    ]
+    "settings": []
   },
   {
     "cls": "R782",
@@ -10712,6 +10790,475 @@
           "Full",
           "Short"
         ],
+        "labels": null
+      }
+    ]
+  },
+  {
+    "cls": "NotificationCenter",
+    "name": "Notification Center",
+    "category": "other",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": true,
+    "failed": null,
+    "settings": [
+      {
+        "t": "desc",
+        "name": "Swipe down from the top in chat or pause. Bind a key to open."
+      },
+      {
+        "t": "toggle",
+        "name": "Swipe to open",
+        "value": true
+      },
+      {
+        "t": "button",
+        "name": "Open",
+        "value": false
+      },
+      {
+        "t": "slider",
+        "name": "GUI Scale",
+        "prefix": "",
+        "suffix": "x",
+        "value": 1.0,
+        "min": 0.5,
+        "max": 1.5,
+        "step": 0.05,
+        "options": null,
+        "labels": null
+      }
+    ]
+  },
+  {
+    "cls": "StrengthTimer",
+    "name": "Strength Timer",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "slider",
+        "name": "Size",
+        "prefix": "",
+        "suffix": "px",
+        "value": 64.0,
+        "min": 32.0,
+        "max": 128.0,
+        "step": 1.0,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Thickness",
+        "prefix": "",
+        "suffix": "",
+        "value": 4.0,
+        "min": 1.0,
+        "max": 8.0,
+        "step": 0.25,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Show time",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Follow theme",
+        "value": true
+      }
+    ]
+  },
+  {
+    "name": "SilenceFix",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": []
+  },
+  {
+    "name": "Hit Effect",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": []
+  },
+  {
+    "cls": "HitAfterimage",
+    "name": "Hit Afterimage",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "color",
+        "name": "Color",
+        "value": -1
+      },
+      {
+        "t": "slider",
+        "name": "Duration",
+        "prefix": "",
+        "suffix": " s",
+        "value": 1.38,
+        "min": 0.2,
+        "max": 5,
+        "step": 0.01,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Opacity",
+        "prefix": "",
+        "suffix": "%",
+        "value": 100,
+        "min": 0,
+        "max": 100,
+        "step": 1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Players",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Mobs",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Self",
+        "value": false
+      },
+      {
+        "t": "toggle",
+        "name": "Self: Timed",
+        "value": true
+      },
+      {
+        "t": "slider",
+        "name": "Self: Interval",
+        "prefix": "",
+        "suffix": " s",
+        "value": 1.0,
+        "min": 0.05,
+        "max": 10.0,
+        "step": 0.05,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Self: On jump",
+        "value": true
+      },
+      {
+        "t": "toggle",
+        "name": "Self: On land",
+        "value": true
+      }
+    ]
+  },
+  {
+    "cls": "FloatingFog",
+    "name": "Floating Fog",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "color",
+        "name": "Color",
+        "value": -8217427
+      },
+      {
+        "t": "slider",
+        "name": "Fog density",
+        "prefix": "",
+        "suffix": "%",
+        "value": 58,
+        "min": 0,
+        "max": 100,
+        "step": 1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Fog range",
+        "prefix": "",
+        "suffix": " m",
+        "value": 56,
+        "min": 16,
+        "max": 96,
+        "step": 1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Drift speed",
+        "prefix": "",
+        "suffix": "%",
+        "value": 100,
+        "min": 0,
+        "max": 200,
+        "step": 5,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "toggle",
+        "name": "Floating particles",
+        "value": true
+      }
+    ]
+  },
+  {
+    "lite": false,
+    "enabled": false,
+    "key": 0,
+    "category": "render",
+    "failed": null,
+    "name": "Cinematic",
+    "hidden": false,
+    "noToggle": false,
+    "settings": [
+      {
+        "t": "slider",
+        "name": "Quality",
+        "min": 0,
+        "max": 1,
+        "step": 1,
+        "value": 1,
+        "options": [
+          "Lightweight",
+          "High"
+        ]
+      },
+      {
+        "t": "slider",
+        "min": 0,
+        "max": 1,
+        "prefix": "",
+        "name": "Ambient occlusion",
+        "suffix": "",
+        "value": 0.75,
+        "step": 0.05
+      },
+      {
+        "t": "slider",
+        "min": 0,
+        "max": 1,
+        "prefix": "",
+        "name": "Bloom",
+        "suffix": "",
+        "value": 0.75,
+        "step": 0.05
+      },
+      {
+        "t": "slider",
+        "min": 0,
+        "max": 1,
+        "prefix": "",
+        "name": "Lens distortion",
+        "suffix": "",
+        "value": 0.75,
+        "step": 0.05
+      },
+      {
+        "t": "slider",
+        "min": 0,
+        "max": 1,
+        "prefix": "",
+        "name": "Eye adaptation",
+        "suffix": "",
+        "value": 0.75,
+        "step": 0.05
+      }
+    ]
+  },
+  {
+    "name": "Rain Reflections",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": []
+  },
+  {
+    "name": "Meteors",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "color",
+        "name": "Color",
+        "value": -4930305
+      },
+      {
+        "t": "slider",
+        "name": "Meteor count",
+        "prefix": "",
+        "suffix": "",
+        "value": 12,
+        "min": 1,
+        "max": 48,
+        "step": 1,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Size",
+        "prefix": "",
+        "suffix": " m",
+        "value": 0.24,
+        "min": 0.08,
+        "max": 0.8,
+        "step": 0.02,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Distance",
+        "prefix": "",
+        "suffix": " m",
+        "value": 40,
+        "min": 12,
+        "max": 96,
+        "step": 1,
+        "options": null,
+        "labels": null
+      }
+    ]
+  },
+  {
+    "cls": "WeaponWisps",
+    "name": "Orbit Particles",
+    "category": "render",
+    "enabled": false,
+    "noToggle": false,
+    "hidden": false,
+    "key": 0,
+    "lite": false,
+    "failed": null,
+    "settings": [
+      {
+        "t": "color",
+        "name": "Color",
+        "value": -4930305
+      },
+      {
+        "t": "slider",
+        "name": "Size",
+        "prefix": "",
+        "suffix": " m",
+        "value": 0.075,
+        "min": 0.03,
+        "max": 0.18,
+        "step": 0.005,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Held radius",
+        "prefix": "",
+        "suffix": " m",
+        "value": 0.8,
+        "min": 0.3,
+        "max": 1.8,
+        "step": 0.05,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Attack radius",
+        "prefix": "",
+        "suffix": " m",
+        "value": 0.8,
+        "min": 0.3,
+        "max": 1.8,
+        "step": 0.05,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Speed",
+        "prefix": "",
+        "suffix": "",
+        "value": 1,
+        "min": 0.25,
+        "max": 3,
+        "step": 0.05,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Trail length",
+        "prefix": "",
+        "suffix": " s",
+        "value": 0.45,
+        "min": 0.1,
+        "max": 1,
+        "step": 0.05,
+        "options": null,
+        "labels": null
+      },
+      {
+        "t": "slider",
+        "name": "Attack duration",
+        "prefix": "",
+        "suffix": " s",
+        "value": 1.8,
+        "min": 0.5,
+        "max": 4,
+        "step": 0.1,
+        "options": null,
         "labels": null
       }
     ]

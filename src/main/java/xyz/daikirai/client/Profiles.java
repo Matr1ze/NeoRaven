@@ -5,6 +5,7 @@ import xyz.daikirai.gui.ClickGui;
 import xyz.daikirai.gui.Component;
 import xyz.daikirai.gui.Console;
 import xyz.daikirai.gui.ModuleComponent;
+import xyz.daikirai.gui.onyx.hud.KeybindsHidden;
 import xyz.daikirai.module.Category;
 import xyz.daikirai.module.Module;
 
@@ -50,6 +51,7 @@ public final class Profiles {
 
     public static void loadAll() {
         current = null;
+        KeybindsHidden.useProfile(null);
         modified = false;
         Iterator<Map.Entry<Profile, Module>> it = profiles.entrySet().iterator();
         while (it.hasNext()) {

@@ -4,8 +4,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.ItemRenderer;
 import net.minecraft.client.renderer.OpenGlHelper;
-import net.minecraft.client.shader.Framebuffer;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
 import xyz.daikirai.gui.onyx.render.Shader;
 import xyz.daikirai.module.render.HandOutlineModule;
 
@@ -13,15 +13,15 @@ import xyz.daikirai.module.render.HandOutlineModule;
 public final class HandOutlineRenderer {
     private static boolean capturing;
     /** 0..5 = the original pipeline, 6..7 = the two trail feedback targets. */
-    private final Framebuffer[] targets = new Framebuffer[8];
+    private final Target[] targets = new Target[8];
     private Shader mask, expand, smooth, aurora, blit, trail;
     private boolean failed;
     private boolean trailPrimed;
     private int trailIndex;
-    private long started;
+    private long started, retryAt;
 
     public static boolean capturing() { return capturing; }
-    public void reset() { failed = false; started = System.nanoTime(); trailPrimed = false; }
+    public void reset() { failed = false; retryAt = 0; started = System.nanoTime(); trailPrimed = false; }
     public void dispose() {
         if (targets[0] == null) return;
         int framebuffer = GL11.glGetInteger(0x8CA6);
@@ -29,7 +29,7 @@ public final class HandOutlineRenderer {
         GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
         int texture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
         for (int i = 0; i < targets.length; i++) {
-            if (targets[i] != null) targets[i].deleteFramebuffer();
+            if (targets[i] != null) targets[i].delete();
             targets[i] = null;
         }
         GlStateManager.bindTexture(texture);
@@ -39,45 +39,50 @@ public final class HandOutlineRenderer {
 
     public void render(ItemRenderer itemRenderer, float partial, HandOutlineModule module) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (capturing || failed || !OpenGlHelper.shadersSupported || !OpenGlHelper.isFramebufferEnabled()
+        if (capturing || (failed && System.nanoTime() < retryAt)
+                || !OpenGlHelper.shadersSupported || !OpenGlHelper.framebufferSupported
                 || mc.displayWidth <= 0 || mc.displayHeight <= 0) return;
+        failed = false;
         try (HandState state = new HandState()) {
-            if (mask == null) {
-                mask = Shader.load("onyx_hand_mask");
-                expand = Shader.load("onyx_hand_expand", "onyx_post");
-                smooth = Shader.load("onyx_hand_smooth", "onyx_post");
-                aurora = Shader.load("onyx_hand_aurora", "onyx_post");
-                blit = Shader.load("onyx_hand_blit", "onyx_post");
-                trail = Shader.load("onyx_hand_trail", "onyx_post");
-            }
+            if (mask == null || !mask.valid()) mask = Shader.load("onyx_hand_mask");
+            if (expand == null || !expand.valid()) expand = Shader.load("onyx_hand_expand", "onyx_post");
+            if (smooth == null || !smooth.valid()) smooth = Shader.load("onyx_hand_smooth", "onyx_post");
+            if (aurora == null || !aurora.valid()) aurora = Shader.load("onyx_hand_aurora", "onyx_post");
+            if (blit == null || !blit.valid()) blit = Shader.load("onyx_hand_blit", "onyx_post");
+            if (trail == null || !trail.valid()) trail = Shader.load("onyx_hand_trail", "onyx_post");
             if (!mask.valid() || !expand.valid() || !smooth.valid() || !aurora.valid() || !blit.valid()
                     || !trail.valid()) {
                 failed = true;
+                retryAt = System.nanoTime() + 5000000000L;
                 return;
             }
             int width = Math.max(1, Math.round(mc.displayWidth * .5F));
             int height = Math.max(1, Math.round(mc.displayHeight * .5F));
             for (int i = 0; i < targets.length; i++) {
-                Framebuffer target = targets[i];
+                Target target = targets[i];
                 if (target == null) {
-                    targets[i] = target = new Framebuffer(width, height, i == 0);
-                    target.setFramebufferColor(0, 0, 0, 0);
-                    target.setFramebufferFilter(GL11.GL_LINEAR);
-                    GlStateManager.bindTexture(target.framebufferTexture);
-                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, 0x812F);
-                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, 0x812F);
+                    targets[i] = new Target(width, height, i == 0);
+                    trailPrimed = false;
                 } else if (target.framebufferWidth != width || target.framebufferHeight != height) {
-                    target.createBindFramebuffer(width, height);
-                    target.setFramebufferFilter(GL11.GL_LINEAR);
-                    GlStateManager.bindTexture(target.framebufferTexture);
-                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, 0x812F);
-                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, 0x812F);
+                    target.delete();
+                    targets[i] = null;
+                    targets[i] = new Target(width, height, i == 0);
+                    trailPrimed = false;
                 }
             }
             GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            GL11.glDisable(GL11.GL_STENCIL_TEST);
             GL11.glColorMask(true, true, true, true);
-            targets[0].framebufferClear();
-            targets[0].bindFramebuffer(true);
+            GL11.glDisable(GL11.GL_COLOR_LOGIC_OP);
+            // Do not inherit an ESP/shader's depth function or a modified clear depth.
+            GlStateManager.depthFunc(GL11.GL_LEQUAL);
+            GL11.glDepthFunc(GL11.GL_LEQUAL);
+            GlStateManager.alphaFunc(GL11.GL_GREATER, .1F);
+            bind(targets[0], width, height);
+            GL11.glClearColor(0, 0, 0, 0);
+            GL11.glClearDepth(1);
+            GL11.glDepthMask(true);
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
             mask.use();
             mask.uniform1i("Sampler0", 0);
             mask.uniform4f("uColor", 1, 1, 1, 1);
@@ -97,6 +102,7 @@ public final class HandOutlineRenderer {
             postprocess(state.framebuffer, state.viewport, width, height, module);
         } catch (Throwable error) {
             failed = true;
+            retryAt = System.nanoTime() + 5000000000L;
             dispose();
             System.err.println("[onyx] hand outline disabled after render failure: " + error);
         }
@@ -114,6 +120,10 @@ public final class HandOutlineRenderer {
             GL11.glDisable(GL11.GL_ALPHA_TEST); GL11.glDisable(GL11.GL_LIGHTING);
             GL11.glDisable(GL11.GL_FOG); GL11.glDisable(GL11.GL_CULL_FACE);
             GL11.glDisable(GL11.GL_SCISSOR_TEST); GL11.glDisable(GL11.GL_BLEND);
+            GL11.glDisable(GL11.GL_STENCIL_TEST);
+            GL11.glDisable(0x809D); // A fullscreen composite does not use the scene's multisampling.
+            GL11.glDisable(GL11.GL_COLOR_LOGIC_OP);
+            GL14.glBlendEquation(GL14.GL_FUNC_ADD);
             GL11.glColorMask(true, true, true, true);
             float ratio = (float) width / Minecraft.getMinecraft().displayWidth;
             for (int axis = 0; axis < 2; axis++) {
@@ -213,9 +223,51 @@ public final class HandOutlineRenderer {
     private static void color(Shader shader, String uniform, int rgb, float alpha) {
         shader.uniform4f(uniform, (rgb >> 16 & 255) / 255F, (rgb >> 8 & 255) / 255F, (rgb & 255) / 255F, alpha);
     }
-    private static void bind(Framebuffer target, int width, int height) {
+    private static void bind(Target target, int width, int height) {
         OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, target.framebufferObject);
         GL11.glViewport(0, 0, width, height);
+    }
+
+    /** Effect-owned buffers also work when vanilla/OptiFine disables the scene FBO path. */
+    private static final class Target {
+        final int framebufferWidth, framebufferHeight;
+        int framebufferObject = -1, framebufferTexture = -1, depthBuffer = -1;
+        Target(int width, int height, boolean depth) {
+            framebufferWidth = width; framebufferHeight = height;
+            try {
+                framebufferObject = OpenGlHelper.glGenFramebuffers();
+                framebufferTexture = GlStateManager.generateTexture();
+                GlStateManager.bindTexture(framebufferTexture);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, 0x812F);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, 0x812F);
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, width, height, 0,
+                        GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+                OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, framebufferObject);
+                OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER,
+                        OpenGlHelper.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, framebufferTexture, 0);
+                if (depth) {
+                    depthBuffer = OpenGlHelper.glGenRenderbuffers();
+                    OpenGlHelper.glBindRenderbuffer(OpenGlHelper.GL_RENDERBUFFER, depthBuffer);
+                    OpenGlHelper.glRenderbufferStorage(OpenGlHelper.GL_RENDERBUFFER, 33190, width, height);
+                    OpenGlHelper.glFramebufferRenderbuffer(OpenGlHelper.GL_FRAMEBUFFER,
+                            OpenGlHelper.GL_DEPTH_ATTACHMENT, OpenGlHelper.GL_RENDERBUFFER, depthBuffer);
+                }
+                int status = OpenGlHelper.glCheckFramebufferStatus(OpenGlHelper.GL_FRAMEBUFFER);
+                if (status != OpenGlHelper.GL_FRAMEBUFFER_COMPLETE)
+                    throw new IllegalStateException("Hand Outline framebuffer status 0x" + Integer.toHexString(status));
+            } catch (Throwable error) {
+                delete();
+                throw error;
+            }
+        }
+        void delete() {
+            if (depthBuffer >= 0) OpenGlHelper.glDeleteRenderbuffers(depthBuffer);
+            if (framebufferObject >= 0) OpenGlHelper.glDeleteFramebuffers(framebufferObject);
+            if (framebufferTexture >= 0) GlStateManager.deleteTexture(framebufferTexture);
+            depthBuffer = framebufferObject = framebufferTexture = -1;
+        }
     }
     private static void draw(int texture) {
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);

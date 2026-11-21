@@ -22,17 +22,21 @@ public final class Theme {
             0xFF7A5C1E, // amber
             0xFF8C4A32, // orange
             0xFF8C4767, // pink
-            0xFF6B5A4E  // mocha
+            0xFF6B5A4E, // mocha
+            0xFFFFFFFF, // white
+            0xFF262626  // graphite: a grey that leans black
     };
 
     public static final String[] ACCENT_NAMES = {
-            "Purple", "Blue", "Teal", "Green", "Amber", "Orange", "Pink", "Mocha"
+            "Purple", "Blue", "Teal", "Green", "Amber", "Orange", "Pink", "Mocha",
+            "White", "Graphite"
     };
 
     private static int accent = DEFAULT_ACCENT;
     private static float tint = 0.25F;
     private static float scale = 1.0F;
     private static boolean frost = true;
+    private static boolean liquidGlass;
     private static boolean followGuiScale = true;
     /** Whether HUD labels use the active accent instead of neutral surface ink (off by default). */
     private static boolean hudTextColor = false;
@@ -41,6 +45,10 @@ public final class Theme {
      * and the frosted backdrop shows through instead. Text and icons stay fully opaque.
      */
     private static boolean translucent = false;
+    /** ClickGUI shell opacity ("Background opacity" slider), {@code 1} = the solid surface. */
+    private static float panelOpacity = 1.0F;
+    /** Frost strength as a fraction of {@code Blur.MAX_RADIUS} ("Blur" slider), {@code 1} = full. */
+    private static float blur = 1.0F;
 
     /** How much of a surface fill survives in translucent mode. */
     public static final float TRANSLUCENT_SURFACE = 0.46F;
@@ -90,6 +98,14 @@ public final class Theme {
         return frost;
     }
 
+    public static void liquidGlass(boolean value) {
+        liquidGlass = value;
+    }
+
+    public static boolean liquidGlass() {
+        return liquidGlass;
+    }
+
     public static void hudTextColor(boolean value) {
         hudTextColor = value;
     }
@@ -104,6 +120,32 @@ public final class Theme {
 
     public static boolean translucent() {
         return translucent;
+    }
+
+    /**
+     * How opaque the ClickGUI shell is painted: {@code 1} keeps the solid Material surface, lower
+     * values let the world show through the panel (the "Background opacity" slider on the Theme
+     * page). Only the shell is affected - rows, text and icons stay fully opaque so they stay
+     * readable over any backdrop.
+     */
+    public static void panelOpacity(float value) {
+        panelOpacity = Material.clamp(value, 0.0F, 1.0F);
+    }
+
+    public static float panelOpacity() {
+        return panelOpacity;
+    }
+
+    /**
+     * Strength of the frosted-glass blur as a fraction of the shader's maximum radius
+     * ({@code Blur.MAX_RADIUS}); {@code 0} turns the panel's frost off altogether.
+     */
+    public static void blur(float value) {
+        blur = Material.clamp(value, 0.0F, 1.0F);
+    }
+
+    public static float blur() {
+        return blur;
     }
 
     /** Chooses the accent when enabled, otherwise preserving the neutral HUD text colour. */

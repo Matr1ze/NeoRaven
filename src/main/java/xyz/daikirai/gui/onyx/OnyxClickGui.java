@@ -1,5 +1,7 @@
 package xyz.daikirai.gui.onyx;
 
+import xyz.daikirai.module.ClickGuiModule;
+
 import net.minecraft.client.gui.GuiScreen;
 import org.lwjgl.input.Mouse;
 import xyz.daikirai.gui.onyx.hud.Island;
@@ -14,6 +16,8 @@ import xyz.daikirai.module.render.WatermarkModule;
 import xyz.daikirai.music.MusicIsland;
 
 import java.io.IOException;
+import xyz.daikirai.gui.VisualPreview;
+import xyz.daikirai.module.Module;
 
 /**
  * The ported Material You ClickGUI screen, equivalent to Onyx's {@code GuiScreenImpl3}.
@@ -23,7 +27,7 @@ import java.io.IOException;
  * Dynamic Island morph matching Tablist and MusicScreen. The world behind the panel is blurred with the
  * original frosted-glass pipeline when the "Frosted glass" setting is enabled.</p>
  */
-public final class OnyxClickGui extends GuiScreen {
+public final class OnyxClickGui extends GuiScreen implements VisualPreview.Owner {
 
     public static OnyxClickGui instance;
 
@@ -31,6 +35,7 @@ public final class OnyxClickGui extends GuiScreen {
 
     private final UI ui = new UI();
     private final Panel panel = new Panel();
+    private final VisualPreview preview = new VisualPreview();
     private final Anim open = new Anim(0.0F);
     private final Anim scrim = new Anim(0.0F);
 
@@ -62,6 +67,15 @@ public final class OnyxClickGui extends GuiScreen {
         return panel;
     }
 
+    @Override public Module previewModule() {
+        return panel.detailOpen() ? panel.detail().module() : null;
+    }
+
+    @Override
+    public void updateScreen() {
+        ClickGuiModule.instance.updateScreenStyle(this);
+    }
+
     @Override
     public boolean doesGuiPauseGame() {
         return false;
@@ -70,7 +84,7 @@ public final class OnyxClickGui extends GuiScreen {
     @Override
     public void initGui() {
         super.initGui();
-        OnyxClickGuiModule.sync();
+        ClickGuiModule.sync();
         this.scale = fitScale();
         this.themeScale = Theme.scale();
         this.lastFrame = System.nanoTime();
@@ -118,7 +132,7 @@ public final class OnyxClickGui extends GuiScreen {
         this.lastFrame = now;
         open.update(delta);
         scrim.update(delta);
-        OnyxClickGuiModule.sync();
+        ClickGuiModule.sync();
         if (themeScale != Theme.scale()) {
             themeScale = Theme.scale();
             float fitted = fitScale();
@@ -170,7 +184,21 @@ public final class OnyxClickGui extends GuiScreen {
             // The rest of the HUD stays on screen for as long as this screen is open - drawn under
             // the shell, so it simply sits behind the panel instead of vanishing when the shell fills.
             xyz.daikirai.gui.onyx.hud.HudPass.render(partialTicks);
+            // "Background opacity" scales every surface fill the panel paints (shell, rows, popovers,
+            // toasts); text and icons bypass this factor, so they stay readable over the world.
+            ui.surfaceAlpha(Theme.panelOpacity());
             drawMorph(scheme);
+            if (interactive()) {
+                ui.push();
+                ui.scale(scale, 0, 0);
+                try {
+                    preview.draw(ui, scheme, previewModule(), panel.x(), panel.y(), Panel.WIDTH, Panel.HEIGHT,
+                            width / scale, height / scale, delta);
+                } finally {
+                    ui.pop();
+                }
+            }
+            ui.surfaceAlpha(1.0F);
         } finally {
             ui.end();
         }
@@ -203,14 +231,25 @@ public final class OnyxClickGui extends GuiScreen {
 
     private void drawMorph(Scheme scheme) {
         int color = Material.mix(scheme.surfaceContainerHigh, scheme.surfaceContainer, morph);
+        // "Background opacity" on the Theme page. The rows and popovers are faded by
+        // ui.surfaceAlpha(...) in drawScreen(); this method owns the shell, whose frost layer does
+        // not run through the surface factor and therefore carries the alpha itself.
+        float opacity = Theme.panelOpacity();
+        boolean frosted = (Theme.frost() || Theme.translucent())
+                && Theme.blur() > 0.001F && Blur.ready();
         ui.shadow(shellX, shellY, shellW, shellH, shellRadius, Math.round(3.0F + morph));
-        ui.rounded(shellX, shellY, shellW, shellH, shellRadius, color);
-        if ((Theme.frost() || Theme.translucent()) && Blur.ready()) {
+        if (!frosted || opacity >= 0.999F) {
+            // Solid case: the shipped look (an opaque backing under the frost). Translucent case:
+            // no backing, so the shell blends the blurred scene and the world exactly once.
+            ui.rounded(shellX, shellY, shellW, shellH, shellRadius, color);
+        }
+        if (frosted) {
             float coverage = 0.58F + 0.35F * morph;
             if (Theme.translucent()) {
                 coverage = Math.max(coverage, Theme.TRANSLUCENT_FROST);
             }
-            ui.frost(shellX, shellY, shellW, shellH, shellRadius, color, coverage);
+            int tint = Material.withAlpha(color, Material.alpha(color) / 255.0F * opacity);
+            ui.frost(shellX, shellY, shellW, shellH, shellRadius, tint, coverage);
         }
         drawIsland(scheme);
         float alpha = Material.clamp((morph - 0.15F) / 0.65F, 0.0F, 1.0F);
@@ -324,8 +363,8 @@ public final class OnyxClickGui extends GuiScreen {
     @Override
     protected void keyTyped(char typed, int key) throws IOException {
         if (!interactive()) {
-            if (!closing && (key == 1 || OnyxClickGuiModule.instance != null
-                    && key != 0 && key == OnyxClickGuiModule.instance.getKeycode())) {
+            if (!closing && (key == 1 || ClickGuiModule.instance != null
+                    && key != 0 && key == ClickGuiModule.instance.getKeycode())) {
                 deferClose();
             }
             return;
@@ -341,18 +380,19 @@ public final class OnyxClickGui extends GuiScreen {
             mc.displayGuiScreen(null);
             return;
         }
-        if (OnyxClickGuiModule.instance != null && OnyxClickGuiModule.instance.getKeycode() != 0
-                && key == OnyxClickGuiModule.instance.getKeycode() && !panel.search().focused()) {
+        if (ClickGuiModule.instance != null && ClickGuiModule.instance.getKeycode() != 0
+                && key == ClickGuiModule.instance.getKeycode() && !panel.search().focused()) {
             mc.displayGuiScreen(null);
         }
     }
 
     @Override
     public void onGuiClosed() {
+        preview.close();
         panel.mouseReleased(0);
         initialized = false;
         Blur.request();
-        OnyxClickGuiModule.sync();
+        ClickGuiModule.sync();
     }
 
 }

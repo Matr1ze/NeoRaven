@@ -3,11 +3,13 @@ package xyz.daikirai.module.render;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraft.client.gui.inventory.GuiChest;
+import net.minecraft.util.ChatAllowedCharacters;
 import org.lwjgl.input.Keyboard;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import xyz.daikirai.client.Overlay;
 import xyz.daikirai.gui.IslandPositionEditor;
+import xyz.daikirai.gui.IslandTextEditor;
 import xyz.daikirai.gui.onyx.hud.InfoBar;
 import xyz.daikirai.gui.onyx.hud.Island;
 import xyz.daikirai.gui.onyx.hud.NowPlaying;
@@ -31,6 +33,9 @@ import java.util.ArrayList;
 public final class WatermarkModule extends Module {
 
     public static WatermarkModule instance;
+    public static final String DEFAULT_ISLAND_TEXT = "NeoRaven";
+    public static final int MAX_ISLAND_TEXT = 64;
+    private String islandText = DEFAULT_ISLAND_TEXT;
 
     private static final Island ISLAND = new Island();
     private static final InfoBar INFO_BAR = new InfoBar();
@@ -42,6 +47,7 @@ public final class WatermarkModule extends Module {
 
     public static ButtonSetting moduleToggles;
     public static ButtonSetting showLogo;
+    private static ButtonSetting editIslandText;
     public static ButtonSetting frostedGlass;
     public static ButtonSetting scaffoldBlocks;
     public static ButtonSetting editPosition;
@@ -94,6 +100,7 @@ public final class WatermarkModule extends Module {
         samsaraY = slider("Samsara: Position Y");
         moduleToggles = button("Module toggles");
         showLogo = button("Logo");
+        editIslandText = button("Edit island text");
         frostedGlass = button("Frosted glass");
         scaffoldBlocks = button("Scaffold blocks");
         editPosition = button("Edit position");
@@ -206,7 +213,7 @@ public final class WatermarkModule extends Module {
                     ISLAND.hideTabList();
                     return;
                 }
-                xyz.daikirai.gui.onyx.OnyxClickGuiModule.sync();
+                xyz.daikirai.module.ClickGuiModule.sync();
                 NowPlaying.setEnabled(instance.isEnabled() && instance.nowPlaying() || NotificationsModule.needsMedia());
                 // The island draws vanilla FontRenderer text (the tab list's server header/footer),
                 // and RenderTick listeners are not inside the per-frame font scope.
@@ -244,6 +251,10 @@ public final class WatermarkModule extends Module {
     public void guiButtonToggled(ButtonSetting button) {
         if (button == editPosition) {
             mc.displayGuiScreen(new IslandPositionEditor());
+        } else if (button == editIslandText && !samsaraMode() && mc.currentScreen != null) {
+            mc.displayGuiScreen(new IslandTextEditor(mc.currentScreen, this));
+        } else if (button == showLogo && !samsaraMode()) {
+            ISLAND.refreshIdleLabel();
         }
     }
 
@@ -287,6 +298,17 @@ public final class WatermarkModule extends Module {
 
     public boolean announceToggles() {
         return moduleToggles == null || moduleToggles.isToggled();
+    }
+
+    public String islandText() {
+        return islandText;
+    }
+
+    public void setIslandText(String value) {
+        String text = ChatAllowedCharacters.filterAllowedCharacters(value).trim();
+        int length = Math.min(MAX_ISLAND_TEXT, text.length());
+        if (length > 0 && Character.isHighSurrogate(text.charAt(length - 1))) length--;
+        islandText = length == 0 ? DEFAULT_ISLAND_TEXT : text.substring(0, length);
     }
 
     public boolean logo() {

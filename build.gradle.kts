@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "xyz.daikirai"
-version = "1.2"
+version = "1.0.0"
 
 java { toolchain.languageVersion.set(JavaLanguageVersion.of(8)) }
 
@@ -41,6 +41,8 @@ dependencies {
     embed(files("libs/jlayer.jar"))
     // ZXing core: the NetEase QR login code is generated client-side from the login URL.
     embed(files("libs/zxing-core-3.5.3.jar"))
+    // Java 8 backport of ViaVersion, ViaBackwards and ViaRewind, with their runtime stubs.
+    embed(files("libs/via-protocol-java8.jar"))
 }
 
 tasks.processResources {

@@ -173,6 +173,23 @@ public final class Scheme {
                 0x00000000, 0x00FFFFFF);
     }
 
+    /** Notification shade only: continuous RGB artwork colours, with no HCT or preset quantisation. */
+    public static Scheme artwork(int seed, boolean dark) {
+        int ink = dark ? 0xFFF8F8FC : 0xFF15151B;
+        int soft = dark ? 0xFFCED0D8 : 0xFF42444D;
+        int surface = Material.mix(seed, dark ? 0xFF101218 : 0xFFF9FAFF, 0.82F);
+        int accent = Material.mix(seed, dark ? 0xFFFFFFFF : 0xFF000000, dark ? 0.28F : 0.20F);
+        int container = Material.mix(surface, seed, 0.35F);
+        return new Scheme(
+                accent, dark ? 0xFF101218 : 0xFFFFFFFF, container, ink,
+                accent, ink, container, ink, accent, ink, container, ink,
+                0xFFFF8D90, 0xFF350508, 0xFF702E32, 0xFFFFDADC,
+                surface, ink, container, soft, surface, surface,
+                surface, surface, surface, surface, container,
+                soft, Material.mix(surface, ink, 0.2F),
+                ink, surface, accent, 0xFF000000, 0xFF000000);
+    }
+
     /** Port of {@code theme.Util5.getIntForInt}: Material elevation levels 0..5. */
     public int surfaceLevel(int level) {
         switch (Material.clamp(level, 0, 5)) {

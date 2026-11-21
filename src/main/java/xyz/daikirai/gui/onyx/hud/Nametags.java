@@ -74,7 +74,7 @@ public final class Nametags {
     private final UI ui = new UI();
     private final Anim visible = new Anim(0.0F);
     private long lastFrame;
-    /** How many plates were drawn in the last frame (used by the dev harness). */
+    /** How many plates were drawn in the last frame (exposed for automated checks). */
     private int drawn;
     private int frames;
 
@@ -444,7 +444,7 @@ public final class Nametags {
         return drawn;
     }
 
-    /** Frames the renderer actually ran in (used by the dev harness). */
+    /** Frames the renderer actually ran in (exposed for automated checks). */
     public int frames() {
         return frames;
     }

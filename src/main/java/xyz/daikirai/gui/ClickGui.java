@@ -2,9 +2,10 @@ package xyz.daikirai.gui;
 
 import xyz.daikirai.module.Category;
 import xyz.daikirai.module.CommandLineModule;
-import xyz.daikirai.module.GuiModule;
+import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.module.Module;
 import xyz.daikirai.module.ModuleManager;
+import xyz.daikirai.util.Animation;
 import xyz.daikirai.util.Blur;
 import xyz.daikirai.util.RenderUtils;
 import net.minecraft.client.gui.Gui;
@@ -20,12 +21,23 @@ import org.lwjgl.opengl.GL11;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
-public class ClickGui extends GuiScreen {
+public class ClickGui extends GuiScreen implements VisualPreview.Owner {
     public static ClickGui instance;
     public static long openedAt;
     public static ArrayList<CategoryComponent> categories;
+    private final VisualPreview preview = new VisualPreview();
+    private final xyz.daikirai.gui.onyx.render.UI previewUi = new xyz.daikirai.gui.onyx.render.UI();
+    private ModuleComponent previewRow;
+    private long previewFrame;
 
+    public Timer timer;
+    public Animation watermarkAnimation;
+    public Animation backgroundAnimation;
+    public Animation unusedAnimation;
+    public Animation delayedAnimation;
     public ScaledResolution sr;
     public GuiButtonExt commandSend;
     public GuiTextField commandLineInput;
@@ -43,7 +55,21 @@ public class ClickGui extends GuiScreen {
     }
 
     public void initMain() {
-        openedAt = System.currentTimeMillis() - 10000L;
+        openedAt = System.currentTimeMillis();
+        (this.backgroundAnimation = new Animation(500.0f)).start();
+        (this.unusedAnimation = new Animation(1000.0f)).start();
+        (this.watermarkAnimation = new Animation(500.0f)).start();
+        this.timer = new Timer();
+        this.timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                ClickGui.this.delayedAnimation = new Animation(650.0f);
+                ClickGui.this.delayedAnimation.start();
+                ClickGui.this.timer.cancel();
+                ClickGui.this.timer.purge();
+                ClickGui.this.timer = null;
+            }
+        }, 650L);
     }
 
     @Override
@@ -53,6 +79,13 @@ public class ClickGui extends GuiScreen {
         (this.commandLineInput = new GuiTextField(1, this.mc.fontRendererObj, 22, this.height - 100, 150, 20)).setMaxStringLength(256);
         this.buttonList.add(this.commandSend = new GuiButtonExt(2, 22, this.height - 70, 150, 20, "Send"));
         this.commandSend.visible = CommandLineModule.open;
+        // A child screen (the colour picker) comes back here through displayGuiScreen(this), which
+        // only re-runs initGui(); onGuiClosed() dropped the animations on the way out, so the first
+        // frame back used to throw at backgroundAnimation.getValue(...) (issue #2). Re-arm them so
+        // every way of showing this screen is safe, not just ClickGuiModule's display + initMain() pair.
+        if (this.backgroundAnimation == null) {
+            this.initMain();
+        }
     }
 
     @Override
@@ -62,17 +95,17 @@ public class ClickGui extends GuiScreen {
         if (hud != null && hud.isEnabled()) {
             xyz.daikirai.module.HudModule.render();
         }
-        int alpha = (int) (0.75f * 255.0f);
-        if (GuiModule.darkBackground.isToggled()) {
+        int alpha = (int) (this.backgroundAnimation.getValue(0.0f, 0.75f, 2) * 255.0f);
+        if (ClickGuiModule.darkBackground.isToggled()) {
             bg = 0x101010 | alpha << 24;
             drawRect(0, 0, this.width, this.height, bg);
         }
-        if (GuiModule.backgroundBlur.getInput() > 0.0) {
+        if (ClickGuiModule.backgroundBlur.getInput() > 0.0) {
             Blur.get().startStencil();
             Gui.drawRect(0, 0, RenderUtils.scaledWidth, RenderUtils.scaledHeight, -1);
-            Blur.get().render(2, GuiModule.blurStrength * ((float) alpha / 191.0f));
+            Blur.get().render(2, ClickGuiModule.blurStrength * ((float) alpha / 191.0f));
         }
-        if (!GuiModule.hideWatermark.isToggled()) {
+        if (!ClickGuiModule.hideWatermark.isToggled()) {
             this.drawTitle((float) this.width / 2.0f, (float) this.height / 4.0f);
         }
         for (CategoryComponent c : categories) {
@@ -82,9 +115,10 @@ public class ClickGui extends GuiScreen {
                 m.updatePosition(x, y);
             }
         }
+        drawVisualPreview();
         GL11.glColor3f(1.0f, 1.0f, 1.0f);
-        if (!GuiModule.hidePlayerModel.isToggled() && this.mc.thePlayer != null) {
-            GuiInventory.drawEntityOnScreen(this.width + 15 - 40, this.height - 10, 40,
+        if (!ClickGuiModule.hidePlayerModel.isToggled() && this.mc.thePlayer != null) {
+            GuiInventory.drawEntityOnScreen(this.width + 15 - this.backgroundAnimation.getValueInt(0, 40, 2), this.height - 10, 40,
                     (float) (this.width - 25 - x), (float) (this.height - 50 - y), this.mc.thePlayer);
         }
         if (CommandLineModule.open) {
@@ -110,8 +144,32 @@ public class ClickGui extends GuiScreen {
         } else if (CommandLineModule.closing) {
             CommandLineModule.closing = false;
         }
-        int wy = this.height + 18 - 30;
+        int wy = this.height + 18 - this.watermarkAnimation.getValueInt(0, 30, 2);
         Watermark.render(4, wy, true);
+    }
+
+    @Override public Module previewModule() {
+        return previewRow != null && previewRow.opened && previewRow.categoryComponent.opened ? previewRow.mod : null;
+    }
+
+    private void drawVisualPreview() {
+        Module module = previewModule();
+        if (!VisualPreview.supports(module)) {
+            preview.close();
+            return;
+        }
+        long now = System.nanoTime();
+        float dt = previewFrame == 0 ? 16 : Math.min(75, (now - previewFrame) / 1_000_000F);
+        previewFrame = now;
+        CategoryComponent category = previewRow.categoryComponent;
+        previewUi.begin();
+        try {
+            preview.draw(previewUi, xyz.daikirai.gui.onyx.material.Theme.scheme(), module,
+                    category.getX(), category.getY(), category.getWidth(), Math.max(32, height * .65F),
+                    width, height, dt);
+        } finally {
+            previewUi.end();
+        }
     }
 
     public void drawTitle(float cx, float cy) {
@@ -283,7 +341,18 @@ public class ClickGui extends GuiScreen {
             }
             if (!c.opened || c.modules.isEmpty()) continue;
             for (Component comp : c.modules) {
-                if (!comp.mouseClicked(x, y, m)) continue;
+                ModuleComponent previousPreview = previewRow;
+                if (comp instanceof ModuleComponent) {
+                    ModuleComponent row = (ModuleComponent) comp;
+                    if (m == 1 && row.isHovered(x, y) || m == 0 && row.opened
+                            && x > row.left() && x < row.right() && y >= row.bottom() && y < row.top() + row.getHeight()) {
+                        previewRow = row;
+                    }
+                }
+                if (!comp.mouseClicked(x, y, m)) {
+                    previewRow = previousPreview;
+                    continue;
+                }
                 return;
             }
         }
@@ -361,7 +430,17 @@ public class ClickGui extends GuiScreen {
 
     @Override
     public void onGuiClosed() {
-        GuiModule.restoreScale();
+        preview.close();
+        previewFrame = 0;
+        ClickGuiModule.restoreScale();
+        // The animations stay alive on purpose: this screen is re-shown unchanged whenever a child
+        // screen (colour picker) hands control back, and dropping them here left drawScreen() with
+        // nulls one frame later (issue #2). initMain() still restarts them on a real reopen.
+        if (this.timer != null) {
+            this.timer.cancel();
+            this.timer.purge();
+            this.timer = null;
+        }
         for (CategoryComponent c : categories) {
             if (!c.opened || c.opening) continue;
             c.mouseReleased();
@@ -369,9 +448,14 @@ public class ClickGui extends GuiScreen {
         for (Module m : ModuleManager.modules) {
             m.guiUpdate();
         }
-        if (xyz.daikirai.module.GuiModule.saveCategoryPositions.isToggled()) {
+        if (xyz.daikirai.module.ClickGuiModule.saveCategoryPositions.isToggled()) {
             xyz.daikirai.client.ClientConfig.save();
         }
+    }
+
+    @Override
+    public void updateScreen() {
+        ClickGuiModule.instance.updateScreenStyle(this);
     }
 
     @Override

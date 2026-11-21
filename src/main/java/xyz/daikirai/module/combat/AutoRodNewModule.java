@@ -97,7 +97,7 @@ public final class AutoRodNewModule extends Module {
     private int previousSlot = -1;
     private float[] aim;
     private boolean aiming;
-    /** Successful casts; the visual probe and the arraylist both read it. */
+    /** Successful casts; the debug readout and the arraylist both read it. */
     public int casts;
     /** Why the module is not casting right now; the script exposed the same string. */
     public String reason = "disabled";

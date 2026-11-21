@@ -234,7 +234,7 @@ public abstract class AndroidListScreen extends GuiScreen {
         ui.rounded(doneX, doneY, doneWidth, doneHeight, 15.0F,
                 hovered ? AndroidWallpaper.primaryContainer()
                         : Material.mix(AndroidWallpaper.card(), AndroidWallpaper.primaryContainer(), 0.55F));
-        ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Done"), doneX + doneWidth / 2.0F, doneY + doneHeight / 2.0F,
+        ui.text(Typeface.LABEL, I18n.format("gui.done"), doneX + doneWidth / 2.0F, doneY + doneHeight / 2.0F,
                 AndroidWallpaper.onPrimaryContainer(), UI.ALIGN_CENTER);
     }
 
@@ -371,7 +371,7 @@ public abstract class AndroidListScreen extends GuiScreen {
         ui.rounded(x, y, confirmW, 30.0F, 15.0F, AndroidWallpaper.errorContainer());
         ui.text(Typeface.LABEL, confirmLabel, x + confirmW / 2.0F, y + 15.0F, AndroidWallpaper.onErrorContainer(), UI.ALIGN_CENTER);
         ui.rounded(x - 8.0F - cancelW, y, cancelW, 30.0F, 15.0F, AndroidWallpaper.surfaceHigh());
-        ui.text(Typeface.LABEL, xyz.daikirai.util.Lang.text("Cancel"), x - 8.0F - cancelW / 2.0F, y + 15.0F,
+        ui.text(Typeface.LABEL, I18n.format("gui.cancel"), x - 8.0F - cancelW / 2.0F, y + 15.0F,
                 AndroidWallpaper.ink(), UI.ALIGN_CENTER);
         ui.pop();
         ui.end();
@@ -567,15 +567,15 @@ public abstract class AndroidListScreen extends GuiScreen {
     }
 
     // ------------------------------------------------------------------ //
-    // Harness hooks
+    // Automation hooks
     // ------------------------------------------------------------------ //
 
-    /** Design-space centre of a row, for the automated harness. */
+    /** Design-space centre of a row, for automated UI checks. */
     public float[] rowCenter(int index) {
         return new float[]{cardX + 60.0F, cardY + 4.0F - scrollSpring.value() + index * rowHeight() + rowHeight() / 2.0F};
     }
 
-    /** Design-space centre of a footer button, for the automated harness. */
+    /** Design-space centre of a footer button, for automated UI checks. */
     public float[] actionCenter(String label) {
         float right = DESIGN_WIDTH - PAD;
         for (int i = actions.size() - 1; i >= 0; i--) {

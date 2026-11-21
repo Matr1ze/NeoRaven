@@ -5,13 +5,18 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.Vec3;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL14;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
+import xyz.daikirai.gui.onyx.render.Shader;
 import xyz.daikirai.gui.onyx.render.TtfFont;
 import xyz.daikirai.gui.onyx.render.Typeface;
 
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -26,7 +31,7 @@ import java.util.Random;
  */
 public final class WorldLyrics {
 
-    private static final String FONT_RESOURCE = xyz.daikirai.gui.onyx.render.Typeface.familyPath();
+    private static final String FONT_RESOURCE = "/assets/clickgui/font/misans-medium.ttf";
     private static final float FONT_SIZE = 32.0F;
     private static final float LINE_HEIGHT = 40.0F;
     private static final float MAX_WIDTH = 460.0F;
@@ -133,26 +138,10 @@ public final class WorldLyrics {
         Scheme scheme = Theme.scheme();
         float rainbowPhase = (float) ((now / 1000000000.0) * 0.08 % 1.0);
 
-        GlStateManager.pushMatrix();
-        GlStateManager.disableLighting();
-        GlStateManager.disableAlpha();
-        GlStateManager.enableBlend();
-        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
-        GlStateManager.depthMask(false);
-        GlStateManager.enableTexture2D();
-        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-        // World post-processing (Fog Blur) and the hand pass leave the driver and the caches in
-        // different places: GL_FOG can still be switched on, the lightmap unit can hold a blur
-        // texture instead of the lightmap, and the last raw glBindTexture leaves GlStateManager
-        // believing another texture is bound (so the font bind below would be skipped and the
-        // glyphs would sample that leftover texture - the line reads as black). Normalise all
-        // three here; the line is full-bright by design, so the lightmap is forced to 240,240.
-        GlStateManager.disableFog();
-        mc.entityRenderer.enableLightmap();
-        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.0F, 240.0F);
-        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
-        GlStateManager.bindTexture(0);
-        try {
+        // The alpha-only glyph atlas must run on its own unlit texture unit. Do not enable
+        // Minecraft's lightmap: a leftover fog/depth sampler on another unit multiplies the
+        // glyph colour, and cached disableFog/disableLighting calls can silently be skipped.
+        try (TextState state = new TextState()) {
             for (int i = fading.size() - 1; i >= 0; i--) {
                 Floating f = fading.get(i);
                 float t = (now - f.fadeStart) / (float) FADE_NS;
@@ -165,15 +154,85 @@ public final class WorldLyrics {
             if (active != null) {
                 draw(active, l3, scheme, position, 1.0F, 0.0F, rainbowPhase);
             }
-        } finally {
-            // Hand the lightmap back the way Minecraft leaves it after the world pass.
-            mc.entityRenderer.disableLightmap();
-            GlStateManager.depthMask(true);
-            GlStateManager.disableBlend();
-            GlStateManager.enableAlpha();
-            GlStateManager.enableLighting();
-            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-            GlStateManager.popMatrix();
+        }
+    }
+
+    /** Isolates the fixed-function font path from world shaders, fog and secondary samplers. */
+    private static final class TextState implements AutoCloseable {
+        private final int active = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+        private final int matrixMode = GL11.glGetInteger(GL11.GL_MATRIX_MODE);
+        private final int program = OpenGlHelper.shadersSupported ? GL11.glGetInteger(0x8B8D) : 0;
+        private final int src = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
+        private final int dst = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
+        private final int srcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
+        private final int dstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+        private final int[] textures = new int[Math.max(1, Math.min(32, GL11.glGetInteger(GL13.GL_MAX_TEXTURE_UNITS)))];
+        private final boolean[] textured = new boolean[textures.length];
+        private final FloatBuffer color = BufferUtils.createFloatBuffer(16);
+
+        TextState() {
+            GL11.glGetFloat(GL11.GL_CURRENT_COLOR, color);
+            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            // Read the driver directly, even if another renderer left MC's active-unit cache stale.
+            for (int unit = 0; unit < textures.length; unit++) {
+                OpenGlHelper.setActiveTexture(OpenGlHelper.defaultTexUnit + unit);
+                textures[unit] = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+                textured[unit] = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+                if (unit != 0) GL11.glDisable(GL11.GL_TEXTURE_2D);
+            }
+            activeTexture(OpenGlHelper.defaultTexUnit);
+            GL11.glMatrixMode(GL11.GL_TEXTURE);
+            GL11.glPushMatrix();
+            GL11.glLoadIdentity();
+            GL11.glMatrixMode(GL11.GL_MODELVIEW);
+            GL11.glPushMatrix();
+            Shader.unbind();
+            // Raw caps are intentional inside the attrib scope: stale BooleanState caches must
+            // not suppress these changes. The font only changes unit 0's cached texture switch.
+            GL11.glDisable(GL11.GL_FOG);
+            GL11.glDisable(GL11.GL_LIGHTING);
+            GL11.glDisable(GL11.GL_ALPHA_TEST);
+            GL11.glDisable(GL11.GL_COLOR_LOGIC_OP);
+            GL11.glDisable(GL11.GL_CULL_FACE);
+            GL11.glEnable(GL11.GL_TEXTURE_2D);
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glDepthMask(false);
+            OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+            GL11.glTexEnvi(GL11.GL_TEXTURE_ENV, GL11.GL_TEXTURE_ENV_MODE, GL11.GL_MODULATE);
+            // Rebind on the actual unit as well as the cache, so the next atlas bind cannot skip.
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+            GlStateManager.bindTexture(0);
+        }
+
+        @Override public void close() {
+            GL11.glMatrixMode(GL11.GL_MODELVIEW);
+            GL11.glPopMatrix();
+            activeTexture(OpenGlHelper.defaultTexUnit);
+            GL11.glMatrixMode(GL11.GL_TEXTURE);
+            GL11.glPopMatrix();
+            // Synchronise only caches changed by the font/glow draws, then pop the untouched raw
+            // caps/environment. Both the driver and MC must describe the caller's state afterwards.
+            GlStateManager.tryBlendFuncSeparate(src, dst, srcAlpha, dstAlpha);
+            GlStateManager.resetColor();
+            GlStateManager.color(color.get(0), color.get(1), color.get(2), color.get(3));
+            for (int unit = 0; unit < textures.length; unit++) {
+                GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit + unit);
+                GL11.glBindTexture(GL11.GL_TEXTURE_2D, textures[unit]);
+                GlStateManager.bindTexture(textures[unit]);
+                GlStateManager.disableTexture2D();
+                if (textured[unit]) GlStateManager.enableTexture2D();
+            }
+            GL11.glPopAttrib();
+            if (OpenGlHelper.shadersSupported) OpenGlHelper.glUseProgram(program);
+            activeTexture(active);
+            GL11.glMatrixMode(matrixMode);
+        }
+
+        private static void activeTexture(int unit) {
+            // The final call always changes the cache and therefore reaches glActiveTexture.
+            GlStateManager.setActiveTexture(unit == OpenGlHelper.defaultTexUnit
+                    ? OpenGlHelper.lightmapTexUnit : OpenGlHelper.defaultTexUnit);
+            GlStateManager.setActiveTexture(unit);
         }
     }
 

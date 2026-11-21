@@ -12,9 +12,12 @@ import xyz.daikirai.module.setting.ButtonSetting;
 import xyz.daikirai.module.setting.ColorSetting;
 import xyz.daikirai.module.setting.SliderSetting;
 import xyz.daikirai.render.WorldRenderState;
+import xyz.daikirai.render.furiah.module.trails.FuriahTrails;
+import xyz.daikirai.render.furiah.module.trails.TrailStyle;
 
 public final class TrailsModule extends VisualModule {
-    private final SliderSetting mode = mode("Mode", 0, "Wall", "Points");
+    private static final TrailStyle[] FURIAH_STYLES = TrailStyle.values();
+    private final SliderSetting mode = mode("Mode", 0, modeNames());
     private final ColorSetting color = color("Color", -10178561);
     private final SliderSetting length = slider("Length", 1, .25, 5, .05, " s");
     private final SliderSetting opacity = slider("Opacity", 60, 5, 100, 5, "%");
@@ -24,9 +27,22 @@ public final class TrailsModule extends VisualModule {
     private final ButtonSetting throughWalls = toggle("Through walls", false);
     private final List<Sample> samples = new ArrayList<Sample>();
     private WorldClient world;
+    private FuriahTrails furiah;
 
     public TrailsModule(int key) { super("Trails", key); }
-    private void clear() { samples.clear(); world = mc.theWorld; }
+    private static String[] modeNames() {
+        String[] names = new String[2 + FURIAH_STYLES.length];
+        names[0] = "Wall";
+        names[1] = "Points";
+        for (int i = 0; i < FURIAH_STYLES.length; i++) names[2 + i] = FURIAH_STYLES[i].displayName();
+        return names;
+    }
+
+    private void clear() {
+        samples.clear();
+        world = mc.theWorld;
+        if (furiah != null) furiah.clear();
+    }
     @Override public void onEnable() { clear(); }
     @Override public void onDisable() { clear(); }
 
@@ -46,6 +62,14 @@ public final class TrailsModule extends VisualModule {
     @SubscribeEvent public void render(RenderWorldLastEvent event) {
         if (world != mc.theWorld) clear();
         if (mc.thePlayer == null || world == null || mc.getRenderViewEntity() == null) return;
+        int selected = (int) mode.getInput();
+        if (selected >= 2) {
+            if (furiah == null) furiah = new FuriahTrails();
+            furiah.render(FURIAH_STYLES[selected - 2], event.partialTicks, length.getInput(), opacity.getInput(),
+                    color.color(), throughWalls.isToggled(), mc.gameSettings.thirdPersonView != 0 || firstPerson.isToggled());
+            return;
+        }
+        if (furiah != null) furiah.clear();
         long now = System.currentTimeMillis();
         prune(now);
         if (samples.isEmpty() || mc.gameSettings.thirdPersonView == 0 && !firstPerson.isToggled()) return;
@@ -53,6 +77,21 @@ public final class TrailsModule extends VisualModule {
         path.add(new Sample(WorldRenderState.position(mc.thePlayer, event.partialTicks), now));
         Vec3 origin = WorldRenderState.camera(event.partialTicks);
         double h = mc.thePlayer.height * (mc.thePlayer.isSneaking() ? .8 : 1);
+        draw(path, origin, h, now);
+    }
+
+    public void previewLegacy(java.util.function.DoubleFunction<Vec3> path, double seconds) {
+        long now = Math.round(seconds * 1000);
+        List<Sample> demo = new ArrayList<>();
+        double age = Math.min(seconds, length.getInput());
+        for (int i = 0; i <= 48; i++) {
+            double at = seconds - age * (48 - i) / 48;
+            demo.add(new Sample(path.apply(at), Math.round(at * 1000)));
+        }
+        draw(demo, new Vec3(0, 0, 0), 1.8, now);
+    }
+
+    private void draw(List<Sample> path, Vec3 origin, double h, long now) {
         try (WorldRenderState state = new WorldRenderState(throughWalls.isToggled())) {
             GL11.glTranslated(-origin.xCoord, -origin.yCoord, -origin.zCoord);
             if (mode.getInput() == 1) {

@@ -42,6 +42,9 @@ import java.util.List;
  * the inventory already offers - a worse sword, a second rod, normal food once a gap is in the bag,
  * and so on.</p>
  *
+ * <p>Instant instead shift-clicks every nonempty chest slot in one client call after the initial
+ * contents packet is applied, without filter/start/click delays. Server acknowledgement is unchanged.</p>
+ *
  * <p>The original ran the clicks on a background thread with {@code Thread.sleep}; this port runs
  * them from the client tick with a deadline, which keeps {@code windowClick} on the client thread
  * (the same reason the client's own InvManager does it that way). {@code Silent} only controlled a
@@ -55,7 +58,7 @@ public class ChestStealerModule extends Module {
 
     public static ChestStealerModule instance;
 
-    private static ButtonSetting autoClose, ignoreTrash, chestIntegrity, armor, blocks, bow, food,
+    private static ButtonSetting instant, autoClose, ignoreTrash, chestIntegrity, armor, blocks, bow, food,
             potions, projectiles, sword, tools;
     private static SliderSetting startDelay, minDelay, maxDelay;
 
@@ -64,6 +67,11 @@ public class ChestStealerModule extends Module {
     private boolean stealing;
     private LootSession lootSession;
     private ContainerChest activeContainer;
+    private ContainerChest contentsContainer, instantContainer;
+    private ContainerChest predictionContainer;
+    private ItemStack[] initialSlots, predictedSlots;
+    private boolean[] predictionChanged;
+    private long predictionUntil;
 
     /** Read-only HUD history; it survives closing the container for the exit animation. */
     public static final class LootSession {
@@ -116,6 +124,7 @@ public class ChestStealerModule extends Module {
 
     @Override
     public void link() {
+        instant = (ButtonSetting) ModuleManager.setting(this, "Instant");
         autoClose = (ButtonSetting) ModuleManager.setting(this, "Auto close");
         ignoreTrash = (ButtonSetting) ModuleManager.setting(this, "Ignore trash");
         chestIntegrity = (ButtonSetting) ModuleManager.setting(this, "Chest integrity");
@@ -152,6 +161,68 @@ public class ChestStealerModule extends Module {
         stealing = false;
         nextActionAt = 0L;
         activeContainer = null;
+        contentsContainer = instantContainer = null;
+        clearPrediction();
+    }
+
+    /** Runs after vanilla applied S30 on the client thread, without waiting for a player tick. */
+    public static void contentsReceived(int windowId) {
+        ChestStealerModule module = instance;
+        if (module == null || !module.isEnabled() || mc.thePlayer == null
+                || !(mc.thePlayer.openContainer instanceof ContainerChest)
+                || mc.thePlayer.openContainer.windowId != windowId) return;
+        module.contentsContainer = (ContainerChest) mc.thePlayer.openContainer;
+        module.clearPrediction(); // A new full snapshot is authoritative, including rejection resyncs.
+        if (instant.isToggled()) {
+            ContainerChest container = module.contentsContainer;
+            ItemStack[] before = copySlots(container);
+            module.onPreUpdate();
+            if (module.instantContainer == container && mc.thePlayer.openContainer == container)
+                module.rememberPrediction(container, before);
+        }
+    }
+
+    private static ItemStack[] copySlots(ContainerChest container) {
+        ItemStack[] stacks = new ItemStack[container.inventorySlots.size()];
+        for (int i = 0; i < stacks.length; i++) {
+            ItemStack stack = container.getSlot(i).getStack();
+            stacks[i] = stack == null ? null : stack.copy();
+        }
+        return stacks;
+    }
+
+    private void clearPrediction() {
+        predictionContainer = null; initialSlots = predictedSlots = null;
+        predictionChanged = null; predictionUntil = 0;
+    }
+
+    private void rememberPrediction(ContainerChest container, ItemStack[] before) {
+        predictionContainer = container; initialSlots = before; predictedSlots = copySlots(container);
+        predictionChanged = new boolean[before.length]; predictionUntil = System.currentTimeMillis() + 5000;
+        for (int i = 0; i < before.length; i++) predictionChanged[i] = !ItemStack.areItemStacksEqual(before[i], predictedSlots[i]);
+    }
+
+    /** addCraftingToCrafters sends S30, then initial S2F mirrors before click confirmations.
+     * Keep only this batch's changed slots predicted while those exact old mirrors arrive.
+     * A different server value, confirmation, or full snapshot immediately ends that protection. */
+    public static void slotReceived(int windowId, int slot, ItemStack incoming) {
+        ChestStealerModule module = instance;
+        if (module == null || module.predictionContainer == null) return;
+        if (mc.thePlayer == null || mc.thePlayer.openContainer != module.predictionContainer
+                || System.currentTimeMillis() > module.predictionUntil) { module.clearPrediction(); return; }
+        if (windowId != module.predictionContainer.windowId || slot < 0 || slot >= module.initialSlots.length
+                || !module.predictionChanged[slot]) return;
+        if (!ItemStack.areItemStacksEqual(incoming, module.initialSlots[slot])) {
+            module.predictionChanged[slot] = false; return;
+        }
+        ItemStack expected = module.predictedSlots[slot];
+        module.predictionContainer.putStackInSlot(slot, expected == null ? null : expected.copy());
+    }
+
+    public static void confirmationReceived(int windowId) {
+        ChestStealerModule module = instance;
+        if (module != null && module.predictionContainer != null && module.predictionContainer.windowId == windowId)
+            module.clearPrediction();
     }
 
     @Override
@@ -177,6 +248,11 @@ public class ChestStealerModule extends Module {
             }
         }
         long now = System.currentTimeMillis();
+        if (instant.isToggled()) {
+            takeInstant(container, now);
+            return;
+        }
+        instantContainer = null;
         if (!stealing) {
             if (chestIntegrity.isToggled() && (inLobby() || blockedChest(container))) {
                 return;
@@ -211,6 +287,11 @@ public class ChestStealerModule extends Module {
             return;
         }
         int slot = queue.remove(0).intValue();
+        takeSlot(container, slot);
+        nextActionAt = now + jitter();
+    }
+
+    private void takeSlot(ContainerChest container, int slot) {
         ItemStack before = container.getLowerChestInventory().getStackInSlot(slot);
         before = before == null ? null : before.copy();
         ScriptProtected.guiClick(slot, 0, 1);
@@ -222,7 +303,30 @@ public class ChestStealerModule extends Module {
         }
         lootSession.processed++;
         lootSession.nextSlot = queue.isEmpty() ? slot : queue.get(0).intValue();
-        nextActionAt = now + jitter();
+    }
+
+    private void takeInstant(ContainerChest container, long now) {
+        if (instantContainer == container || chestIntegrity.isToggled() && (inLobby() || blockedChest(container))) return;
+        List<Integer> slots = slotsToSteal(container.getLowerChestInventory(), mc.thePlayer.inventory);
+        // An open-window packet precedes its contents. Do not close that temporary empty shell.
+        if (slots.isEmpty() && contentsContainer != container) return;
+        instantContainer = container;
+        queue.clear();
+        queue.addAll(slots);
+        stealing = false;
+        if (!slots.isEmpty()) {
+            lootSession = new LootSession(container, slots);
+            // One bounded shift-click per nonempty chest slot, all in this same client call.
+            while (!queue.isEmpty() && mc.thePlayer.openContainer == container)
+                takeSlot(container, queue.remove(0).intValue());
+            lootSession.finished = true;
+            lootSession.completed = queue.isEmpty();
+            lootSession.endedAt = now;
+        }
+        queue.clear();
+        if (mc.thePlayer.openContainer == container && (autoClose.isToggled()
+                || lootSession != null && lootSession.replacedScreen
+                && xyz.daikirai.module.render.WatermarkModule.chestStealerEnabled())) mc.thePlayer.closeScreen();
     }
 
     private static long jitter() {
@@ -257,15 +361,16 @@ public class ChestStealerModule extends Module {
     /** Chest slots worth shift-clicking, in chest order. */
     public static List<Integer> slotsToSteal(IInventory chest, IInventory inventory) {
         List<Integer> slots = new ArrayList<Integer>();
+        boolean all = instant != null && instant.isToggled();
         for (int i = 0; i < chest.getSizeInventory(); i++) {
             ItemStack stack = chest.getStackInSlot(i);
             if (stack == null || stack.getItem() == null) {
                 continue;
             }
-            if (ignoreTrash.isToggled() && isTrash(stack, chest, inventory)) {
+            if (!all && ignoreTrash.isToggled() && isTrash(stack, chest, inventory)) {
                 continue;
             }
-            if (wantedCategory(stack) || !ignoreTrash.isToggled()) {
+            if (all || wantedCategory(stack) || !ignoreTrash.isToggled()) {
                 slots.add(Integer.valueOf(i));
             }
         }

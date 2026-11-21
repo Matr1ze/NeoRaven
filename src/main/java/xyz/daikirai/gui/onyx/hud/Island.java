@@ -14,6 +14,7 @@ import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.material.Theme;
 import xyz.daikirai.gui.onyx.render.Anim;
+import xyz.daikirai.gui.onyx.render.RollingNumber;
 import xyz.daikirai.gui.onyx.render.Blur;
 import xyz.daikirai.gui.onyx.render.Ease;
 import xyz.daikirai.gui.onyx.render.Typeface;
@@ -37,6 +38,7 @@ import xyz.daikirai.module.network.BlinkModule;
 import xyz.daikirai.module.player.Scaffold2Module;
 import xyz.daikirai.module.render.LowHealthModule;
 import xyz.daikirai.module.render.WatermarkModule;
+import xyz.daikirai.module.render.SilenceFixModule;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -50,7 +52,7 @@ import java.util.Map;
  * <p>Onyx drew a frosted pill that morphs between four states: idle (client name), module toggle
  * announcements, a live gauge and now-playing. The geometry is kept 1:1: 22px tall, 36.7px of fixed
  * padding (7px left, 16.7px logo, 6px gap, 7px right), 22px minimum content, 30px for the gauge,
- * 200ms width/height morphs and a 300ms entrance. The idle label reads "Raven" for this port.</p>
+ * 200ms width/height morphs and a 300ms entrance. The idle label comes from Watermark.</p>
  *
  * <p>Gauge values update in place (Onyx only re-morphed when the state kind changed), so the
  * Scaffold block counter no longer re-animates the whole island on every block change.</p>
@@ -71,7 +73,11 @@ public final class Island {
     private static final float LOGO_WIDTH = 16.695652F;
     private static final float LOGO_HEIGHT = 14.0F;
     private static final float TEXT_X = 29.695652F;
-    private static final float FIXED_WIDTH = 36.695652F;
+    private static final float TEXT_PAD = 7.0F;
+    private static final float FIXED_WIDTH = TEXT_X + TEXT_PAD;
+    private static final float IDLE_TEXT_WIDTH = 190.0F;
+    private static final float EDITOR_WIDTH = 224.0F;
+    private static final float EDITOR_HEIGHT = 26.0F;
     private static final float MIN_CONTENT = 22.0F;
     private static final float MAX_TEXT = 90.0F;
     private static final float HEIGHT = 22.0F;
@@ -93,12 +99,12 @@ public final class Island {
     private static final int FLY = 7;
     private static final int BLINK = 8;
 
-    private static final String CLIENT_NAME = "NeoRaven";
     private static final String MUSIC_ICON = "\ue405";
     /** Material Icons "warning". */
     private static final String WARN_ICON = "\ue002";
 
     private final UI ui = new UI();
+    private final RollingNumber numberBadge = new RollingNumber();
     /** Second island style ("Island = Samsara"); owns the HUD entirely while it is selected. */
     private final SamsaraIsland samsara = new SamsaraIsland();
     private final Anim visible = new Anim(0.0F);
@@ -119,7 +125,7 @@ public final class Island {
 
     private int kind = IDLE;
     private int previousKind = IDLE;
-    private String text = CLIENT_NAME;
+    private String text = WatermarkModule.DEFAULT_ISLAND_TEXT;
     private String previousText = "";
     private String badge = "";
     private String previousBadge = "";
@@ -141,7 +147,7 @@ public final class Island {
     private int flashColor = 0xFFFFFFFF;
 
     private boolean bedActive;
-    private String bedLabel = xyz.daikirai.util.Lang.text("Bed");
+    private String bedLabel = "Bed";
     private float bedPercent;
 
     private boolean gappleActive;
@@ -150,7 +156,7 @@ public final class Island {
 
     private boolean blockinActive;
     private float blockinPercent;
-    private String blockinLabel = xyz.daikirai.util.Lang.text("Blockin");
+    private String blockinLabel = "Blockin";
 
     private boolean musicActive;
     private boolean musicInternal;
@@ -270,7 +276,8 @@ public final class Island {
         if (!preview) {
             handleDrag(module, mc, resolution);
         }
-        boolean drawLogo = module.logo() && kind != MUSIC && kind != ALERT && ensureLogo();
+        boolean logo = module.logo();
+        boolean drawLogo = logo && !hasStatusIcon(kind) && ensureLogo();
         boolean frosted = tabExpansion > 0.001F ? WatermarkModule.tablistFrosted() : module.frosted();
         // "Red island" paints the pill with the theme's error container while the alert is up. The
         // logo yields to the warning icon, so the whole pill reads as one alarm surface.
@@ -279,12 +286,10 @@ public final class Island {
 
         GlStateManager.pushMatrix();
         mc.entityRenderer.setupOverlayRendering();
+        if (frosted && fade > 0.01F) Blur.prepare();
         ui.begin();
         ui.push();
         try {
-            if (frosted && fade > 0.01F) {
-                Blur.prepare();
-            }
             ui.alphaPush(fade);
             ui.translate(this.x, this.y + (1.0F - fade) * 5.0F);
             ui.scale(scale, 0.0F, 0.0F);
@@ -305,9 +310,7 @@ public final class Island {
 
             ui.alphaPush(1.0F - Material.clamp(expansion * 3.0F, 0.0F, 1.0F));
             if (drawLogo) {
-                ui.image(LOGO, 7.0F + (LOGO_WIDTH - LOGO_HEIGHT) / 2.0F,
-                        (islandHeight - LOGO_HEIGHT) / 2.0F, LOGO_HEIGHT, LOGO_HEIGHT,
-                        0.0F, 0.0F, 1.0F, 1.0F, scheme.primary);
+                drawLogo(ui, scheme, islandHeight);
             }
 
             ui.scissorPush(0.0F, 0.0F, islandWidth, islandHeight);
@@ -315,13 +318,13 @@ public final class Island {
             if (t < 0.999F) {
                 ui.alphaPush(1.0F - t);
                 drawContent(ui, scheme, previousKind, previousText, previousBadge, previousArrow, previousPositive,
-                        islandWidth, islandHeight, -6.0F * t, previousGaugeFill);
+                        islandWidth, islandHeight, -6.0F * t, previousGaugeFill, logo);
                 ui.alphaPop();
             }
             if (t > 0.001F) {
                 ui.alphaPush(t);
                 drawContent(ui, scheme, kind, text, badge, arrow, positive, islandWidth, islandHeight,
-                        6.0F * (1.0F - t), gaugeFillAnim.value());
+                        6.0F * (1.0F - t), gaugeFillAnim.value(), logo);
                 ui.alphaPop();
             }
             if (kind == MUSIC) {
@@ -380,34 +383,48 @@ public final class Island {
         return Material.mix(scheme.outlineVariant, flashColor, Material.clamp(flash.value(), 0.0F, 1.0F));
     }
 
+    private static boolean hasStatusIcon(int contentKind) {
+        return contentKind == MUSIC || contentKind == ALERT;
+    }
+
+    private static float textInset(int contentKind, boolean logo) {
+        return logo || hasStatusIcon(contentKind) ? TEXT_X : TEXT_PAD;
+    }
+
+    private static void drawLogo(UI target, Scheme scheme, float height) {
+        target.image(LOGO, TEXT_PAD + (LOGO_WIDTH - LOGO_HEIGHT) / 2.0F, (height - LOGO_HEIGHT) / 2.0F,
+                LOGO_HEIGHT, LOGO_HEIGHT, 0.0F, 0.0F, 1.0F, 1.0F, scheme.primary);
+    }
+
     private void drawContent(UI ui, Scheme scheme, int contentKind, String contentText, String contentBadge,
                              String contentArrow, boolean contentPositive, float islandWidth, float islandHeight,
-                             float offsetX, float fill) {
+                             float offsetX, float fill, boolean logo) {
+        float textX = textInset(contentKind, logo) + offsetX;
         switch (contentKind) {
             case TOGGLE: {
                 String label = ui.truncate(Typeface.LABEL_TIGHT, contentText, MAX_TEXT);
-                ui.text(Typeface.LABEL_TIGHT, label, TEXT_X + offsetX, islandHeight / 2.0F,
+                ui.text(Typeface.LABEL_TIGHT, label, textX, islandHeight / 2.0F,
                         Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 if (contentBadge != null && !contentBadge.isEmpty()) {
                     float badgeWidth = 10.0F + Typeface.CAPTION.width(contentBadge);
-                    float badgeX = TEXT_X + offsetX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
+                    float badgeX = textX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
                     ui.rounded(badgeX, islandHeight / 2.0F - 6.0F, badgeWidth, 12.0F, 6.0F,
                             contentPositive ? scheme.primaryContainer : scheme.surfaceContainerHighest);
-                    ui.text(Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F, islandHeight / 2.0F,
+                    numberText(ui, Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F, islandHeight / 2.0F,
                             contentPositive ? scheme.onPrimaryContainer
                                     : Theme.hudText(scheme.primary, scheme.onSurfaceVariant),
-                            UI.ALIGN_CENTER);
+                            UI.ALIGN_CENTER, contentKind, contentText);
                 }
                 break;
             }
             case GAUGE: {
-                float left = TEXT_X + 2.0F + offsetX;
+                float left = textX + 2.0F;
                 float right = islandWidth - 9.0F + offsetX;
                 ui.text(Typeface.CAPTION, contentText, left, 11.0F,
                         Theme.hudText(scheme.primary, scheme.onSurfaceVariant), UI.ALIGN_LEFT);
-                ui.text(Typeface.LABEL_TIGHT, contentBadge, right, 11.0F,
+                numberText(ui, Typeface.LABEL_TIGHT, contentBadge, right, 11.0F,
                         contentPositive ? Theme.hudText(scheme.primary, scheme.onSurface) : scheme.error,
-                        UI.ALIGN_RIGHT);
+                        UI.ALIGN_RIGHT, contentKind, contentText);
                 float barY = islandHeight - 11.0F;
                 float barWidth = Math.max(0.0F, right - left);
                 WavyProgressIndicator.Style style = new WavyProgressIndicator.Style(
@@ -423,9 +440,9 @@ public final class Island {
                 float maxText = musicTextMax();
                 ui.icon(MUSIC_ICON, 15.35F + offsetX, islandHeight / 2.0F, 14.0F, scheme.primary);
                 String label = ui.truncate(style, contentText, maxText);
-                ui.text(style, label, TEXT_X + offsetX, islandHeight / 2.0F,
+                ui.text(style, label, textX, islandHeight / 2.0F,
                         Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
-                float barsX = TEXT_X + offsetX + style.width(label) + 6.0F;
+                float barsX = textX + style.width(label) + 6.0F;
                 for (int i = 0; i < 3; i++) {
                     float level = musicPlaying
                             ? 0.5F + 0.5F * (float) Math.sin(phase * 0.007F + i * 2.1F)
@@ -438,48 +455,48 @@ public final class Island {
             }
             case VELOCITY: {
                 String label = ui.truncate(Typeface.LABEL_TIGHT, contentText, MAX_TEXT);
-                ui.text(Typeface.LABEL_TIGHT, label, TEXT_X + offsetX, islandHeight / 2.0F,
+                ui.text(Typeface.LABEL_TIGHT, label, textX, islandHeight / 2.0F,
                         Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 if (contentBadge != null && !contentBadge.isEmpty()) {
                     float badgeWidth = 10.0F + Typeface.CAPTION.width(contentBadge);
-                    float badgeX = TEXT_X + offsetX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
+                    float badgeX = textX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
                     ui.rounded(badgeX, islandHeight / 2.0F - 6.0F, badgeWidth, 12.0F, 6.0F,
                             scheme.primaryContainer);
-                    ui.text(Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F, islandHeight / 2.0F,
-                            scheme.onPrimaryContainer, UI.ALIGN_CENTER);
+                    numberText(ui, Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F, islandHeight / 2.0F,
+                            scheme.onPrimaryContainer, UI.ALIGN_CENTER, contentKind, contentText);
                 }
                 break;
             }
             case BLINK: {
                 String label = ui.truncate(Typeface.LABEL_TIGHT, contentText, MAX_TEXT);
-                ui.text(Typeface.LABEL_TIGHT, label, TEXT_X + offsetX, islandHeight / 2.0F,
+                ui.text(Typeface.LABEL_TIGHT, label, textX, islandHeight / 2.0F,
                         Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 if (contentBadge != null && !contentBadge.isEmpty()) {
                     float diameter = Math.max(14.0F, Typeface.CAPTION.width(contentBadge) + 4.0F);
-                    float badgeX = TEXT_X + offsetX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
+                    float badgeX = textX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
                     ui.rounded(badgeX, islandHeight / 2.0F - diameter / 2.0F,
                             diameter, diameter, diameter / 2.0F, scheme.primaryContainer);
-                    ui.text(Typeface.CAPTION, contentBadge, badgeX + diameter / 2.0F,
-                            islandHeight / 2.0F, scheme.onPrimaryContainer, UI.ALIGN_CENTER);
+                    numberText(ui, Typeface.CAPTION, contentBadge, badgeX + diameter / 2.0F,
+                            islandHeight / 2.0F, scheme.onPrimaryContainer, UI.ALIGN_CENTER, contentKind, contentText);
                 }
                 break;
             }
             case FLY: {
                 String label = ui.truncate(Typeface.LABEL_TIGHT, contentText, MAX_TEXT);
-                ui.text(Typeface.LABEL_TIGHT, label, TEXT_X + offsetX, islandHeight / 2.0F,
+                ui.text(Typeface.LABEL_TIGHT, label, textX, islandHeight / 2.0F,
                         Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 if (contentBadge != null && !contentBadge.isEmpty()) {
                     float badgeWidth = 10.0F + Typeface.CAPTION.width(contentBadge);
-                    float badgeX = TEXT_X + offsetX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
+                    float badgeX = textX + Typeface.LABEL_TIGHT.width(label) + 6.0F;
                     ui.rounded(badgeX, islandHeight / 2.0F - 6.0F, badgeWidth, 12.0F, 6.0F,
                             scheme.primaryContainer);
-                    ui.text(Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F, islandHeight / 2.0F,
-                            scheme.onPrimaryContainer, UI.ALIGN_CENTER);
+                    numberText(ui, Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F, islandHeight / 2.0F,
+                            scheme.onPrimaryContainer, UI.ALIGN_CENTER, contentKind, contentText);
                 }
                 break;
             }
             case DEBUG: {
-                float left = TEXT_X + offsetX;
+                float left = textX;
                 ui.text(Typeface.LABEL_TIGHT, contentText, left, islandHeight / 2.0F,
                         Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
                 float arrowWidth = Typeface.LABEL_TIGHT.width(arrow);
@@ -493,23 +510,39 @@ public final class Island {
                     float badgeX = islandWidth - 7.0F - badgeWidth + offsetX;
                     ui.rounded(badgeX, islandHeight / 2.0F - 6.0F, badgeWidth, 12.0F, 6.0F,
                             scheme.primaryContainer);
-                    ui.text(Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F,
-                            islandHeight / 2.0F, scheme.onPrimaryContainer, UI.ALIGN_CENTER);
+                    numberText(ui, Typeface.CAPTION, contentBadge, badgeX + badgeWidth / 2.0F,
+                            islandHeight / 2.0F, scheme.onPrimaryContainer, UI.ALIGN_CENTER, contentKind, contentText);
                 }
                 break;
             }
             case ALERT: {
                 int tint = alertContainer ? scheme.onErrorContainer : scheme.error;
                 ui.icon(WARN_ICON, 15.35F + offsetX, islandHeight / 2.0F, 14.0F, tint);
-                ui.text(Typeface.LABEL_TIGHT, contentText, TEXT_X + offsetX, islandHeight / 2.0F,
+                ui.text(Typeface.LABEL_TIGHT, contentText, textX, islandHeight / 2.0F,
                         tint, UI.ALIGN_LEFT);
                 break;
             }
-            default:
-                ui.text(Typeface.LABEL_TIGHT, contentText, TEXT_X + offsetX, islandHeight / 2.0F,
-                        Theme.hudText(scheme.primary, scheme.onSurface), UI.ALIGN_LEFT);
+            default: {
+                float maxWidth = Math.max(0.0F, islandWidth - textInset(contentKind, logo) - TEXT_PAD);
+                // Half a pixel of slack: the pill width and the text width are summed from the same
+                // float constants, and without it an exact fit rounded down and lost a whole glyph.
+                String label = ui.truncate(Typeface.LABEL_TIGHT, contentText,
+                        Math.min(IDLE_TEXT_WIDTH, maxWidth) + 0.5F);
+                float anchor = logo ? textX : islandWidth / 2.0F + offsetX;
+                ui.text(Typeface.LABEL_TIGHT, label, anchor, islandHeight / 2.0F,
+                        Theme.hudText(scheme.primary, scheme.onSurface), logo ? UI.ALIGN_LEFT : UI.ALIGN_CENTER);
                 break;
+            }
         }
+    }
+
+    private void numberText(UI surface, Typeface.Style style, String value, float x, float y,
+                            int color, int align, int contentKind, String label) {
+        // During an island content crossfade, the outgoing artwork stays frozen and cannot
+        // retarget the live counter. snapshot() reuses the same live animation and timestamp.
+        if (contentKind == kind && label.equals(text) && value.equals(badge)) {
+            numberBadge.draw(surface, contentKind + ":" + label, style, value, x, y, color, align);
+        } else surface.text(style, value, x, y, color, align);
     }
 
     private void update(WatermarkModule module, float delta, boolean preview) {
@@ -540,7 +573,7 @@ public final class Island {
             states.clear();
         }
 
-        contentWidth.to(Math.max(MIN_CONTENT, targetContentWidth()), 200.0F, Ease.EMPHASIZED_DECELERATE);
+        contentWidth.to(targetWidthOffset(module.logo()), 200.0F, Ease.EMPHASIZED_DECELERATE);
         contentWidth.update(delta);
         contentHeight.to(kind == GAUGE ? GAUGE_HEIGHT : HEIGHT, 200.0F, Ease.EMPHASIZED_DECELERATE);
         contentHeight.update(delta);
@@ -572,8 +605,8 @@ public final class Island {
             if (!module.announceToggles()) {
                 continue;
             }
-            notifyText = Text.strip(candidate.localizedName());
-            notifyBadge = enabled ? xyz.daikirai.util.Lang.text("ON") : xyz.daikirai.util.Lang.text("OFF");
+            notifyText = Text.strip(candidate.getName());
+            notifyBadge = enabled ? "ON" : "OFF";
             notifyPositive = enabled;
             hold = Math.max(0.1F, module.holdSeconds()) * 1000.0F;
             flashColor = enabled ? Theme.scheme().primary : Theme.scheme().error;
@@ -584,7 +617,8 @@ public final class Island {
 
     /** Shared with the Samsara style so both islands stay quiet about the same modules. */
     static boolean trackable(Module candidate, WatermarkModule self) {
-        if (candidate == null || candidate == self || candidate.noToggle || candidate.isProfile()) {
+        if (candidate == null || candidate == self || candidate instanceof SilenceFixModule
+                || candidate.noToggle || candidate.isProfile()) {
             return false;
         }
         // Hidden modules stay quiet: `.hide` removes them from the HUD element list and `.hidekey`
@@ -593,7 +627,7 @@ public final class Island {
             return false;
         }
         String name = candidate.getName();
-        return !"Gui".equals(name) && !"Onyx ClickGUI".equals(name) && !"Command Line".equals(name);
+        return candidate != xyz.daikirai.module.ModuleManager.gui && !"Command Line".equals(name);
     }
 
     /** Collects the gauge sources and the now-playing session. */
@@ -605,9 +639,9 @@ public final class Island {
             BlockPos target = BedAuraModule.target;
             if (bedAura != null && bedAura.isEnabled() && target != null && mc.theWorld != null) {
                 Block block = mc.theWorld.getBlockState(target).getBlock();
-                String label = block == null ? xyz.daikirai.util.Lang.text("Block") : block.getLocalizedName();
+                String label = block == null ? "Block" : block.getLocalizedName();
                 if (label == null || label.isEmpty()) {
-                    label = xyz.daikirai.util.Lang.text("Block");
+                    label = "Block";
                 }
                 bedLabel = label;
                 bedPercent = Material.clamp(BedAuraModule.progress, 0.0F, 1.0F);
@@ -784,7 +818,7 @@ public final class Island {
         if (!artist.isEmpty() && musicStyle().supports(artist)) {
             return artist;
         }
-        return xyz.daikirai.util.Lang.text("Now playing");
+        return "Now playing";
     }
 
     private void chooseContent() {
@@ -819,7 +853,7 @@ public final class Island {
             nextText = musicTitle;
         } else if (velocityActive) {
             nextKind = VELOCITY;
-            nextText = xyz.daikirai.util.Lang.module("Velocity");
+            nextText = "Velocity";
             nextBadge = velocityTickLabel();
         } else if (blinkActive && blinkAutoDisable) {
             nextKind = GAUGE;
@@ -839,7 +873,7 @@ public final class Island {
             nextBadge = debugSnapshot.badge();
         } else if (gappleActive) {
             nextKind = GAUGE;
-            nextText = xyz.daikirai.util.Lang.text("Gapple");
+            nextText = "Gapple";
             nextBadge = Math.min(gappleCount, AutoGappleModule.targetPackets())
                     + "/" + AutoGappleModule.targetPackets();
         } else if (bedActive) {
@@ -852,7 +886,7 @@ public final class Island {
             nextBadge = Math.round(blockinPercent * 100.0F) + "%";
         } else if (gaugeActive) {
             nextKind = GAUGE;
-            nextText = xyz.daikirai.util.Lang.text("Blocks");
+            nextText = "Blocks";
             nextBadge = String.valueOf(gaugeCount);
             nextPositive = !gaugeAlert;
         } else if (musicActive) {
@@ -860,7 +894,7 @@ public final class Island {
             nextText = musicTitle;
         } else {
             nextKind = IDLE;
-            nextText = CLIENT_NAME;
+            nextText = idleLabel();
         }
 
         boolean changed;
@@ -868,7 +902,7 @@ public final class Island {
             changed = true;
         } else if (nextKind == TOGGLE) {
             changed = !nextText.equals(text) || !nextBadge.equals(badge) || nextPositive != positive;
-        } else if (nextKind == MUSIC) {
+        } else if (nextKind == MUSIC || nextKind == IDLE) {
             changed = !nextText.equals(text);
         } else if (nextKind == DEBUG) {
             changed = !nextText.equals(text) || !debugSnapshot.arrow().equals(arrow);
@@ -901,6 +935,22 @@ public final class Island {
         }
     }
 
+    private static String idleLabel() {
+        WatermarkModule module = WatermarkModule.instance;
+        return SilenceFixModule.islandText(module == null ? WatermarkModule.DEFAULT_ISLAND_TEXT : module.islandText());
+    }
+
+    public void refreshIdleLabel() {
+        if (kind != IDLE || WatermarkModule.samsaraMode()) return;
+        text = idleLabel();
+        morph.set(1.0F);
+        contentWidth.set(targetWidthOffset(WatermarkModule.instance.logo()));
+    }
+
+    private float targetWidthOffset(boolean logo) {
+        return Math.max(MIN_CONTENT, targetContentWidth()) + textInset(kind, logo) - TEXT_X;
+    }
+
     private float targetContentWidth() {
         switch (kind) {
             case TOGGLE: {
@@ -931,7 +981,7 @@ public final class Island {
             case ALERT:
                 return Typeface.LABEL_TIGHT.width(text) + 4.0F;
             default:
-                return Typeface.LABEL_TIGHT.width(text);
+                return Math.min(IDLE_TEXT_WIDTH, Typeface.LABEL_TIGHT.width(text));
         }
     }
 
@@ -1023,6 +1073,7 @@ public final class Island {
     /** Clears per-session state so re-enabling starts from a clean idle island. */
     public void reset() {
         samsara.reset();
+        numberBadge.reset();
         states.clear();
         hold = 0.0F;
         gaugeActive = false;
@@ -1044,7 +1095,7 @@ public final class Island {
         alertRed = false;
         kind = IDLE;
         previousKind = IDLE;
-        text = CLIENT_NAME;
+        text = idleLabel();
         previousText = "";
         badge = "";
         previousBadge = "";
@@ -1074,7 +1125,7 @@ public final class Island {
         refreshMusicSource();
         kind = musicActive ? MUSIC : IDLE;
         previousKind = kind;
-        text = musicActive ? musicTitle : CLIENT_NAME;
+        text = musicActive ? musicTitle : idleLabel();
         previousText = text;
         badge = "";
         previousBadge = "";
@@ -1082,7 +1133,7 @@ public final class Island {
         previousPositive = true;
         visible.set(1.0F);
         morph.set(1.0F);
-        contentWidth.set(targetContentWidth());
+        contentWidth.set(targetWidthOffset(WatermarkModule.instance == null || WatermarkModule.instance.logo()));
         contentHeight.set(HEIGHT);
         miniOpen.set(mini && musicActive ? 1.0F : 0.0F);
         tabOpen.set(0.0F);
@@ -1118,20 +1169,49 @@ public final class Island {
         if (WatermarkModule.samsaraMode()) {
             return samsara.measure();
         }
-        Minecraft mc = Minecraft.getMinecraft();
-        ScaledResolution resolution = new ScaledResolution(mc);
+        return measure(designWidth(), designHeight());
+    }
+
+    public float[] textEditorBounds() {
+        return measure(EDITOR_WIDTH, EDITOR_HEIGHT);
+    }
+
+    public float textEditorInset(float height, boolean logo) {
+        return logo ? Math.max(8.0F, TEXT_X * height / EDITOR_HEIGHT) : 8.0F;
+    }
+
+    public void drawTextEditor(UI target, Scheme scheme, WatermarkModule module, float[] bounds) {
+        float scale = bounds[3] / EDITOR_HEIGHT;
+        target.push();
+        target.translate(bounds[0], bounds[1]);
+        target.scale(scale, 0.0F, 0.0F);
+        float radius = EDITOR_HEIGHT / 2;
+        int surface = scheme.surfaceContainerHigh;
+        target.shadow(0.0F, 0.0F, EDITOR_WIDTH, EDITOR_HEIGHT, radius, 3);
+        target.rounded(0.0F, 0.0F, EDITOR_WIDTH, EDITOR_HEIGHT, radius, surface);
+        if (module.frosted() && Blur.ready()) {
+            target.frost(0.0F, 0.0F, EDITOR_WIDTH, EDITOR_HEIGHT, radius, surface, FROST_COVERAGE);
+        }
+        target.outline(0.0F, 0.0F, EDITOR_WIDTH, EDITOR_HEIGHT, radius, 1.0F, scheme.primary);
+        if (module.logo() && ensureLogo()) drawLogo(target, scheme, EDITOR_HEIGHT);
+        target.pop();
+    }
+
+    private static float[] measure(float designWidth, float designHeight) {
+        ScaledResolution resolution = new ScaledResolution(Minecraft.getMinecraft());
         WatermarkModule module = WatermarkModule.instance;
         float scale = module == null ? 1.0F : module.islandScale();
-        float designWidth = designWidth();
-        float designHeight = designHeight();
         scale = Math.min(scale, Math.min((resolution.getScaledWidth() - EDGE) / designWidth,
                 (resolution.getScaledHeight() - EDGE) / designHeight));
         float width = designWidth * scale;
         float height = designHeight * scale;
         float maxX = Math.max(0.0F, resolution.getScaledWidth() - width - EDGE);
         float maxY = Math.max(0.0F, resolution.getScaledHeight() - height - EDGE);
-        float px = module == null ? 50.0F : Material.clamp(module.positionX(), 0.0F, 100.0F);
-        float py = module == null ? 0.0F : Material.clamp(module.positionY(), 0.0F, 100.0F);
+        boolean samsara = WatermarkModule.samsaraMode();
+        float px = module == null ? 50.0F : (samsara ? module.samsaraPositionX() : module.positionX());
+        float py = module == null ? 0.0F : (samsara ? module.samsaraPositionY() : module.positionY());
+        px = Material.clamp(px, 0.0F, 100.0F);
+        py = Material.clamp(py, 0.0F, 100.0F);
         return new float[] {MARGIN + maxX * px / 100.0F, MARGIN + maxY * py / 100.0F, width, height};
     }
 
@@ -1146,12 +1226,9 @@ public final class Island {
         }
         float designWidth = designWidth();
         float designHeight = designHeight();
-        if (logo && ensureLogo()) {
-            target.image(LOGO, 7.0F + (LOGO_WIDTH - LOGO_HEIGHT) / 2.0F, (designHeight - LOGO_HEIGHT) / 2.0F,
-                    LOGO_HEIGHT, LOGO_HEIGHT, 0.0F, 0.0F, 1.0F, 1.0F, scheme.primary);
-        }
+        if (logo && !hasStatusIcon(kind) && ensureLogo()) drawLogo(target, scheme, designHeight);
         drawContent(target, scheme, kind, text, badge, arrow, positive, designWidth, designHeight, 0.0F,
-                gaugeFillAnim.value());
+                gaugeFillAnim.value(), logo);
         if (kind == MUSIC) {
             drawMusicProgress(target, scheme, designWidth, designHeight, designHeight / 2.0F);
         }
@@ -1176,7 +1253,7 @@ public final class Island {
         chestLoot.clear();
     }
 
-    /** Texture the island logo is uploaded under (used by the dev harness). */
+    /** Texture the island logo is uploaded under (exposed for automated checks). */
     public static ResourceLocation logoResource() {
         return LOGO;
     }

@@ -147,7 +147,6 @@ public final class PacketUtils {
             serverSlot = ((C09PacketHeldItemChange) packet).getSlotId();
             lastUse = 3;
             ++slotChanges;
-            xyz.daikirai.module.dev.DebugAcModule.updateHeldItem(serverSlot);
         } else if (packet instanceof C0DPacketCloseWindow) {
             sentCloseWindow = true;
         } else if (packet instanceof C0EPacketClickWindow) {

@@ -269,6 +269,7 @@ public final class AutoBlock2Module extends Module {
     private EntityLivingBase auraTarget() {
         for (String name : new String[]{"KillAura", "KillAura2"}) {
             Module module = ModuleManager.enabled(name);
+            if (module instanceof KillAura2Module && ((KillAura2Module) module).fluxSelected()) continue;
             if (module != null && module.getTarget() != null) {
                 return (EntityLivingBase) module.getTarget();
             }

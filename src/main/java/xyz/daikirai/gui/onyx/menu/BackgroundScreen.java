@@ -1,36 +1,60 @@
 package xyz.daikirai.gui.onyx.menu;
 
+import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.util.ResourceLocation;
+import org.lwjgl.input.Keyboard;
 import xyz.daikirai.gui.ColorEditor;
 import xyz.daikirai.gui.onyx.Icons;
+import xyz.daikirai.gui.onyx.Widgets;
+import xyz.daikirai.gui.onyx.hud.AndroidClock;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
 import xyz.daikirai.gui.onyx.render.Typeface;
 import xyz.daikirai.gui.onyx.render.UI;
 import xyz.daikirai.module.setting.ColorSetting;
 
-/**
- * "Menu background" picker: a live preview of the hovered backdrop (drawn by {@link MenuBackground})
- * above a radio list of the wallpapers, plus two appearance switches underneath - the dock colour,
- * which opens the Material colour sheet ({@link ColorEditor}), and the dark mode of the Android
- * menus ({@link MenuTheme}).
- */
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.function.IntConsumer;
+import java.util.function.IntFunction;
+import java.util.function.IntSupplier;
+
+/** Background settings shared by the title screens, with a live wallpaper preview. */
 final class BackgroundScreen extends MenuScreen {
 
+    private static final float PANEL_HEIGHT = 442.0F;
     private static final float LEFT = 22.0F;
     private static final float WIDTH = 516.0F;
     private static final float PREVIEW_Y = 52.0F;
     private static final float PREVIEW_H = 150.0F;
     private static final float ROWS_Y = PREVIEW_Y + PREVIEW_H + 14.0F;
-    private static final float ROW_H = 40.0F;
+    private static final float ROW_H = 36.0F;
     private static final float ROW_GAP = 6.0F;
-    private static final float ACTION_H = 36.0F;
+    private static final float MENU_W = 208.0F;
+    private static final float MENU_X = LEFT + WIDTH - MENU_W;
+    private static final float DOCK_Y = rowY(1);
+    private static final float DARK_Y = rowY(2);
 
-    /** Backs the colour sheet so the pick can be persisted by {@link MenuTheme}. */
+    private static final String[] BLUR_OPTIONS = {"Off", "Mica", "Frosted glass"};
+    private static final String[] CLOCK_OPTIONS = {"Digital", "Analog"};
+
     private final ColorSetting dockColor = new ColorSetting("Dock colour", 0xFFFFFFFF);
+    private final List<MenuBackground.Style> backgrounds = Arrays.asList(MenuBackground.styles());
+
+    private final Dropdown wallpaper = new Dropdown("Background image", rowY(0), backgrounds.size(),
+            index -> MenuBackground.label(backgrounds.get(index)),
+            () -> backgrounds.indexOf(MenuBackground.current()), index -> MenuBackground.select(backgrounds.get(index)));
+    private final Dropdown blur = new Dropdown("Background blur", rowY(3), BLUR_OPTIONS.length,
+            index -> BLUR_OPTIONS[index], MenuTheme::blurMode, MenuTheme::setBlurMode);
+    private final Dropdown clock = new Dropdown("Clock face", rowY(4), CLOCK_OPTIONS.length,
+            index -> CLOCK_OPTIONS[index], MenuTheme::clockStyle, MenuTheme::setClockStyle);
+    private final Dropdown[] dropdowns = {wallpaper, blur, clock};
+    private Dropdown openDropdown;
 
     BackgroundScreen(GuiScreen parent) {
-        super(parent, 560.0F, 592.0F);
+        super(parent, 560.0F, PANEL_HEIGHT);
         dockColor.setAppearance(MenuTheme.dockColor() == 0 ? 0xFFFFFFFF : MenuTheme.dockColor(),
                 MenuTheme.dockFollows());
     }
@@ -39,209 +63,189 @@ final class BackgroundScreen extends MenuScreen {
         return ROWS_Y + index * (ROW_H + ROW_GAP);
     }
 
-    private static float actionY(int index) {
-        return rowY(MenuBackground.styles().length) + 8.0F + index * (ACTION_H + ROW_GAP);
-    }
-
-    private static boolean rowHit(int index, float mx, float my) {
-        return mx >= LEFT && mx < LEFT + WIDTH && my >= rowY(index) && my < rowY(index) + ROW_H;
-    }
-
-    private static boolean actionHit(int index, float mx, float my) {
-        return mx >= LEFT && mx < LEFT + WIDTH && my >= actionY(index) && my < actionY(index) + ACTION_H;
+    private static boolean rowHit(float y, float mx, float my) {
+        return mx >= LEFT && mx < LEFT + WIDTH && my >= y && my < y + ROW_H;
     }
 
     @Override
     void drawContent(Scheme s) {
-        title(xyz.daikirai.util.Lang.text("Menu background"));
-        // The colour sheet writes straight into the setting; mirror it into the saved theme.
+        title("Menu background");
+        // The colour editor writes into the setting; mirror its saved value into the menu theme.
         int wanted = dockColor.followsTheme() ? 0 : dockColor.color();
         if (wanted != MenuTheme.dockColor() || dockColor.followsTheme() != MenuTheme.dockFollows()) {
             MenuTheme.setDock(dockColor.color(), dockColor.followsTheme());
         }
-        MenuBackground.Style[] styles = MenuBackground.styles();
-        MenuBackground.Style hovered = MenuBackground.current();
-        for (int i = 0; i < styles.length; i++) {
-            if (rowHit(i, mx, my)) {
-                hovered = styles[i];
-            }
-        }
+
+        MenuBackground.Style current = MenuBackground.current();
         ui.scissorPush(LEFT, PREVIEW_Y, WIDTH, PREVIEW_H);
-        MenuBackground.drawInto(ui, hovered, LEFT, PREVIEW_Y, WIDTH, PREVIEW_H, false,
+        MenuBackground.drawInto(ui, previewStyle(), LEFT, PREVIEW_Y, WIDTH, PREVIEW_H, false,
                 System.currentTimeMillis());
         ui.scissorPop();
         ui.outline(LEFT, PREVIEW_Y, WIDTH, PREVIEW_H, 18.0F, 1.0F, s.outlineVariant);
-        for (int i = 0; i < styles.length; i++) {
-            drawRow(i, styles[i], s);
+
+        drawDropdown(s, wallpaper, MenuBackground.label(current));
+        drawDock(s);
+        drawDarkMode(s);
+        drawDropdown(s, blur, blur.optionLabel.apply(MenuTheme.blurMode()));
+        if (!current.wallpaper()) {
+            caption(s, blur.y, "Only affects wallpapers");
         }
-        drawActions(s);
+        drawDropdown(s, clock, clock.optionLabel.apply(MenuTheme.clockStyle()));
+        drawClockGlyph(s, LEFT + WIDTH - 116.0F, clock.y + ROW_H / 2.0F, 11.0F,
+                MenuTheme.clockStyle() == MenuTheme.CLOCK_ANALOG);
     }
 
-    private void drawRow(int index, MenuBackground.Style style, Scheme s) {
-        float y = rowY(index);
-        boolean selected = MenuBackground.current() == style;
-        boolean over = rowHit(index, mx, my);
-        int surface = selected
-                ? Material.mix(s.secondaryContainer, s.primary, 0.12F)
-                : Material.mix(s.surfaceContainerHighest, 0xFFFFFFFF, over ? 0.08F : 0.0F);
-        ui.rounded(LEFT, y, WIDTH, ROW_H, 14.0F, surface);
-        if (over) {
-            ui.outline(LEFT, y, WIDTH, ROW_H, 14.0F, 1.0F, Material.withAlpha(s.primary, 0.55F));
-        }
-        ui.textBaseline(Typeface.BODY_MEDIUM, MenuBackground.label(style), LEFT + 18.0F,
-                y + ROW_H / 2.0F, s.onSurface, UI.ALIGN_LEFT);
-        ui.icon(selected ? Icons.CHECK : Icons.CHEVRON_RIGHT, LEFT + WIDTH - 22.0F,
-                y + ROW_H / 2.0F, 16.0F, selected ? s.primary : s.outlineVariant);
-    }
-
-    private void drawActions(Scheme s) {
-        // Dock colour: the swatch shows the pinned colour, or the wallpaper-following tone.
-        float y = actionY(0);
-        boolean over = actionHit(0, mx, my);
-        ui.rounded(LEFT, y, WIDTH, ACTION_H, 14.0F,
-                Material.mix(s.surfaceContainerHighest, 0xFFFFFFFF, over ? 0.08F : 0.0F));
-        ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Dock colour"), LEFT + 18.0F, y + ACTION_H / 2.0F,
-                s.onSurface, UI.ALIGN_LEFT);
-        ui.textBaseline(Typeface.CAPTION,
-                dockColor.followsTheme() ? xyz.daikirai.util.Lang.text("Follows the wallpaper") : xyz.daikirai.util.Lang.text("Custom colour"),
-                LEFT + 150.0F, y + ACTION_H / 2.0F, s.onSurfaceVariant, UI.ALIGN_LEFT);
-        int swatch = dockColor.followsTheme() ? AndroidWallpaper.dock() : dockColor.color();
-        ui.rounded(LEFT + WIDTH - 76.0F, y + ACTION_H / 2.0F - 11.0F, 40.0F, 22.0F, 11.0F, swatch);
-        ui.outline(LEFT + WIDTH - 76.0F, y + ACTION_H / 2.0F - 11.0F, 40.0F, 22.0F, 11.0F,
-                1.0F, s.outlineVariant);
-        ui.icon(Icons.PALETTE, LEFT + WIDTH - 22.0F, y + ACTION_H / 2.0F, 16.0F, s.outlineVariant);
-
-        // Dark mode switch.
-        float dy = actionY(1);
-        boolean dark = MenuTheme.dark();
-        boolean darkOver = actionHit(1, mx, my);
-        ui.rounded(LEFT, dy, WIDTH, ACTION_H, 14.0F,
-                Material.mix(s.surfaceContainerHighest, 0xFFFFFFFF, darkOver ? 0.08F : 0.0F));
-        ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Dark mode"), LEFT + 18.0F, dy + ACTION_H / 2.0F,
-                s.onSurface, UI.ALIGN_LEFT);
-        ui.textBaseline(Typeface.CAPTION, xyz.daikirai.util.Lang.text("Shared across client screens and HUDs"), LEFT + 150.0F,
-                dy + ACTION_H / 2.0F, s.onSurfaceVariant, UI.ALIGN_LEFT);
-        switchTrack(s, dy, dark);
-
-        // Background blur: off / Mica / the client's frosted glass, cycling on click.
-        float by = actionY(2);
-        int mode = MenuTheme.blurMode();
-        boolean blurOver = actionHit(2, mx, my);
-        ui.rounded(LEFT, by, WIDTH, ACTION_H, 14.0F,
-                Material.mix(s.surfaceContainerHighest, 0xFFFFFFFF, blurOver ? 0.08F : 0.0F));
-        ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Background blur"), LEFT + 18.0F,
-                by + ACTION_H / 2.0F, s.onSurface, UI.ALIGN_LEFT);
-        String state;
-        if (!MenuBackground.current().wallpaper()) {
-            state = xyz.daikirai.util.Lang.text("Only affects wallpapers");
-        } else if (mode == 1) {
-            state = xyz.daikirai.util.Lang.text("Mica");
-        } else if (mode == 2) {
-            state = xyz.daikirai.util.Lang.text("Frosted glass");
-        } else {
-            state = xyz.daikirai.util.Lang.text("Off");
-        }
-        ui.textBaseline(Typeface.CAPTION, state, LEFT + 150.0F, by + ACTION_H / 2.0F,
-                s.onSurfaceVariant, UI.ALIGN_LEFT);
-        switchTrack(s, by, mode != 0);
-        if (mode != 0) {
-            ui.icon(Icons.EXPAND_MORE, LEFT + WIDTH - 78.0F, by + ACTION_H / 2.0F, 14.0F,
-                    s.outlineVariant);
-        }
-
-        // Title-screen clock: digital or analog, drawn as a miniature of the current face.
-        float cy = actionY(3);
-        boolean clockOver = actionHit(3, mx, my);
-        ui.rounded(LEFT, cy, WIDTH, ACTION_H, 14.0F,
-                Material.mix(s.surfaceContainerHighest, 0xFFFFFFFF, clockOver ? 0.08F : 0.0F));
-        ui.textBaseline(Typeface.BODY_MEDIUM, xyz.daikirai.util.Lang.text("Clock face"), LEFT + 18.0F, cy + ACTION_H / 2.0F,
-                s.onSurface, UI.ALIGN_LEFT);
-        boolean analog = MenuTheme.clockStyle() == MenuTheme.CLOCK_ANALOG;
-        ui.textBaseline(Typeface.CAPTION, analog ? xyz.daikirai.util.Lang.text("Analog") : xyz.daikirai.util.Lang.text("Digital"), LEFT + 150.0F,
-                cy + ACTION_H / 2.0F, s.onSurfaceVariant, UI.ALIGN_LEFT);
-        drawClockGlyph(s, LEFT + WIDTH - 54.0F, cy + ACTION_H / 2.0F, 11.0F, analog);
-        ui.icon(Icons.EXPAND_MORE, LEFT + WIDTH - 22.0F, cy + ACTION_H / 2.0F, 14.0F,
-                s.outlineVariant);
-    }
-
-    /** Miniature of the title screen's clock face, so the row previews what clicking chooses. */
-    private void drawClockGlyph(Scheme s, float cx, float cy, float radius, boolean analog) {
-        int ink = s.onSurface;
-        if (analog) {
-            // The ported Material face draws its own scalloped dial; the row previews that shape.
-            xyz.daikirai.gui.onyx.hud.AndroidClock.glyph(ui, cx, cy, radius, s);
-        } else {
-            ui.rounded(cx - radius * 0.72F, cy - radius * 0.6F, radius * 0.46F, radius * 1.1F,
-                    radius * 0.16F, ink);
-            ui.rounded(cx - radius * 0.10F, cy - radius * 0.6F, radius * 0.46F, radius * 1.1F,
-                    radius * 0.16F, ink);
-            ui.circle(cx + radius * 0.56F, cy - radius * 0.28F, radius * 0.12F, ink);
-            ui.circle(cx + radius * 0.56F, cy + radius * 0.32F, radius * 0.12F, ink);
-        }
-    }
-
-    private void hand(float cx, float cy, float angle, float length, float thickness, int color) {
-        ui.push();
-        ui.translate(cx, cy);
-        net.minecraft.client.renderer.GlStateManager.rotate(angle, 0.0F, 0.0F, 1.0F);
-        ui.rounded(-thickness / 2.0F, -length, thickness, length, thickness / 2.0F, color);
-        ui.pop();
-    }
-
-    private void switchTrack(Scheme s, float rowY, boolean on) {
-        float trackW = 46.0F;
-        float trackH = 24.0F;
-        float trackX = LEFT + WIDTH - 22.0F - trackW;
-        float trackY = rowY + (ACTION_H - trackH) / 2.0F;
-        ui.rounded(trackX, trackY, trackW, trackH, trackH / 2.0F,
-                on ? s.primary : s.surfaceContainerHighest);
-        ui.outline(trackX, trackY, trackW, trackH, trackH / 2.0F, 1.0F, s.outlineVariant);
-        ui.circle(trackX + (on ? trackW - trackH / 2.0F - 2.0F : trackH / 2.0F + 2.0F),
-                trackY + trackH / 2.0F, trackH / 2.0F - 5.0F, on ? s.onPrimary : s.outline);
+    private MenuBackground.Style previewStyle() {
+        int hovered = openDropdown == wallpaper ? wallpaper.optionAt(mx, my) : -1;
+        return hovered >= 0 ? backgrounds.get(hovered) : MenuBackground.current();
     }
 
     @Override
-    protected void mouseClicked(int mouseX, int mouseY, int button) {
-        if (button == 0) {
-            MenuBackground.Style[] styles = MenuBackground.styles();
-            for (int i = 0; i < styles.length; i++) {
-                if (rowHit(i, mx, my)) {
-                    MenuBackground.select(styles[i]);
-                    click();
-                    return;
-                }
-            }
-            if (actionHit(0, mx, my)) {
-                click();
-                mc.displayGuiScreen(new ColorEditor(this, dockColor));
-                return;
-            }
-            if (actionHit(1, mx, my)) {
-                click();
-                MenuTheme.toggle();
-                return;
-            }
-            if (actionHit(2, mx, my)) {
-                click();
-                MenuTheme.nextBlurMode();
-                return;
-            }
-            if (actionHit(3, mx, my)) {
-                click();
-                MenuTheme.nextClockStyle();
-                return;
-            }
+    void drawOverlay(Scheme s) {
+        if (openDropdown == null) {
+            return;
         }
-        try {
-            super.mouseClicked(mouseX, mouseY, button);
-        } catch (java.io.IOException e) {
-            throw new RuntimeException(e);
+        Dropdown dropdown = openDropdown;
+        String[] options = new String[dropdown.count];
+        for (int i = 0; i < options.length; i++) {
+            options[i] = dropdown.optionLabel.apply(i);
+        }
+        Widgets.menu(ui, s, MENU_X, dropdown.popupY(), MENU_W, options, dropdown.selected.getAsInt(),
+                dropdown.optionAt(mx, my), 1.0F);
+    }
+
+    private void drawRow(Scheme s, float y, String label) {
+        boolean hovered = rowHit(y, mx, my) && (openDropdown == null || !openDropdown.popupHit(mx, my));
+        ui.rounded(LEFT, y, WIDTH, ROW_H, 14.0F,
+                Material.mix(s.surfaceContainerHighest, s.onSurface, hovered ? 0.08F : 0.0F));
+        ui.text(Typeface.BODY_MEDIUM, label, LEFT + 18.0F, y + ROW_H / 2.0F, s.onSurface, UI.ALIGN_LEFT);
+    }
+
+    private void drawDropdown(Scheme s, Dropdown dropdown, String summary) {
+        drawRow(s, dropdown.y, dropdown.label);
+        float centerY = dropdown.y + ROW_H / 2.0F;
+        ui.text(Typeface.BODY_MEDIUM, summary, LEFT + WIDTH - 44.0F, centerY, s.primary, UI.ALIGN_RIGHT);
+        ui.icon(Icons.EXPAND_MORE, LEFT + WIDTH - 22.0F, centerY, 16.0F,
+                openDropdown == dropdown ? s.primary : s.onSurfaceVariant);
+    }
+
+    private void drawDock(Scheme s) {
+        drawRow(s, DOCK_Y, "Dock colour");
+        caption(s, DOCK_Y, dockColor.followsTheme() ? "Follows the wallpaper" : "Custom colour");
+        float centerY = DOCK_Y + ROW_H / 2.0F;
+        int swatch = dockColor.followsTheme() ? AndroidWallpaper.dock() : dockColor.color();
+        ui.rounded(LEFT + WIDTH - 76.0F, centerY - 11.0F, 40.0F, 22.0F, 11.0F, swatch);
+        ui.outline(LEFT + WIDTH - 76.0F, centerY - 11.0F, 40.0F, 22.0F, 11.0F, 1.0F, s.outlineVariant);
+        ui.icon(Icons.PALETTE, LEFT + WIDTH - 22.0F, centerY, 16.0F, s.outlineVariant);
+    }
+
+    private void drawDarkMode(Scheme s) {
+        drawRow(s, DARK_Y, "Dark mode");
+        caption(s, DARK_Y, "Shared across client screens and HUDs");
+        float trackX = LEFT + WIDTH - 22.0F - Widgets.SWITCH_WIDTH;
+        Widgets.toggle(ui, s, trackX, DARK_Y + (ROW_H - Widgets.SWITCH_HEIGHT) / 2.0F,
+                MenuTheme.dark() ? 1.0F : 0.0F, rowHit(DARK_Y, mx, my) && openDropdown == null, false);
+    }
+
+    private void caption(Scheme s, float y, String caption) {
+        ui.text(Typeface.CAPTION, caption, LEFT + 150.0F, y + ROW_H / 2.0F, s.onSurfaceVariant, UI.ALIGN_LEFT);
+    }
+
+    private void drawClockGlyph(Scheme s, float cx, float cy, float radius, boolean analog) {
+        if (analog) {
+            AndroidClock.glyph(ui, cx, cy, radius, s);
+        } else {
+            ui.rounded(cx - radius * 0.72F, cy - radius * 0.6F, radius * 0.46F, radius * 1.1F,
+                    radius * 0.16F, s.onSurface);
+            ui.rounded(cx - radius * 0.10F, cy - radius * 0.6F, radius * 0.46F, radius * 1.1F,
+                    radius * 0.16F, s.onSurface);
+            ui.circle(cx + radius * 0.56F, cy - radius * 0.28F, radius * 0.12F, s.onSurface);
+            ui.circle(cx + radius * 0.56F, cy + radius * 0.32F, radius * 0.12F, s.onSurface);
         }
     }
 
+    @Override
+    boolean clickContent(float x, float y) {
+        if (openDropdown != null) {
+            Dropdown dropdown = openDropdown;
+            openDropdown = null;
+            if (dropdown.popupHit(x, y)) {
+                int option = dropdown.optionAt(x, y);
+                if (option >= 0) {
+                    dropdown.select.accept(option);
+                    click();
+                }
+                return true;
+            }
+            if (rowHit(dropdown.y, x, y)) {
+                click();
+                return true;
+            }
+        }
+        for (Dropdown dropdown : dropdowns) {
+            if (rowHit(dropdown.y, x, y)) {
+                openDropdown = dropdown;
+                click();
+                return true;
+            }
+        }
+        if (rowHit(DOCK_Y, x, y)) {
+            click();
+            mc.displayGuiScreen(new ColorEditor(this, dockColor));
+            return true;
+        }
+        if (rowHit(DARK_Y, x, y)) {
+            click();
+            MenuTheme.toggle();
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    protected void keyTyped(char c, int key) throws IOException {
+        if (key == Keyboard.KEY_ESCAPE && openDropdown != null) {
+            openDropdown = null;
+            return;
+        }
+        super.keyTyped(c, key);
+    }
+
     private void click() {
-        mc.getSoundHandler().playSound(
-                net.minecraft.client.audio.PositionedSoundRecord.create(
-                        new net.minecraft.util.ResourceLocation("gui.button.press"), 1.0F));
+        mc.getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("gui.button.press"), 1.0F));
+    }
+
+    private static final class Dropdown {
+        final String label;
+        final float y;
+        final int count;
+        final IntFunction<String> optionLabel;
+        final IntSupplier selected;
+        final IntConsumer select;
+
+        Dropdown(String label, float y, int count, IntFunction<String> optionLabel,
+                 IntSupplier selected, IntConsumer select) {
+            this.label = label;
+            this.y = y;
+            this.count = count;
+            this.optionLabel = optionLabel;
+            this.selected = selected;
+            this.select = select;
+        }
+
+        float popupY() {
+            float below = y + ROW_H + 4.0F;
+            float height = Widgets.menuFullHeight(count);
+            return below + height <= PANEL_HEIGHT - 12.0F ? below : y - height - 4.0F;
+        }
+
+        boolean popupHit(float x, float y) {
+            float top = popupY();
+            return x >= MENU_X && x < MENU_X + MENU_W && y >= top && y < top + Widgets.menuFullHeight(count);
+        }
+
+        int optionAt(float x, float y) {
+            return popupHit(x, y) ? Widgets.menuOptionAt(y - popupY(), count) : -1;
+        }
     }
 }

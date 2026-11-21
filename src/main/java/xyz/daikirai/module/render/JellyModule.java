@@ -238,7 +238,7 @@ public final class JellyModule extends Module {
         return (now - musicAnchor) / 1.0e9;
     }
 
-    /** Exposed for the visual probe: the clock the renderer is actually using. */
+    /** Exposed for the debug readout: the clock the renderer is actually using. */
     public static double animationSeconds() {
         JellyModule module = instance;
         return module == null ? 0.0 : module.seconds();
