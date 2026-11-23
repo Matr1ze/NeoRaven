@@ -112,7 +112,7 @@ public final class InfoBar {
             float cursor = lastX + PADDING;
 
             ResourceLocation skin = mc.thePlayer.getLocationSkin();
-            ui.image(skin, cursor, centerY - HEAD / 2.0F, HEAD, HEAD,
+            ui.imageNearest(skin, cursor, centerY - HEAD / 2.0F, HEAD, HEAD,
                     8.0F / 64.0F, 8.0F / 64.0F, 16.0F / 64.0F, 16.0F / 64.0F, 0xFFFFFFFF);
             cursor += HEAD + 6.0F;
 
