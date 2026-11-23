@@ -508,7 +508,7 @@ public final class TargetHud {
         if (squash < 0.999F) ui.scale(squash, AVATAR_CENTER, AVATAR_CENTER);
         ui.rounded(PAD, PAD, AVATAR, AVATAR, AVATAR_RADIUS, scheme.secondaryContainer);
         if (skin != null) {
-            ui.image(skin, PAD + 2.0F, PAD + 2.0F, AVATAR - 4.0F, AVATAR - 4.0F,
+            ui.imageNearest(skin, PAD + 2.0F, PAD + 2.0F, AVATAR - 4.0F, AVATAR - 4.0F,
                     8.0F / 64.0F, 8.0F / 64.0F, 16.0F / 64.0F, 16.0F / 64.0F,
                     hit > 0.01F ? mixSrgb(0xFFFFFFFF, HIT_RED, hit * 0.85F) : 0xFFFFFFFF);
         } else {

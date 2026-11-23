@@ -146,9 +146,9 @@ public final class TabList {
         int surface = self ? Material.mix(scheme.surfaceContainerHigh, scheme.primaryContainer, 0.65F)
                 : Material.mix(scheme.surfaceContainerHigh, scheme.onSurface, 0.045F);
         ui.rounded(x, y, columnWidth, ROW - 2.0F, 6.0F, Material.withAlpha(surface, self ? 0.88F : 0.38F));
-        ui.image(player.getLocationSkin(), x + 4.0F, y + 3.0F, 16.0F, 16.0F,
+        ui.imageNearest(player.getLocationSkin(), x + 4.0F, y + 3.0F, 16.0F, 16.0F,
                 0.125F, 0.125F, 0.25F, 0.25F, 0xFFFFFFFF);
-        ui.image(player.getLocationSkin(), x + 4.0F, y + 3.0F, 16.0F, 16.0F,
+        ui.imageNearest(player.getLocationSkin(), x + 4.0F, y + 3.0F, 16.0F, 16.0F,
                 0.625F, 0.125F, 0.75F, 0.25F, 0xFFFFFFFF);
         if (self) ui.circle(x + 19.0F, y + 18.0F, 2.0F, scheme.primary);
         float right = x + columnWidth - 7.0F;

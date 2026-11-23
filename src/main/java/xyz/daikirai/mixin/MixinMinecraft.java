@@ -189,27 +189,7 @@ public class MixinMinecraft {
         Hooks.getMouseOver();
     }
 
-    /**
-     * Lifts 1.8.9's hard 30 fps clamp for "no world, but a screen is open".
-     *
-     * <p>Vanilla's {@code Minecraft#getLimitFramerate()} is
-     * {@code theWorld == null && currentScreen != null ? 30 : gameSettings.limitFramerate}, and the
-     * render loop feeds it to {@code Display.sync}. That is exactly the title screen: the rewritten
-     * menu - and everything opened from it, the world list, the settings sheet and the ClickGUI -
-     * was drawn once every 33.3 ms while the same client runs at several hundred fps in-world. The
-     * menu therefore looked laggy, and the dock springs, the closing sheet and the wallpaper
-     * parallax all stepped at 30 Hz.</p>
-     *
-     * <p>Screens now follow the game's own Max Framerate setting, so in-world and out-of-world
-     * frames are limited by the same number (260 means "unlimited" in 1.8.9's options, and the
-     * render loop skips {@code Display.sync} at that value).</p>
-     *
-     * <p>A minimized window is throttled to {@value #HIDDEN_FPS} fps instead. With Max Framerate on
-     * "unlimited" the client otherwise spins at several thousand frames per second into a window the
-     * driver is not presenting - on Windows that turns minimizing a fullscreen window into
-     * multi-second stalls and then a hard hang - and every one of those frames still drove the
-     * frosted-glass capture. An unfocused window that is still on screen keeps the normal limit.</p>
-     */
+    /** Caps animated menus at 120 FPS, respecting lower player limits. */
     @Inject(method = "getLimitFramerate", at = @At("HEAD"), cancellable = true)
     private void onyx$menuFramerate(CallbackInfoReturnable<Integer> cir) {
         Minecraft minecraft = (Minecraft) (Object) this;
@@ -217,7 +197,11 @@ public class MixinMinecraft {
             cir.setReturnValue(Integer.valueOf(HIDDEN_FPS));
             return;
         }
-        cir.setReturnValue(Integer.valueOf(minecraft.gameSettings == null
-                ? 260 : minecraft.gameSettings.limitFramerate));
+        int limit = minecraft.gameSettings == null ? 120 : minecraft.gameSettings.limitFramerate;
+        // The title screen and GUI overlays must not run an unlimited glass/animation loop.
+        if (minecraft.theWorld == null || minecraft.currentScreen != null) {
+            limit = Math.min(limit, 120);
+        }
+        cir.setReturnValue(Integer.valueOf(limit));
     }
 }
