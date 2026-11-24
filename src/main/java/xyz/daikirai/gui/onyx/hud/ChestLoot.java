@@ -2,9 +2,11 @@ package xyz.daikirai.gui.onyx.hud;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.item.ItemStack;
+import org.lwjgl.opengl.GL11;
 import xyz.daikirai.gui.onyx.Text;
 import xyz.daikirai.gui.onyx.material.Material;
 import xyz.daikirai.gui.onyx.material.Scheme;
@@ -15,6 +17,7 @@ import xyz.daikirai.gui.onyx.render.UI;
 import xyz.daikirai.gui.onyx.render.WavyProgressIndicator;
 import xyz.daikirai.module.player.ChestStealerModule.LootSession;
 import xyz.daikirai.module.player.ChestStealerModule.LootTransfer;
+import xyz.daikirai.render.HandState;
 
 /** Content only, like TabList: Island owns the geometry and the shared frosted surface. */
 public final class ChestLoot {
@@ -149,13 +152,26 @@ public final class ChestLoot {
         Minecraft mc = Minecraft.getMinecraft();
         RenderItem renderer = mc.getRenderItem();
         float oldZ = renderer.zLevel;
+        // An enchanted stack draws the vanilla glint pass, which needs the fixed-pipeline GUI item
+        // contract (no shader bound, modelview matrix mode, alpha test, depth, blend func). The
+        // Onyx UI leaves the opposite in place, which turned the glint into one solid square over
+        // the whole cell; HandState snapshots that state and restores it after the item.
+        HandState state = stack.hasEffect() ? new HandState() : null;
+        xyz.daikirai.gui.onyx.render.Shader.unbind();
+        GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
+        GlStateManager.enableAlpha();
+        GlStateManager.alphaFunc(516, 0.1F);
+        GlStateManager.enableDepth();
+        GlStateManager.depthMask(true);
+        GlStateManager.depthFunc(515);
+        GlStateManager.matrixMode(GL11.GL_MODELVIEW);
         ui.push();
         try {
             ui.translate(x, y);
             ui.scale(scale, 0.0F, 0.0F);
-            GlStateManager.enableTexture2D();
-            GlStateManager.enableAlpha();
-            GlStateManager.enableDepth();
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             RenderHelper.enableGUIStandardItemLighting();
             renderer.zLevel = 100.0F;
@@ -170,6 +186,7 @@ public final class ChestLoot {
             GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             ui.pop();
+            if (state != null) state.close();
         }
         if (count && stack.stackSize > 1) ui.text(Typeface.MICRO, String.valueOf(stack.stackSize),
                 x + 9.0F, y + 7.0F, scheme.onSurface, UI.ALIGN_RIGHT);

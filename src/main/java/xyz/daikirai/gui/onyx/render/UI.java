@@ -135,9 +135,14 @@ public final class UI {
         GlStateManager.enableTexture2D();
         GlStateManager.disableDepth();
         GlStateManager.enableDepth();
+        GlStateManager.depthMask(true);
+        GlStateManager.depthFunc(515);
         GlStateManager.disableAlpha();
         GlStateManager.enableAlpha();
+        GlStateManager.alphaFunc(516, 0.1F);
         GlStateManager.disableBlend();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
         this.alpha = 1.0F;
         this.pixel = 1.0F;
     }
