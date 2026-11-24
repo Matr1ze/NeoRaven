@@ -3,6 +3,7 @@ package xyz.daikirai.util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
@@ -14,6 +15,7 @@ import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.client.ForgeHooksClient;
 import org.lwjgl.opengl.GL11;
+import xyz.daikirai.render.HandState;
 
 import java.awt.Color;
 
@@ -218,41 +220,71 @@ public final class RenderUtils {
         if (stack == null || stack.getItem() == null) {
             return;
         }
-        RenderHelper.enableGUIStandardItemLighting();
         RenderItem renderItem = mc.getRenderItem();
-        renderItem.zLevel = -100.0f;
-        IBakedModel model = renderItem.getItemModelMesher().getItemModel(stack);
-        GlStateManager.pushMatrix();
-        mc.getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
-        mc.getTextureManager().getTexture(TextureMap.locationBlocksTexture).setBlurMipmap(false, false);
-        GlStateManager.enableRescaleNormal();
-        GlStateManager.enableBlend();
-        GlStateManager.blendFunc(770, 771);
-        resetColor();
-        GlStateManager.translate(x, y, 100.0f + renderItem.zLevel);
-        GlStateManager.translate(8.0f, 8.0f, 0.0f);
-        GlStateManager.scale(1.0f, 1.0f, -1.0f);
-        GlStateManager.scale(0.5f, 0.5f, 0.5f);
-        if (model.isGui3d()) {
-            GlStateManager.scale(40.0f, 40.0f, 40.0f);
-            GlStateManager.rotate(210.0f, 1.0f, 0.0f, 0.0f);
-            GlStateManager.rotate(-135.0f, 0.0f, 1.0f, 0.0f);
-            GlStateManager.enableLighting();
-        } else {
-            GlStateManager.scale(64.0f, 64.0f, 64.0f);
-            GlStateManager.rotate(180.0f, 1.0f, 0.0f, 0.0f);
+        float oldZLevel = renderItem.zLevel;
+        // The glint uses an equal-depth pass to mask the effect to the item silhouette.
+        // Establish the vanilla alpha/depth/blend state before the base item writes that mask,
+        // then restore the caller's state after both passes.
+        HandState state = stack.hasEffect() ? new HandState() : null;
+        try {
+            if (state != null) {
+                xyz.daikirai.gui.onyx.render.Shader.unbind();
+                GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
+                GlStateManager.enableTexture2D();
+                GlStateManager.enableBlend();
+                GlStateManager.tryBlendFuncSeparate(770, 771, 1, 771);
+                GlStateManager.enableAlpha();
+                GlStateManager.alphaFunc(516, 0.1F);
+                GlStateManager.enableDepth();
+                GlStateManager.depthMask(true);
+                GlStateManager.depthFunc(515);
+                GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+            }
+            RenderHelper.enableGUIStandardItemLighting();
+            renderItem.zLevel = -100.0f;
+            IBakedModel model = renderItem.getItemModelMesher().getItemModel(stack);
+            GlStateManager.pushMatrix();
+            try {
+                mc.getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
+                mc.getTextureManager().getTexture(TextureMap.locationBlocksTexture).setBlurMipmap(false, false);
+                GlStateManager.enableRescaleNormal();
+                GlStateManager.enableBlend();
+                GlStateManager.blendFunc(770, 771);
+                resetColor();
+                GlStateManager.translate(x, y, 100.0f + renderItem.zLevel);
+                GlStateManager.translate(8.0f, 8.0f, 0.0f);
+                GlStateManager.scale(1.0f, 1.0f, -1.0f);
+                GlStateManager.scale(0.5f, 0.5f, 0.5f);
+                if (model.isGui3d()) {
+                    GlStateManager.scale(40.0f, 40.0f, 40.0f);
+                    GlStateManager.rotate(210.0f, 1.0f, 0.0f, 0.0f);
+                    GlStateManager.rotate(-135.0f, 0.0f, 1.0f, 0.0f);
+                    GlStateManager.enableLighting();
+                } else {
+                    GlStateManager.scale(64.0f, 64.0f, 64.0f);
+                    GlStateManager.rotate(180.0f, 1.0f, 0.0f, 0.0f);
+                    GlStateManager.disableLighting();
+                }
+                model = ForgeHooksClient.handleCameraTransforms(model, ItemCameraTransforms.TransformType.GUI);
+                renderItem.renderItem(stack, model);
+            } finally {
+                GlStateManager.popMatrix();
+            }
+        } finally {
+            renderItem.zLevel = oldZLevel;
+            RenderHelper.disableStandardItemLighting();
+            mc.getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
+            mc.getTextureManager().getTexture(TextureMap.locationBlocksTexture).restoreLastBlurMipmap();
+            GlStateManager.disableRescaleNormal();
             GlStateManager.disableLighting();
+            if (state == null) {
+                GlStateManager.disableBlend();
+            } else {
+                state.close();
+            }
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         }
-        model = ForgeHooksClient.handleCameraTransforms(model, ItemCameraTransforms.TransformType.GUI);
-        renderItem.renderItem(stack, model);
-        GlStateManager.disableBlend();
-        GlStateManager.disableRescaleNormal();
-        GlStateManager.disableLighting();
-        GlStateManager.popMatrix();
-        mc.getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
-        mc.getTextureManager().getTexture(TextureMap.locationBlocksTexture).restoreLastBlurMipmap();
-        renderItem.zLevel = 0.0f;
-        RenderHelper.disableStandardItemLighting();
     }
 
     public static int blendInt(int n, int n2, double d) {
