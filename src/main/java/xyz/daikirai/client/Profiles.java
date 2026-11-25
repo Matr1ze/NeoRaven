@@ -19,6 +19,8 @@ public final class Profiles {
     public static Profile current;
     public static final HashMap<Profile, Module> profiles = new HashMap<Profile, Module>();
     public static boolean modified;
+    /** Suppresses user-facing module transition events during batch profile changes. */
+    public static volatile boolean loading;
     public static final String MANAGER_NAME = "Manager";
     public static final String EXT = ".json";
     private static int revision;

@@ -1,5 +1,6 @@
 package xyz.daikirai.module;
 
+import xyz.daikirai.event.ModuleToggleEvent;
 import xyz.daikirai.module.setting.ButtonSetting;
 import xyz.daikirai.module.setting.Setting;
 import net.minecraft.client.Minecraft;
@@ -137,6 +138,7 @@ public class Module {
             xyz.daikirai.script.ScriptManager.onEnable(this.script);
         }
         xyz.daikirai.client.Sounds.toggle(true);
+        ModuleToggleEvent.publish(this, true);
     }
 
     public void disable() {
@@ -173,6 +175,7 @@ public class Module {
             xyz.daikirai.script.ScriptManager.onDisable(this.script);
         }
         xyz.daikirai.client.Sounds.toggle(false);
+        ModuleToggleEvent.publish(this, false);
     }
 
     public void link() {

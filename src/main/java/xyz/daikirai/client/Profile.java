@@ -53,8 +53,10 @@ public class Profile {
         // Loading a profile toggles dozens of modules in a row; the toggle click is for the player's
         // own toggles, not for a config read.
         Sounds.suppress(true);
-        ChatCommands.panic();
+        boolean wasLoading = Profiles.loading;
+        Profiles.loading = true;
         try {
+            ChatCommands.panic();
             JsonObject root = new JsonParser().parse(readText(file)).getAsJsonObject();
             JsonArray arr = root.getAsJsonArray("modules");
             migrateCustomGui(arr);
@@ -179,7 +181,8 @@ public class Profile {
             KeybindsHidden.useProfile(null);
             return false;
         } finally {
-            Sounds.suppress(false);
+            Profiles.loading = wasLoading;
+            Sounds.suppress(wasLoading);
         }
     }
 

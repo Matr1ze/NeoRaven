@@ -43,8 +43,6 @@ import xyz.daikirai.module.render.SilenceFixModule;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
-import java.util.IdentityHashMap;
-import java.util.Map;
 
 /**
  * The Dynamic Island watermark, ported from OpenOnyx's {@code WatermarkModule}.
@@ -119,7 +117,6 @@ public final class Island {
     private final TabList tabList = new TabList();
     private final Anim chestOpen = new Anim(0.0F);
     private final ChestLoot chestLoot = new ChestLoot();
-    private final Map<Module, Boolean> states = new IdentityHashMap<Module, Boolean>();
     private long lastFrame;
     private float phase;
 
@@ -553,7 +550,7 @@ public final class Island {
         flash.update(delta);
 
         if (active) {
-            detectToggles(module, delta);
+            if (hold > 0.0F) hold = Math.max(0.0F, hold - delta);
             updateSources(module);
             chooseContent();
         } else {
@@ -570,7 +567,6 @@ public final class Island {
             debug.reset();
             alertActive = false;
             alertRed = false;
-            states.clear();
         }
 
         contentWidth.to(targetWidthOffset(module.logo()), 200.0F, Ease.EMPHASIZED_DECELERATE);
@@ -586,48 +582,19 @@ public final class Island {
         musicProgressAnim.update(delta);
     }
 
-    private void detectToggles(WatermarkModule module, float delta) {
-        if (hold > 0.0F) {
-            hold -= delta;
-            if (hold < 0.0F) {
-                hold = 0.0F;
-            }
+    /** Receives the same lifecycle event as notification toasts; new modules need no HUD wiring. */
+    public void moduleToggled(Module source, boolean enabled) {
+        if (WatermarkModule.samsaraMode()) {
+            samsara.moduleToggled(source, enabled);
+            return;
         }
-        for (Module candidate : ModuleManager.modules) {
-            if (!trackable(candidate, module)) {
-                continue;
-            }
-            boolean enabled = candidate.isEnabled();
-            Boolean before = states.put(candidate, Boolean.valueOf(enabled));
-            if (before == null || before.booleanValue() == enabled) {
-                continue;
-            }
-            if (!module.announceToggles()) {
-                continue;
-            }
-            notifyText = Text.strip(candidate.getName());
-            notifyBadge = enabled ? "ON" : "OFF";
-            notifyPositive = enabled;
-            hold = Math.max(0.1F, module.holdSeconds()) * 1000.0F;
-            flashColor = enabled ? Theme.scheme().primary : Theme.scheme().error;
-            flash.set(1.0F);
-            flash.to(0.0F, 450.0F, Ease.DECELERATE);
-        }
-    }
-
-    /** Shared with the Samsara style so both islands stay quiet about the same modules. */
-    static boolean trackable(Module candidate, WatermarkModule self) {
-        if (candidate == null || candidate == self || candidate instanceof SilenceFixModule
-                || candidate.noToggle || candidate.isProfile()) {
-            return false;
-        }
-        // Hidden modules stay quiet: `.hide` removes them from the HUD element list and `.hidekey`
-        // removes them from the Keybinds HUD, so neither should be announced on the island.
-        if (candidate.hidden || KeybindsHidden.isHidden(candidate)) {
-            return false;
-        }
-        String name = candidate.getName();
-        return candidate != xyz.daikirai.module.ModuleManager.gui && !"Command Line".equals(name);
+        notifyText = Text.strip(source.getName());
+        notifyBadge = enabled ? "ON" : "OFF";
+        notifyPositive = enabled;
+        hold = Math.max(0.1F, WatermarkModule.instance.holdSeconds()) * 1000.0F;
+        flashColor = enabled ? Theme.scheme().primary : Theme.scheme().error;
+        flash.set(1.0F);
+        flash.to(0.0F, 450.0F, Ease.DECELERATE);
     }
 
     /** Collects the gauge sources and the now-playing session. */
@@ -1074,7 +1041,6 @@ public final class Island {
     public void reset() {
         samsara.reset();
         numberBadge.reset();
-        states.clear();
         hold = 0.0F;
         gaugeActive = false;
         gaugeAlert = false;

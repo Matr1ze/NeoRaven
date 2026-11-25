@@ -1,5 +1,6 @@
 package xyz.daikirai.module.render;
 
+import xyz.daikirai.event.ModuleToggleEvent;
 import net.minecraft.block.BlockBed;
 import net.minecraft.util.BlockPos;
 import net.minecraftforge.common.MinecraftForge;
@@ -10,7 +11,6 @@ import xyz.daikirai.gui.NotificationsPositionEditor;
 import xyz.daikirai.module.ClickGuiModule;
 import xyz.daikirai.gui.onyx.Text;
 import xyz.daikirai.gui.onyx.hud.NotificationLevel;
-import xyz.daikirai.gui.onyx.hud.KeybindsHidden;
 import xyz.daikirai.gui.onyx.hud.Notifications;
 import xyz.daikirai.gui.onyx.hud.NowPlaying;
 import xyz.daikirai.module.Category;
@@ -23,10 +23,6 @@ import xyz.daikirai.module.setting.ButtonSetting;
 import xyz.daikirai.module.setting.SliderSetting;
 import xyz.daikirai.music.MusicManager;
 import xyz.daikirai.music.Song;
-
-import java.util.IdentityHashMap;
-import java.util.Map;
-
 /** Onyx Notifications, adapted to the shared HUD renderer and local client event sources. */
 public final class NotificationsModule extends Module {
     public static NotificationsModule instance;
@@ -36,8 +32,7 @@ public final class NotificationsModule extends Module {
     public static ButtonSetting frostedGlass, editPosition, moduleToggles, scaffoldBlocks, bedBreaker,
             nowPlaying, progressBar, subtitle;
 
-    private final Map<Module, Boolean> states = new IdentityHashMap<Module, Boolean>();
-    private boolean primed, scaffoldLow, scaffoldEmpty;
+    private boolean scaffoldLow, scaffoldEmpty;
     private BlockPos lastBed;
     private String lastSong = "";
     private Object world;
@@ -56,6 +51,19 @@ public final class NotificationsModule extends Module {
         progressBar = button("Progress bar"); subtitle = button("Subtitle");
         if (listener != null) return;
         listener = new Object() {
+            @SubscribeEvent public void onModuleToggle(ModuleToggleEvent event) {
+                if (instance != null && instance.isEnabled() && on(moduleToggles) && event.module != instance) {
+                    // A toggle can arrive before the first client tick in a new world.
+                    // Prime this session here so sampleEvents cannot erase its first toast.
+                    if (instance.world != mc.theWorld) {
+                        instance.reset();
+                        instance.world = mc.theWorld;
+                    }
+                    HUD.post(Text.strip(event.module.getName()), event.enabled ? "Enabled" : "Disabled",
+                            event.enabled ? NotificationLevel.SUCCESS : NotificationLevel.INFO, null,
+                            instance.holdMs(), instance.maxStack());
+                }
+            }
             @SubscribeEvent public void onTick(TickEvent.ClientTickEvent event) {
                 if (event.phase != TickEvent.Phase.END || instance == null) return;
                 WatermarkModule watermark = WatermarkModule.instance;
@@ -103,11 +111,11 @@ public final class NotificationsModule extends Module {
         });
     }
 
-    /** Share .hidekey with Keybinds and the island, including events queued off-thread. */
+    /** Module alerts follow notification settings, independently of HUD row visibility. */
     private static void postModule(final Module source, final String message, final NotificationLevel level,
                                    final Integer accent) {
         mc.addScheduledTask(() -> {
-            if (source != null && !KeybindsHidden.isHidden(source) && instance != null && instance.isEnabled()
+            if (source != null && instance != null && instance.isEnabled()
                     && mc.theWorld != null && mc.thePlayer != null) {
                 HUD.post(Text.strip(source.getName()), message, level, accent, instance.holdMs(), instance.maxStack());
             }
@@ -128,27 +136,13 @@ public final class NotificationsModule extends Module {
     @Override public void onEnable() { reset(); }
     @Override public void onDisable() { reset(); }
     private void reset() {
-        HUD.reset(); states.clear(); primed = false; scaffoldLow = scaffoldEmpty = false;
+        HUD.reset(); scaffoldLow = scaffoldEmpty = false;
         lastBed = null; lastSong = ""; world = null;
     }
 
     private void sampleEvents() {
         if (mc.theWorld == null || mc.thePlayer == null) { if (world != null) reset(); return; }
         if (world != mc.theWorld) { reset(); world = mc.theWorld; }
-        if (on(moduleToggles)) {
-            for (Module module : ModuleManager.modules) {
-                if (module == this || module == ModuleManager.gui || module == ModuleManager.commandLine
-                        || module.noToggle || module.isProfile()) continue;
-                boolean enabled = module.isEnabled();
-                Boolean previous = states.put(module, enabled);
-                if (primed && previous != null && previous != enabled) {
-                    postModule(module, enabled ? "Enabled" : "Disabled",
-                            enabled ? NotificationLevel.SUCCESS : NotificationLevel.INFO, null);
-                }
-            }
-            states.keySet().retainAll(ModuleManager.modules);
-            primed = true;
-        } else { states.clear(); primed = false; }
         sampleScaffold();
         sampleBed();
         sampleMusic();

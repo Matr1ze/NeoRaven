@@ -28,10 +28,8 @@ import xyz.daikirai.module.render.WatermarkModule;
 import xyz.daikirai.module.render.SilenceFixModule;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Samsara's Dynamic Island, ported as the second {@code Watermark} island style.
@@ -136,7 +134,6 @@ public final class SamsaraIsland {
     private final Morph width = new Morph();
     private final Morph height = new Morph();
     private final Morph position = new Morph();
-    private final Map<Module, Boolean> states = new IdentityHashMap<Module, Boolean>();
 
     private long lastFrame;
     private long now;
@@ -238,23 +235,12 @@ public final class SamsaraIsland {
         return String.valueOf(Math.round(value * 10.0D) / 10.0D);
     }
 
-    /** Port of {@code DynamicIslandManager.onModuleToggled}, driven by the modules' own state. */
-    private void detectToggles(WatermarkModule module) {
-        long duration = TOGGLE_MS;
-        for (Module candidate : ModuleManager.modules) {
-            if (!Island.trackable(candidate, module)) {
-                continue;
-            }
-            boolean enabled = candidate.isEnabled();
-            Boolean before = states.put(candidate, Boolean.valueOf(enabled));
-            if (before == null || before.booleanValue() == enabled) {
-                continue;
-            }
-            // Upstream splits camelCase names ("AutoRodNew" -> "Auto Rod New").
-            String label = Text.strip(candidate.getName()).replaceAll("(?<=[a-z])(?=[A-Z])", " ");
-            post("module:" + candidate.getName(), "Module Toggled", label + " has been ",
-                    enabled ? "Enabled" : "Disabled", Icon.TOGGLE, enabled, 0.0F, duration);
-        }
+    /** Receives module transitions directly, including ones between two rendered frames. */
+    public void moduleToggled(Module source, boolean enabled) {
+        now = System.nanoTime() / 1000000L;
+        String label = Text.strip(source.getName()).replaceAll("(?<=[a-z])(?=[A-Z])", " ");
+        post("module:" + source.getName(), "Module Toggled", label + " has been ",
+                enabled ? "Enabled" : "Disabled", Icon.TOGGLE, enabled, 0.0F, TOGGLE_MS);
     }
 
     // ------------------------------------------------------------------ //
@@ -476,7 +462,6 @@ public final class SamsaraIsland {
         if (active) {
             now = System.nanoTime() / 1000000L;
             sampleStatus();
-            detectToggles(module);
             sampleScaffold();
             sampleBedAura();
             layout(module);
@@ -484,7 +469,6 @@ public final class SamsaraIsland {
             rows.clear();
             notices.clear();
             pingNumber.reset(); fpsNumber.reset();
-            states.clear();
             wasIdle = true;
             width.clear();
             height.clear();
@@ -744,7 +728,6 @@ public final class SamsaraIsland {
         pingNumber.reset(); fpsNumber.reset();
         rows.clear();
         idleParts.clear();
-        states.clear();
         wasIdle = true;
         visible.set(0.0F);
         width.clear();

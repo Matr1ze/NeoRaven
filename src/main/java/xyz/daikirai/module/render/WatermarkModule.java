@@ -1,5 +1,6 @@
 package xyz.daikirai.module.render;
 
+import xyz.daikirai.event.ModuleToggleEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraft.client.gui.inventory.GuiChest;
@@ -169,6 +170,14 @@ public final class WatermarkModule extends Module {
             return;
         }
         listener = new Object() {
+            @SubscribeEvent
+            public void onModuleToggle(ModuleToggleEvent event) {
+                if (instance != null && instance.isEnabled() && instance.announceToggles()
+                        && event.module != instance) {
+                    ISLAND.moduleToggled(event.module, event.enabled);
+                }
+            }
+
             @SubscribeEvent
             public void onChestDraw(GuiScreenEvent.DrawScreenEvent.Pre event) {
                 if (event.gui == mc.currentScreen && replacesChestScreen()) {
