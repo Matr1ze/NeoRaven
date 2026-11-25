@@ -115,26 +115,32 @@ public final class ModuleManager {
         for (Module m : linked) {
             m.link();
         }
-        get("AntiBot").enable();
-        get("Chat Commands").enable();
-        get("Sprint").enable();
-        Module watermark = get("Watermark");
-        if (watermark != null) {
-            watermark.enable();
-        }
-        Module keybinds = get("Keybinds");
-        if (keybinds != null) {
-            keybinds.enable();
-        }
-        Module customGui = get("CustomGui");
-        if (customGui != null) {
-            customGui.enable();
-        }
-        Module notifications = get("Notifications");
-        if (notifications != null) notifications.enable();
-        Module targetHud = get("TargetHUD");
-        if (targetHud != null) {
-            targetHud.enable();
+        // Default module activation is initialization, so it should not play user toggle clicks.
+        xyz.daikirai.client.Sounds.suppress(true);
+        try {
+            get("AntiBot").enable();
+            get("Chat Commands").enable();
+            get("Sprint").enable();
+            Module watermark = get("Watermark");
+            if (watermark != null) {
+                watermark.enable();
+            }
+            Module keybinds = get("Keybinds");
+            if (keybinds != null) {
+                keybinds.enable();
+            }
+            Module customGui = get("CustomGui");
+            if (customGui != null) {
+                customGui.enable();
+            }
+            Module notifications = get("Notifications");
+            if (notifications != null) notifications.enable();
+            Module targetHud = get("TargetHUD");
+            if (targetHud != null) {
+                targetHud.enable();
+            }
+        } finally {
+            xyz.daikirai.client.Sounds.suppress(false);
         }
     }
 
