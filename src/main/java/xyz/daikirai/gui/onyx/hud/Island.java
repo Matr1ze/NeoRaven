@@ -621,9 +621,10 @@ public final class Island {
                 || candidate.noToggle || candidate.isProfile()) {
             return false;
         }
-        // Hidden modules stay quiet: `.hide` removes them from the HUD element list and `.hidekey`
-        // removes them from the Keybinds HUD, so neither should be announced on the island.
-        if (candidate.hidden || KeybindsHidden.isHidden(candidate)) {
+        // Hidden modules stay quiet: `.hide` removes them from the HUD element list and an explicit
+        // `.hidekey +<module>` removes them from the Keybinds HUD, so neither should be announced
+        // here. Rows folded by defaults or migrated from the legacy file are display only.
+        if (candidate.hidden || KeybindsHidden.suppressesAnnouncements(candidate)) {
             return false;
         }
         String name = candidate.getName();

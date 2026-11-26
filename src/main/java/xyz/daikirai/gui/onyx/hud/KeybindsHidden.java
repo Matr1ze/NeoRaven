@@ -31,11 +31,19 @@ import java.util.Set;
  *
  * <p>Each profile stores lowercase module names. Client defaults also cover sessions with
  * no selected profile and seed profiles created before the list was part of their JSON.</p>
+ *
+ * <p>A hidden row is only a <em>display</em> decision for the card. Module notifications (the
+ * toggle toasts and the watermark island) are muted by {@link #suppressesAnnouncements(Module)},
+ * which ignores rows folded for onboarding defaults and rows recovered from the legacy
+ * {@code keybinds-hidden.txt} ({@link #LEGACY}). Otherwise a leftover fold silently swallows those
+ * modules' toasts while their binds keep working.</p>
  */
 public final class KeybindsHidden {
 
     public static final String CONFIG_KEY = "hiddenKeybinds";
     private static final String LEGACY_FILE = "keybinds-hidden.txt";
+    /** Rows recovered from the old text file: folded on the card, never persisted, never muting. */
+    private static final Set<String> LEGACY = new LinkedHashSet<String>();
     private static Set<String> defaults;
     private static Set<String> hidden;
 
@@ -49,6 +57,19 @@ public final class KeybindsHidden {
 
     public static synchronized boolean isHidden(String moduleName) {
         return moduleName != null && entries().contains(normalize(moduleName));
+    }
+
+    /**
+     * Whether notifications for this module must stay quiet. This is narrower than
+     * {@link #isHidden(Module)}: rows folded by onboarding defaults, or recovered from the legacy
+     * text file, are a display choice and still announce.
+     */
+    public static synchronized boolean suppressesAnnouncements(Module module) {
+        if (module == null) {
+            return false;
+        }
+        String name = normalize(module.getName());
+        return entries().contains(name) && !LEGACY.contains(name);
     }
 
     /** Adds the module; returns {@code true} when it was not hidden before. */
@@ -136,26 +157,32 @@ public final class KeybindsHidden {
         }
         File legacy = new File(ClientConfig.DIR, LEGACY_FILE);
         if (!legacy.isFile()) return defaults;
-        Set<String> migrated = new LinkedHashSet<>();
         try (BufferedReader reader = Files.newBufferedReader(legacy.toPath(), StandardCharsets.UTF_8)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                line = line.trim();
-                if (!line.isEmpty() && !line.startsWith("#")) {
-                    migrated.add(normalize(line));
+                line = stripBom(line).trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
                 }
+                String name = normalize(line);
+                // Older builds wrote this file with a UTF-8 BOM, so the "# ..." header could survive
+                // as a bogus module name; only migrate rows the client still knows, and keep them as
+                // folds instead of persisting them, so a leftover fold cannot mute notifications.
+                if (ModuleManager.getIgnoreCase(name) == null) {
+                    continue;
+                }
+                LEGACY.add(name);
             }
         } catch (IOException e) {
             System.err.println("[onyx] could not read " + LEGACY_FILE + ": " + e);
             return defaults;
         }
-        defaults = migrated;
-        try {
-            Profile.writeHiddenKeybinds(config, encode(defaults), true);
-        } catch (IOException e) {
-            System.err.println("[onyx] could not migrate " + LEGACY_FILE + ": " + e);
-        }
+        defaults = new LinkedHashSet<String>(LEGACY);
         return defaults;
+    }
+
+    private static String stripBom(String line) {
+        return !line.isEmpty() && line.charAt(0) == '\uFEFF' ? line.substring(1) : line;
     }
 
     private static Set<String> decode(JsonArray saved) {
@@ -181,10 +208,14 @@ public final class KeybindsHidden {
 
     private static void store(Set<String> updated) throws IOException {
         Profile active = Profiles.current;
+        // Folds recovered from the legacy file stay in memory only: persisting them would turn a
+        // leftover display default into a lasting notification mute on the next launch.
+        Set<String> persisted = new LinkedHashSet<String>(updated);
+        persisted.removeAll(LEGACY);
         File file = active == null ? clientFile() : new File(active.path);
-        Profile.writeHiddenKeybinds(file, encode(updated), active == null);
+        Profile.writeHiddenKeybinds(file, encode(persisted), active == null);
         hidden = updated;
-        if (active == null) defaults = updated;
+        if (active == null) defaults = persisted;
     }
 
     private static String normalize(String name) {
