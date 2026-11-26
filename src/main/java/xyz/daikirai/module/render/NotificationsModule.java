@@ -103,11 +103,15 @@ public final class NotificationsModule extends Module {
         });
     }
 
-    /** Share .hidekey with Keybinds and the island, including events queued off-thread. */
+    /**
+     * Share .hidekey with Keybinds and the island, including events queued off-thread. A row hidden
+     * on the card is a display choice, so only an explicit hide mutes the toast here.
+     */
     private static void postModule(final Module source, final String message, final NotificationLevel level,
                                    final Integer accent) {
         mc.addScheduledTask(() -> {
-            if (source != null && !KeybindsHidden.isHidden(source) && instance != null && instance.isEnabled()
+            if (source != null && !source.hidden && !KeybindsHidden.suppressesAnnouncements(source)
+                    && instance != null && instance.isEnabled()
                     && mc.theWorld != null && mc.thePlayer != null) {
                 HUD.post(Text.strip(source.getName()), message, level, accent, instance.holdMs(), instance.maxStack());
             }
